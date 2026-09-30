@@ -8,6 +8,7 @@ import { plural } from '../format'
 import { notifyError } from '../notify'
 import { PatientForm } from './PatientForm'
 import { PeriodsEditor } from './PeriodsEditor'
+import { ICON_SIZE } from '../theme'
 
 const UNDO_WINDOW_MS = 10_000
 
@@ -51,7 +52,7 @@ export function PatientModal({ opened, patient, onClose, onCreated }: Props) {
               <Button
                 variant="subtle"
                 color="red"
-                leftSection={<IconTrash size={16} />}
+                leftSection={<IconTrash size={ICON_SIZE.button} />}
                 onClick={() => confirmRemoval(patient, onClose)}
               >
                 Удалить пациента

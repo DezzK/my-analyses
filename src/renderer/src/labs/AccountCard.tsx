@@ -15,11 +15,10 @@ import { LabMarker } from '../components/LabMarker'
 import { formatDateTime } from '../format'
 import { notifyError } from '../notify'
 import { useCurrentPatient } from '../patients/current'
-import { TITLE_WEIGHT } from '../theme'
+import { ICON_SIZE, TITLE_WEIGHT } from '../theme'
 import { describeProgress, describeStats } from './sync-text'
 import { SyncHistory } from './SyncHistory'
 
-const ICON_SIZE = 16
 /** A touch larger than in buttons: here the marker stands next to a title. */
 const MARKER_SIZE = 14
 const PERCENT = 100
@@ -64,7 +63,7 @@ export function AccountCard({
               placeholder="Чьи анализы?"
               size="xs"
               w={180}
-              leftSection={<IconUser size={ICON_SIZE} />}
+              leftSection={<IconUser size={ICON_SIZE.button} />}
               data={patients.map((p) => ({ value: String(p.id), label: p.title }))}
               value={account.patientId === null ? null : String(account.patientId)}
               onChange={(value) => value && setPatient.mutate(Number(value))}
@@ -73,7 +72,7 @@ export function AccountCard({
             <Button
               size="xs"
               variant="light"
-              leftSection={<IconRefresh size={ICON_SIZE} />}
+              leftSection={<IconRefresh size={ICON_SIZE.button} />}
               loading={syncing}
               disabled={account.patientId === null}
               onClick={() => sync.mutate()}
@@ -83,15 +82,18 @@ export function AccountCard({
             <Menu position="bottom-end" withinPortal>
               <Menu.Target>
                 <ActionIcon variant="subtle" color="gray" aria-label="Действия с кабинетом">
-                  <IconDots size={ICON_SIZE} />
+                  <IconDots size={ICON_SIZE.button} />
                 </ActionIcon>
               </Menu.Target>
               <Menu.Dropdown>
-                <Menu.Item leftSection={<IconLogin2 size={ICON_SIZE} />} onClick={() => login.mutate()}>
+                <Menu.Item
+                  leftSection={<IconLogin2 size={ICON_SIZE.button} />}
+                  onClick={() => login.mutate()}
+                >
                   Войти заново
                 </Menu.Item>
                 <Menu.Item
-                  leftSection={<IconHistory size={ICON_SIZE} />}
+                  leftSection={<IconHistory size={ICON_SIZE.button} />}
                   onClick={() =>
                     modals.open({
                       title: `История обновлений: ${account.label}`,
@@ -105,7 +107,7 @@ export function AccountCard({
                 <Menu.Divider />
                 <Menu.Item
                   color="red"
-                  leftSection={<IconPlugConnectedX size={ICON_SIZE} />}
+                  leftSection={<IconPlugConnectedX size={ICON_SIZE.button} />}
                   disabled={syncing}
                   onClick={() => confirmDisconnect(account, labName)}
                 >
@@ -189,7 +191,7 @@ function AccountStatus({
             </Text>
             <Button
               size="xs"
-              leftSection={<IconLogin2 size={ICON_SIZE} />}
+              leftSection={<IconLogin2 size={ICON_SIZE.button} />}
               loading={loggingIn}
               onClick={onLogin}
             >

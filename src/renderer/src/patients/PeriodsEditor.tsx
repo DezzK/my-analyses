@@ -9,6 +9,7 @@ import { api, errorMessage } from '../api'
 import { formatDate } from '../format'
 import { PERIOD_KIND_LABELS } from '../labels'
 import { usePeriods } from '../queries'
+import { ICON_SIZE } from '../theme'
 
 function describe(period: PatientPeriod): string {
   const from = `с ${formatDate(period.startDate)}`
@@ -40,12 +41,12 @@ export function PeriodsEditor({ patientId }: { patientId: number }) {
               <Group gap={4}>
                 <Tooltip label="Изменить">
                   <ActionIcon variant="subtle" color="gray" onClick={() => setEditing(period)}>
-                    <IconPencil size={16} />
+                    <IconPencil size={ICON_SIZE.button} />
                   </ActionIcon>
                 </Tooltip>
                 <Tooltip label="Удалить">
                   <ActionIcon variant="subtle" color="red" onClick={() => remove.mutate(period.id)}>
-                    <IconTrash size={16} />
+                    <IconTrash size={ICON_SIZE.button} />
                   </ActionIcon>
                 </Tooltip>
               </Group>
@@ -59,7 +60,7 @@ export function PeriodsEditor({ patientId }: { patientId: number }) {
         <Button
           variant="light"
           size="xs"
-          leftSection={<IconPlus size={14} />}
+          leftSection={<IconPlus size={ICON_SIZE.small} />}
           onClick={() => setEditing('new')}
           w="fit-content"
         >

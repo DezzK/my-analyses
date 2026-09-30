@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Center, Loader } from '@mantine/core'
 import { createHashHistory, createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
+import { AnalytePage } from './analytes/AnalytePage'
 import { LabsPage } from './labs/LabsPage'
 import { AppLayout } from './layout/AppLayout'
 import { Welcome, type WelcomeStep } from './onboarding/Welcome'
+import { OrdersPage } from './orders/OrdersPage'
 import { ComingSoonPage } from './pages/ComingSoonPage'
 import { OverviewPage } from './pages/OverviewPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -38,18 +40,14 @@ function Root() {
 
 const rootRoute = createRootRoute({ component: Root })
 
-const page = (path: string, component: () => React.ReactNode) =>
+const page = <TPath extends string>(path: TPath, component: () => React.ReactNode) =>
   createRoute({ getParentRoute: () => rootRoute, path, component })
 
 const routeTree = rootRoute.addChildren([
   page('/', OverviewPage),
-  page('/orders', () => (
-    <ComingSoonPage
-      title="Заказы"
-      description="История посещений лабораторий и ручной ввод результатов заказом: дата и лаборатория один раз, затем показатели."
-    />
-  )),
+  page('/orders', OrdersPage),
   page('/labs', LabsPage),
+  page('/analytes/$analyteId', AnalytePage),
   page('/mapping', () => (
     <ComingSoonPage
       title="Сопоставление"

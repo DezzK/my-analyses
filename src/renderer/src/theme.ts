@@ -3,6 +3,9 @@ import { createTheme } from '@mantine/core'
 /** Weight of headings and of text that plays a heading's role (window and dialog titles). */
 export const TITLE_WEIGHT = 650
 
+/** Icon sizes by where the icon sits: the window shell and the search field, buttons and menus, small buttons and hints. */
+export const ICON_SIZE = { shell: 18, button: 16, small: 14 } as const
+
 const FONT_STACK = '"Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
 
 export const theme = createTheme({

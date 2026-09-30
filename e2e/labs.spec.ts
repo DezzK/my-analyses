@@ -2,15 +2,12 @@ import { expect, test } from '@playwright/test'
 import { eq } from 'drizzle-orm'
 import { lab, labAccount, patient, syncRun } from '../src/main/db/schema'
 import { emptyStats } from '../src/main/import/importer'
-import { launchApp, snapshot, withDatabase } from './app'
+import { createDataDir, launchApp, snapshot, withDatabase } from './app'
 
 test('the labs page shows connected accounts and how their syncs went', async () => {
   // A first start creates the database; the accounts are then put in while the app is closed.
-  const first = await launchApp()
-  await expect(first.window.getByText('Мои анализы').first()).toBeVisible()
-  await first.app.close()
-
-  withDatabase(first.dataDir, (db) => {
+  const dataDir = await createDataDir()
+  withDatabase(dataDir, (db) => {
     const kdl = db.select().from(lab).where(eq(lab.name, 'KDL')).get()
     if (!kdl) throw new Error('KDL is a built-in lab')
     const anna = db
@@ -64,7 +61,7 @@ test('the labs page shows connected accounts and how their syncs went', async ()
       .run()
   })
 
-  const { app, window } = await launchApp(first.dataDir)
+  const { app, window } = await launchApp(dataDir)
   try {
     await window.getByRole('link', { name: 'Лаборатории' }).click()
     await expect(window.getByText('Иванова Анна')).toBeVisible()

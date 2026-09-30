@@ -8,11 +8,10 @@ import { EmptyState } from '../components/EmptyState'
 import { LabMarker } from '../components/LabMarker'
 import { PageHeader } from '../components/PageHeader'
 import { notifyError } from '../notify'
-import { useLabAccounts, useLabs, useSyncProgress } from '../queries'
+import { useLabAccounts, useLabMap, useLabs, useSyncProgress } from '../queries'
 import { AccountCard } from './AccountCard'
 import { ConnectModal } from './ConnectModal'
-
-const ICON_SIZE = 16
+import { ICON_SIZE } from '../theme'
 
 export function LabsPage() {
   const { data: labs = [] } = useLabs()
@@ -20,7 +19,7 @@ export function LabsPage() {
   const { data: progress = [] } = useSyncProgress()
   const [connecting, setConnecting] = useState<Lab | null>(null)
   const syncAll = useMutation({ mutationFn: () => api.sync.all(), onError: notifyError })
-  const labsById = new Map(labs.map((lab) => [lab.id, lab]))
+  const labsById = useLabMap()
 
   return (
     <>
@@ -30,7 +29,7 @@ export function LabsPage() {
         actions={
           accounts.length > 0 && (
             <Button
-              leftSection={<IconRefresh size={ICON_SIZE} />}
+              leftSection={<IconRefresh size={ICON_SIZE.button} />}
               loading={syncAll.isPending}
               onClick={() => syncAll.mutate()}
             >

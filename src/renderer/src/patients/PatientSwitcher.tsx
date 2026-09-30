@@ -5,6 +5,7 @@ import type { Patient } from '@shared/api'
 import { formatAge } from '../format'
 import { useCurrentPatient } from './current'
 import { PatientModal } from './PatientModal'
+import { ICON_SIZE } from '../theme'
 
 /** Two stacked lines (name, age) fit the header's height. */
 const COMPACT_LINE_HEIGHT = 1.2
@@ -40,7 +41,7 @@ export function PatientSwitcher() {
                   </Text>
                 )}
               </div>
-              <IconChevronDown size={14} />
+              <IconChevronDown size={ICON_SIZE.small} />
             </Group>
           </UnstyledButton>
         </Menu.Target>
@@ -50,17 +51,23 @@ export function PatientSwitcher() {
             <Menu.Item
               key={p.id}
               onClick={() => select(p.id)}
-              rightSection={p.id === patient?.id ? <IconCheck size={14} /> : null}
+              rightSection={p.id === patient?.id ? <IconCheck size={ICON_SIZE.small} /> : null}
             >
               {p.title}
             </Menu.Item>
           ))}
           <Menu.Divider />
-          <Menu.Item leftSection={<IconUserPlus size={16} />} onClick={() => setModal({ patient: null })}>
+          <Menu.Item
+            leftSection={<IconUserPlus size={ICON_SIZE.button} />}
+            onClick={() => setModal({ patient: null })}
+          >
             Новый пациент…
           </Menu.Item>
           {patient && (
-            <Menu.Item leftSection={<IconPencil size={16} />} onClick={() => setModal({ patient })}>
+            <Menu.Item
+              leftSection={<IconPencil size={ICON_SIZE.button} />}
+              onClick={() => setModal({ patient })}
+            >
               Изменить «{patient.title}»…
             </Menu.Item>
           )}

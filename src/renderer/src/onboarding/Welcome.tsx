@@ -5,6 +5,7 @@ import type { Patient } from '@shared/api'
 import { api, errorMessage } from '../api'
 import { PatientForm } from '../patients/PatientForm'
 import { keys, queryClient, useSettings } from '../queries'
+import { ICON_SIZE } from '../theme'
 
 export type WelcomeStep = 'patient' | 'backups'
 
@@ -63,7 +64,11 @@ function BackupStep({ onFinished }: { onFinished(): void }) {
       <Code block>{settings?.backupDir}</Code>
       {choose.error && <Alert color="red">{errorMessage(choose.error)}</Alert>}
       <Group justify="space-between" mt="xs">
-        <Button variant="default" leftSection={<IconFolderOpen size={16} />} onClick={() => choose.mutate()}>
+        <Button
+          variant="default"
+          leftSection={<IconFolderOpen size={ICON_SIZE.button} />}
+          onClick={() => choose.mutate()}
+        >
           Выбрать папку…
         </Button>
         <Button onClick={onFinished}>{settings?.backupDirIsDefault ? 'Оставить как есть' : 'Готово'}</Button>

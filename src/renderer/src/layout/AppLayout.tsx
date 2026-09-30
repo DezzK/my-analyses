@@ -12,12 +12,12 @@ import {
 } from '@tabler/icons-react'
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { PatientSwitcher } from '../patients/PatientSwitcher'
-import { TITLE_WEIGHT } from '../theme'
+import { IS_MAC } from '../platform'
+import { AnalyteSearch, SearchButton } from '../search/AnalyteSearch'
+import { ICON_SIZE, TITLE_WEIGHT } from '../theme'
 
 /** Room for the macOS traffic lights, which sit over the header instead of a title bar. */
 const MAC_TRAFFIC_LIGHTS_INSET = 88
-const IS_MAC = navigator.userAgent.includes('Macintosh')
-const SHELL_ICON_SIZE = 18
 
 interface Section {
   to: '/' | '/orders' | '/labs' | '/mapping' | '/catalog' | '/reports' | '/settings'
@@ -27,18 +27,18 @@ interface Section {
 }
 
 const SECTIONS: Section[] = [
-  { to: '/', label: 'Обзор', icon: <IconLayoutDashboard size={SHELL_ICON_SIZE} /> },
-  { to: '/orders', label: 'Заказы', icon: <IconFlask size={SHELL_ICON_SIZE} />, soon: true },
-  { to: '/labs', label: 'Лаборатории', icon: <IconBuildingHospital size={SHELL_ICON_SIZE} /> },
-  { to: '/mapping', label: 'Сопоставление', icon: <IconArrowsShuffle size={SHELL_ICON_SIZE} />, soon: true },
-  { to: '/catalog', label: 'Справочник', icon: <IconBook2 size={SHELL_ICON_SIZE} />, soon: true },
-  { to: '/reports', label: 'Отчёты', icon: <IconFileText size={SHELL_ICON_SIZE} />, soon: true },
+  { to: '/', label: 'Обзор', icon: <IconLayoutDashboard size={ICON_SIZE.shell} /> },
+  { to: '/orders', label: 'Заказы', icon: <IconFlask size={ICON_SIZE.shell} /> },
+  { to: '/labs', label: 'Лаборатории', icon: <IconBuildingHospital size={ICON_SIZE.shell} /> },
+  { to: '/mapping', label: 'Сопоставление', icon: <IconArrowsShuffle size={ICON_SIZE.shell} />, soon: true },
+  { to: '/catalog', label: 'Справочник', icon: <IconBook2 size={ICON_SIZE.shell} />, soon: true },
+  { to: '/reports', label: 'Отчёты', icon: <IconFileText size={ICON_SIZE.shell} />, soon: true },
 ]
 
 const SETTINGS: Section = {
   to: '/settings',
   label: 'Настройки',
-  icon: <IconSettings size={SHELL_ICON_SIZE} />,
+  icon: <IconSettings size={ICON_SIZE.shell} />,
 }
 
 function SectionLink({ section, pathname }: { section: Section; pathname: string }) {
@@ -70,10 +70,11 @@ export function AppLayout() {
         <Group h="100%" justify="space-between" wrap="nowrap">
           <Group gap="xs" wrap="nowrap">
             <ThemeIcon variant="light" radius="md" size="md">
-              <IconHeartbeat size={SHELL_ICON_SIZE} />
+              <IconHeartbeat size={ICON_SIZE.shell} />
             </ThemeIcon>
             <Text fw={TITLE_WEIGHT}>Мои анализы</Text>
           </Group>
+          <SearchButton />
           <PatientSwitcher />
         </Group>
       </AppShell.Header>
@@ -88,6 +89,7 @@ export function AppLayout() {
       <AppShell.Main>
         <Outlet />
       </AppShell.Main>
+      <AnalyteSearch />
     </AppShell>
   )
 }

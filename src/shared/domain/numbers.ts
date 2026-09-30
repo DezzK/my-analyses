@@ -67,6 +67,11 @@ export function formatDecimal(value: number, decimals: number): string {
   return formatter.format(value)
 }
 
+/** Any number in its shortest Russian spelling, such as a chart's axis tick: 6.5 → "6,5". */
+export function formatNumber(value: number): string {
+  return formatDecimal(value, numberFromStored(value).decimals)
+}
+
 /** A computed value (after a unit conversion) shown with the precision of the value it came from. */
 export function formatSignificant(value: number, sigDigits: number): string {
   const rounded = roundSignificant(value, sigDigits)

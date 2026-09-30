@@ -45,6 +45,7 @@ commits are English.
   (`src/shared/domain/interpret.ts`). The main process reads results only through `ResultReader`
   (`src/main/services/results.ts`), so tables, charts, orders and reports never disagree.
 - Russian names of the closed sets: `src/renderer/src/labels.ts`.
+- Heading weight and icon sizes: `TITLE_WEIGHT` and `ICON_SIZE` (`src/renderer/src/theme.ts`).
 - Rules about patients and periods: `PatientService` (`src/main/services/patients.ts`). The UI never
   validates on a service's behalf; it shows the `UserError` the service throws.
 - Which spelling means which unit, and the built-in units in the database: `UnitService`.
@@ -64,14 +65,22 @@ commits are English.
 - Folding case and ё for every word comparison: `foldCase` (`src/shared/domain/text.ts`).
 - Names inside the data folder: `DATA_FILES` (`src/main/paths.ts`).
 - In the UI, a failed call is reported with `notifyError` (`src/renderer/src/notify.ts`), and a lab is
-  drawn with its color and shape by `LabMarker`.
+  drawn with its color and shape by `LabMarker`. Values and references are spelled by `valueText` and
+  `referenceText` (`src/renderer/src/results/format.ts`), shown by `ResultsTable` and by
+  `ResultsChart`, whose options come from `buildChartOption` (`src/renderer/src/results/chart.ts`).
+  Labs and units by id: `useLabMap`, `useUnits`. Links with route params: `AnchorLink`. The
+  platform check: `IS_MAC` (`src/renderer/src/platform.ts`).
+- Numbers in Russian spelling: `formatDecimal` (as measured), `formatSignificant` (after a
+  conversion) and `formatNumber` (shortest, e.g. axis ticks), all in `src/shared/domain/numbers.ts`.
 
 ## Conventions
 
 - Lab data is stored as reported (`raw_value`, `ref_raw`, `raw_payload`); interpreting those strings
   belongs to `src/shared/domain`, so a fix there re-reads every stored result without a migration.
 - Every mutation emits `data-changed` with its scopes; renderer query keys start with the scope, and
-  any `data-changed` event also schedules a backup.
+  any `data-changed` event also schedules a backup. Queries computed from several scopes at once
+  (interpreted results, orders, search) start with `derived` and refresh on a change to any of them
+  (`src/renderer/src/queries.ts`).
 - Dates are ISO `YYYY-MM-DD` strings with no time zone: a sample is collected on a civil date.
 - The data folder is `<appData>/my-analyses` (`-dev` for unpackaged runs); `MY_ANALYSES_DATA_DIR`
   (`src/shared/env.ts`) overrides it for tests.

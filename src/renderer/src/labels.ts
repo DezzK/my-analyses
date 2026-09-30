@@ -1,5 +1,7 @@
 import type { BackupReason } from '@shared/api'
-import type { PeriodKind, Sex, SyncStage, SyncStatus } from '@shared/domain/enums'
+import type { LabFlag, PeriodKind, Sex, Specimen, SyncStage, SyncStatus } from '@shared/domain/enums'
+import type { ReferenceSource } from '@shared/domain/references'
+import type { QualitativeCode } from '@shared/domain/values'
 
 /** Russian names of the shared closed sets, for the UI only. */
 
@@ -30,4 +32,36 @@ export const SYNC_STAGE_LABELS: Record<SyncStage, string> = {
   connecting: 'Открываю личный кабинет',
   listing: 'Получаю список заказов',
   orders: 'Загружаю заказы',
+}
+
+export const SPECIMEN_LABELS: Record<Specimen, string> = {
+  blood: 'кровь',
+  serum: 'сыворотка',
+  plasma: 'плазма',
+  urine: 'моча',
+  stool: 'кал',
+  saliva: 'слюна',
+  other: 'другое',
+}
+
+export const QUALITATIVE_LABELS: Record<QualitativeCode, string> = {
+  negative: 'отрицательно',
+  positive: 'положительно',
+  not_detected: 'не обнаружено',
+  detected: 'обнаружено',
+  doubtful: 'сомнительно',
+  trace: 'следы',
+}
+
+export const LAB_FLAG_LABELS: Record<LabFlag, string> = {
+  high: 'выше нормы',
+  low: 'ниже нормы',
+  normal: 'в норме',
+  abnormal: 'вне нормы',
+}
+
+export const REFERENCE_SOURCE_LABELS: Record<ReferenceSource, string> = {
+  lab: 'из бланка лаборатории',
+  'lab-rule': 'правило справочника для этой лаборатории',
+  'general-rule': 'общее правило справочника',
 }

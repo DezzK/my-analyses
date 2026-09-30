@@ -1,5 +1,5 @@
 import { QueryClient, useQuery } from '@tanstack/react-query'
-import type { DataScope } from '@shared/api'
+import type { DataScope, Lab, Unit } from '@shared/api'
 import { api, onAppEvent } from './api'
 
 export const queryClient = new QueryClient({
@@ -9,10 +9,23 @@ export const queryClient = new QueryClient({
   },
 })
 
-/** Query keys start with the data scope they depend on, so one event invalidates them all. */
+/**
+ * Query keys start with the data scope they depend on, so one event invalidates them all.
+ * Queries computed from several scopes at once — interpreted results, search — start with
+ * `derived` and are refreshed by a change to any of `DERIVED_FROM`.
+ */
+const DERIVED = 'derived'
+const DERIVED_FROM: readonly DataScope[] = ['patients', 'periods', 'orders', 'catalog']
+
 export const keys = {
   patients: () => ['patients'] as const satisfies readonly [DataScope],
   periods: (patientId: number) => ['periods', patientId] as const satisfies readonly [DataScope, number],
+  units: () => ['catalog', 'units'] as const satisfies readonly [DataScope, string],
+  analyteResults: (analyteId: number, patientId: number) =>
+    [DERIVED, 'analyte', analyteId, patientId] as const,
+  search: (query: string, patientId: number | null) => [DERIVED, 'search', query, patientId] as const,
+  orders: (patientId: number) => [DERIVED, 'orders', patientId] as const,
+  order: (orderId: number) => [DERIVED, 'order', orderId] as const,
   labs: () => ['labs'] as const satisfies readonly [DataScope],
   labAccounts: () => ['labs', 'accounts'] as const satisfies readonly [DataScope, string],
   syncHistory: (accountId: number) => ['sync', accountId] as const satisfies readonly [DataScope, number],
@@ -27,6 +40,9 @@ export function subscribeToAppEvents(): () => void {
   return onAppEvent((event) => {
     if (event.type === 'data-changed') {
       for (const scope of event.scopes) void queryClient.invalidateQueries({ queryKey: [scope] })
+      if (event.scopes.some((scope) => DERIVED_FROM.includes(scope))) {
+        void queryClient.invalidateQueries({ queryKey: [DERIVED] })
+      }
     } else if (event.type === 'backup-created') {
       void queryClient.invalidateQueries({ queryKey: keys.backups() })
     } else if (event.type === 'sync-progress') {
@@ -44,6 +60,56 @@ export function usePeriods(patientId: number | null) {
     queryKey: keys.periods(patientId ?? 0),
     queryFn: () => api.patients.periods(patientId ?? 0),
     enabled: patientId !== null,
+  })
+}
+
+/** Stable selectors: TanStack Query recomputes a selection only when its function changes. */
+const byId = <T extends { id: number }>(items: T[]): ReadonlyMap<number, T> =>
+  new Map(items.map((item) => [item.id, item]))
+const NONE = new Map()
+
+/** Units by id, for showing the unit of any value. */
+export function useUnits(): ReadonlyMap<number, Unit> {
+  return (
+    useQuery({ queryKey: keys.units(), queryFn: () => api.catalog.units(), select: byId<Unit> }).data ?? NONE
+  )
+}
+
+/** Labs by id, for showing the lab of any order or result. */
+export function useLabMap(): ReadonlyMap<number, Lab> {
+  return useQuery({ queryKey: keys.labs(), queryFn: () => api.labs.list(), select: byId<Lab> }).data ?? NONE
+}
+
+export function useAnalyteResults(analyteId: number, patientId: number | null) {
+  return useQuery({
+    queryKey: keys.analyteResults(analyteId, patientId ?? 0),
+    queryFn: () => api.analytes.results(analyteId, patientId ?? 0),
+    enabled: patientId !== null,
+  })
+}
+
+export function useAnalyteSearch(query: string, patientId: number | null) {
+  return useQuery({
+    queryKey: keys.search(query, patientId),
+    queryFn: () => api.analytes.search(query, patientId),
+    enabled: query.trim().length > 0,
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useOrders(patientId: number | null) {
+  return useQuery({
+    queryKey: keys.orders(patientId ?? 0),
+    queryFn: () => api.orders.list(patientId ?? 0),
+    enabled: patientId !== null,
+  })
+}
+
+export function useOrder(orderId: number | null) {
+  return useQuery({
+    queryKey: keys.order(orderId ?? 0),
+    queryFn: () => api.orders.get(orderId ?? 0),
+    enabled: orderId !== null,
   })
 }
 

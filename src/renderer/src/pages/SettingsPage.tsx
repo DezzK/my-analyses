@@ -11,6 +11,7 @@ import { formatBytes, formatDateTime, plural } from '../format'
 import { BACKUP_REASON_LABELS } from '../labels'
 import { notifyError } from '../notify'
 import { keys, queryClient, useAppInfo, useBackups, useSettings } from '../queries'
+import { ICON_SIZE } from '../theme'
 
 const MS_PER_SECOND = 1000
 
@@ -56,7 +57,7 @@ function BackupsCard() {
           <Code style={{ flex: 1 }}>{settings?.backupDir}</Code>
           <Button
             variant="default"
-            leftSection={<IconFolderOpen size={16} />}
+            leftSection={<IconFolderOpen size={ICON_SIZE.button} />}
             onClick={() => choose.mutate()}
           >
             Изменить папку…
@@ -74,7 +75,7 @@ function BackupsCard() {
         <BackupTable backups={backups} />
         <Group>
           <Button
-            leftSection={<IconCloudUpload size={16} />}
+            leftSection={<IconCloudUpload size={ICON_SIZE.button} />}
             loading={create.isPending}
             onClick={() => create.mutate()}
           >
@@ -109,7 +110,7 @@ function BackupTable({ backups }: { backups: BackupInfo[] }) {
                 <Button
                   size="xs"
                   variant="subtle"
-                  leftSection={<IconHistory size={14} />}
+                  leftSection={<IconHistory size={ICON_SIZE.small} />}
                   onClick={() => confirmRestore(backup)}
                 >
                   Восстановить
