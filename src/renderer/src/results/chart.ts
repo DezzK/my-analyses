@@ -9,6 +9,7 @@ import type {
 import type { ComposeOption } from 'echarts/core'
 import type { Lab, ResultRow } from '@shared/api'
 import { todayIso } from '@shared/domain/dates'
+import type { ShownNumber } from '@shared/domain/interpret'
 import { formatNumber } from '@shared/domain/numbers'
 import { isUpperBound } from '@shared/domain/values'
 import { formatDate } from '../format'
@@ -36,8 +37,8 @@ const ARROW_SIZE: [number, number] = [7, 8]
 /** How far a censored value's arrow sits from its marker, in pixels. */
 const ARROW_OFFSET = 11
 const ARROW_DOWN_DEGREES = 180
-/** Room right of the plot: for the last date's label, or for labs' names ending their reference lines. */
-const GRID_RIGHT = { plain: 40, labeled: 96 }
+/** Room right of the plot: for the last date's label, or for the labels ending stepped norm lines. */
+const GRID_RIGHT = { plain: 40, labeled: 128 }
 
 /** A point the chart can place: a numeric value in the unit the chart is drawn in. */
 function plotted(row: ResultRow): number | null {
@@ -54,25 +55,48 @@ function dateLabel(epochMs: number): string {
   return formatDate(todayIso(new Date(epochMs)))
 }
 
+type Edge = 'low' | 'high'
+const EDGES: readonly Edge[] = ['low', 'high']
+
+/**
+ * Which edge of the norm a line is: «от 3,9», «до 5,5». A line alone says it in words, more plainly
+ * than the signs a table cell puts beside both edges (`boundsText`: «3,9–5,5», «< 5,5»).
+ */
+const EDGE_WORDS: Record<Edge, string> = { low: 'от', high: 'до' }
+
+/** A label sits inside the norm: under the upper line, over the lower one. */
+const LABEL_INSIDE = { high: 'insideEndBottom', low: 'insideEndTop' } as const
+
 interface Bounds {
   date: string
-  low: number | null
-  high: number | null
+  low: ShownNumber | null
+  high: ShownNumber | null
 }
 
+/**
+ * The edges a result's reference draws. A lower bound of zero draws none: labs write "0–55" for
+ * "up to 55", and nothing they measure is below zero, so a line there only reads as a second norm.
+ */
 function boundsOf(row: ResultRow): Bounds | null {
   const reference = row.read.reference
   if (!reference?.inValueUnit || !row.read.value.inTarget) return null
-  const low = reference.low?.value ?? null
-  const high = reference.high?.value ?? null
+  const low = reference.low?.value === 0 ? null : reference.low
+  const high = reference.high
   return low === null && high === null ? null : { date: row.collectedOn, low, high }
 }
 
-const sameBounds = (a: Bounds, b: Bounds) => a.low === b.low && a.high === b.high
+const sameBounds = (a: Bounds, b: Bounds) => a.low?.value === b.low?.value && a.high?.value === b.high?.value
+
+/** «норма до 5,5»; among several labs' lines, whose it is: «Хеликс: до 4,94». */
+function edgeLabel(edge: Edge, bound: ShownNumber, lab: string | null): string {
+  const words = `${EDGE_WORDS[edge]} ${bound.text}`
+  return lab === null ? `норма ${words}` : `${lab}: ${words}`
+}
 
 /**
- * Reference lines: one pair of dashed lines when every result shares the same bounds; else a
- * stepped pair per lab, labeled with the lab's name, that changes where its reference changed.
+ * Reference lines, each saying which edge of the norm it is: one pair of dashed lines when every
+ * result shares the same bounds; else a stepped pair per lab that changes where its reference
+ * changed, labeled at its end.
  */
 function referenceSeries(
   rows: readonly ResultRow[],
@@ -89,33 +113,46 @@ function referenceSeries(
   const dashed = (color: string) => ({ type: 'dashed' as const, color, width: 1 })
 
   if (bounds.every(({ b }) => sameBounds(b, first.b))) {
-    const lines = [first.b.low, first.b.high].filter((v): v is number => v !== null)
+    const edges = EDGES.flatMap((edge) => {
+      const bound = first.b[edge]
+      return bound ? [{ edge, bound }] : []
+    })
     return [
       {
         type: 'line',
-        data: [],
         silent: true,
+        symbol: 'none',
+        lineStyle: { opacity: 0 },
+        // Unseen points at the bounds stretch the axis to the norm, which the reader looks for even
+        // when every result lies on one side of it.
+        data: edges.map(({ bound }) => [first.b.date, bound.value]),
         markLine: {
           silent: true,
           symbol: 'none',
-          label: { show: false },
+          label: { show: true, color: palette.text },
           lineStyle: dashed(palette.neutral),
-          data: lines.map((yAxis) => ({ yAxis })),
+          data: edges.map(({ edge, bound }) => ({
+            yAxis: bound.value,
+            label: { position: LABEL_INSIDE[edge], formatter: edgeLabel(edge, bound, null) },
+          })),
         },
       },
     ]
   }
 
   const byLab = Map.groupBy(bounds, ({ row }) => row.labId)
-  const labeled = byLab.size > 1
+  const several = byLab.size > 1
   return [...byLab].flatMap(([labId, items]) => {
     const lab = labs.get(labId)
     const color = lab?.markerColor ?? palette.neutral
     const steps = items.map(({ b }) => b).sort((a, b) => a.date.localeCompare(b.date))
     const last = steps.at(-1)
     if (last && last.date < lastDate) steps.push({ ...last, date: lastDate })
-    return (['low', 'high'] as const).flatMap((edge): LineSeriesOption[] => {
-      if (steps.every((s) => s[edge] === null)) return []
+    return EDGES.flatMap((edge): LineSeriesOption[] => {
+      // The label names the edge as the line ends: the latest reference that has it.
+      const latest = steps.findLast((s) => s[edge] !== null)?.[edge]
+      if (!latest) return []
+      const formatter = edgeLabel(edge, latest, several ? (lab?.name ?? '') : null)
       return [
         {
           type: 'line',
@@ -123,8 +160,8 @@ function referenceSeries(
           silent: true,
           symbol: 'none',
           lineStyle: dashed(color),
-          data: steps.map((s) => [s.date, s[edge]]),
-          endLabel: labeled ? { show: true, formatter: lab?.name ?? '', color } : undefined,
+          data: steps.map((s) => [s.date, s[edge]?.value ?? null]),
+          endLabel: { show: true, formatter, color },
         },
       ]
     })
@@ -199,6 +236,8 @@ export function buildChartOption(input: {
   )
 
   const references = referenceSeries(rows, labs, palette, lastDate)
+  // The title under a hovered tool, which ECharts draws dark whatever the theme.
+  const toolTitle = { emphasis: { iconStyle: { textFill: palette.text } } }
   const labeled = references.some((series) => series.endLabel?.show === true)
 
   const trend: LineSeriesOption = {
@@ -254,8 +293,8 @@ export function buildChartOption(input: {
       right: 8,
       iconStyle: { borderColor: palette.text },
       feature: {
-        dataZoom: { yAxisIndex: 'none', title: { zoom: 'Выделить период', back: 'Назад' } },
-        restore: { title: 'Сбросить' },
+        dataZoom: { yAxisIndex: 'none', title: { zoom: 'Выделить период', back: 'Назад' }, ...toolTitle },
+        restore: { title: 'Сбросить', ...toolTitle },
       },
     },
     dataZoom: interactive ? [{ type: 'inside', filterMode: 'none' }] : [],
