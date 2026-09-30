@@ -148,11 +148,26 @@ export function signingIdentity(dir = signingDir()): SigningIdentity {
     ])
   }
   run('security', ['unlock-keychain', '-p', NO_PASSWORD, keychain])
+  searchOnCi(keychain)
   // `1) <SHA-1> "<name>" (CSSMERR_TP_NOT_TRUSTED)`: listed, though not trusted, which it need not be.
   const listed = run('security', ['find-identity', '-p', 'codesigning', keychain])
   const sha1 = /^\s*\d+\)\s+([0-9A-F]{40})\s/m.exec(listed)?.[1]
   if (!sha1) throw new Error(`The keychain in ${dir} holds no signing identity`)
   return { keychain, sha1 }
+}
+
+/**
+ * On GitHub's macOS machines codesign finds no identity outside the keychain search list, even when
+ * told which keychain to use. Those machines are thrown away after the job, so there the keychain
+ * joins the list; on a person's Mac the list stays as it is.
+ */
+function searchOnCi(keychain: string): void {
+  if (!process.env['CI']) return
+  const listed = run('security', ['list-keychains', '-d', 'user'])
+    .split('\n')
+    .map((line) => line.trim().replace(/^"|"$/g, ''))
+    .filter(Boolean)
+  if (!listed.includes(keychain)) run('security', ['list-keychains', '-d', 'user', '-s', ...listed, keychain])
 }
 
 /** Signs an app bundle, every binary inside first, with the identity. */
