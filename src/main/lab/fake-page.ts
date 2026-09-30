@@ -9,6 +9,8 @@ type Route = (url: string, init: FetchInit | undefined) => Answer | null
 /** A LabPage for tests: answers expressions from a table and requests from routes, and logs them. */
 export class FakeLabPage implements LabPage {
   readonly requests: { url: string; init: FetchInit | undefined }[] = []
+  /** The page's localStorage. */
+  readonly storage = new Map<string, string>()
 
   constructor(
     private readonly routes: Route[],
@@ -33,6 +35,17 @@ export class FakeLabPage implements LabPage {
   async fetchBytes(url: string, init?: FetchInit): Promise<FetchedBytes> {
     const { status, url: final, bytes = new Uint8Array(), text } = this.route(url, init)
     return { status, url: final, bytes: text === undefined ? bytes : new TextEncoder().encode(text) }
+  }
+
+  async readStorage<K extends string>(keys: readonly K[]): Promise<Record<K, string | null>> {
+    return Object.fromEntries(keys.map((key) => [key, this.storage.get(key) ?? null])) as Record<
+      K,
+      string | null
+    >
+  }
+
+  async writeStorage(entries: Readonly<Record<string, string>>): Promise<void> {
+    for (const [key, value] of Object.entries(entries)) this.storage.set(key, value)
   }
 
   private route(url: string, init: FetchInit | undefined): Answer {

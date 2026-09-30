@@ -1,5 +1,5 @@
 import { detectVpnBlock, isPdf } from '../pages'
-import { moscowDate } from '../time'
+import { moscowDate, unixSeconds } from '../time'
 import {
   fetchBytesOk,
   fetchOk,
@@ -132,7 +132,7 @@ export const helixConnector: LabConnector = {
     try {
       profile = await currentProfile(page)
     } catch (error) {
-      if (error instanceof LabHttpError && error.status === NO_SESSION_STATUS) return null
+      if (LabHttpError.isStatus(error, NO_SESSION_STATUS)) return null
       throw error
     }
     const label = [profile.lastName, profile.firstName].filter(Boolean).join(' ')
@@ -148,7 +148,7 @@ export const helixConnector: LabConnector = {
       .map((order) => ({
         externalKey: order.code,
         // Helix writes the moment of the order in UTC; the sample was taken on its Moscow date.
-        collectedOn: moscowDate(Date.parse(order.createdOn) / 1000),
+        collectedOn: moscowDate(unixSeconds(Date.parse(order.createdOn))),
         data: { code: order.code, profileId: profile.id } satisfies HelixKey,
       }))
   },

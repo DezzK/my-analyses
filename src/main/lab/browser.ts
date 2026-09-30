@@ -1,5 +1,6 @@
 import { BrowserWindow, session, shell, type Event, type WebContents } from 'electron'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { readStorageScript, writeStorageScript } from './page-scripts'
 import type { FetchedBytes, FetchInit, FetchedText, LabConnector, LabPage } from './types'
 
 /** Chromium's error for a navigation that was canceled, here by the host guard below. */
@@ -65,6 +66,14 @@ class WebContentsLabPage implements LabPage {
 
   fetchText(url: string, init?: FetchInit): Promise<FetchedText> {
     return this.request(url, init, '({ status: r.status, url: r.url, text: await r.text() })')
+  }
+
+  readStorage<K extends string>(keys: readonly K[]): Promise<Record<K, string | null>> {
+    return this.evaluate(readStorageScript(keys))
+  }
+
+  async writeStorage(entries: Readonly<Record<string, string>>): Promise<void> {
+    await this.evaluate(writeStorageScript(entries))
   }
 
   async fetchBytes(url: string, init?: FetchInit): Promise<FetchedBytes> {

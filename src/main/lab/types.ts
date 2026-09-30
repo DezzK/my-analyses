@@ -86,6 +86,10 @@ export interface LabPage {
   fetchText(url: string, init?: FetchInit): Promise<FetchedText>
   /** The same, for a file such as a PDF form. */
   fetchBytes(url: string, init?: FetchInit): Promise<FetchedBytes>
+  /** The page's localStorage entries under `keys`; a missing one reads as null. */
+  readStorage<K extends string>(keys: readonly K[]): Promise<Record<K, string | null>>
+  /** Stores entries in the page's localStorage, where the lab's own site looks for them. */
+  writeStorage(entries: Readonly<Record<string, string>>): Promise<void>
 }
 
 const FIRST_ERROR_STATUS = 400
@@ -105,6 +109,16 @@ export class LabHttpError extends Error {
     readonly url: string,
   ) {
     super(`HTTP ${status} from ${url}`)
+  }
+
+  /** Whether `error` is the lab answering a request with `status`. */
+  static isStatus(error: unknown, status: number): boolean {
+    return error instanceof LabHttpError && error.status === status
+  }
+
+  /** What a request meets once the session is over, even when the page finds out before sending it. */
+  static sessionEnded(url: string): LabHttpError {
+    return new LabHttpError(HTTP_UNAUTHORIZED, url)
   }
 
   /** The lab no longer recognizes the session: the person has to log in again. */

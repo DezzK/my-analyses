@@ -37,7 +37,7 @@ export const LAB_MARKERS: readonly { color: string; shape: MarkerShape }[] = [
 export const BUILTIN_LABS: readonly { name: string; connectorId: string | null }[] = [
   { name: 'KDL', connectorId: 'kdl' },
   { name: 'Хеликс', connectorId: 'helix' },
-  { name: 'Гемотест', connectorId: null },
+  { name: 'Гемотест', connectorId: 'gemotest' },
   { name: 'Инвитро', connectorId: null },
   { name: 'Другая лаборатория', connectorId: null },
 ]

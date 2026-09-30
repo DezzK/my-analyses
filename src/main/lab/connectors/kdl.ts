@@ -1,5 +1,6 @@
 import type { LabFlag } from '@shared/domain/enums'
 import { detectVpnBlock } from '../pages'
+import { collectPages } from '../paging'
 import { objectsWithKey } from '../rsc'
 import { moscowDate } from '../time'
 import { fetchOk, isErrorStatus, type LabConnector, type OrderRef, type RawResult } from '../types'
@@ -14,8 +15,6 @@ import { fetchOk, isErrorStatus, type LabConnector, type OrderRef, type RawResul
 const ORIGIN = 'https://kdl.ru'
 /** The account page accepts large pages: fewer, bigger requests are gentler on the site. */
 const ORDERS_PER_PAGE = 100
-/** Guards the paging loop against a site that keeps answering with the same page. */
-const MAX_ORDER_PAGES = 50
 const RSC_HEADERS = { RSC: '1' }
 
 interface KdlOrderKey {
@@ -95,23 +94,22 @@ export const kdlConnector: LabConnector = {
     return { externalId: null, label: label || null }
   },
 
-  async listOrders(page) {
-    const refs = new Map<string, OrderRef>()
-    for (let n = 1; n <= MAX_ORDER_PAGES; n++) {
-      const response = await fetchOk(page, ordersUrl(n, ORDERS_PER_PAGE), { headers: RSC_HEADERS })
-      const keys = objectsWithKey(response.text, 'orderId').filter(isOrderKey)
-      const before = refs.size
-      for (const { orderId, createAt, regionDb } of keys) {
-        const externalKey = `${regionDb}:${orderId}`
-        refs.set(externalKey, {
-          externalKey,
-          collectedOn: moscowDate(createAt),
-          data: { orderId, createAt, regionDb },
-        })
-      }
-      if (keys.length < ORDERS_PER_PAGE || refs.size === before) break
-    }
-    return [...refs.values()]
+  listOrders(page) {
+    return collectPages(
+      ORDERS_PER_PAGE,
+      async (index) => {
+        // The site counts its pages from 1.
+        const response = await fetchOk(page, ordersUrl(index + 1, ORDERS_PER_PAGE), { headers: RSC_HEADERS })
+        return objectsWithKey(response.text, 'orderId')
+          .filter(isOrderKey)
+          .map(({ orderId, createAt, regionDb }) => ({
+            externalKey: `${regionDb}:${orderId}`,
+            collectedOn: moscowDate(createAt),
+            data: { orderId, createAt, regionDb },
+          }))
+      },
+      (ref) => ref.externalKey,
+    )
   },
 
   async fetchOrder(page, ref) {
