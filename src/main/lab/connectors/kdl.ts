@@ -1,4 +1,5 @@
 import type { LabFlag } from '@shared/domain/enums'
+import { detectVpnBlock } from '../pages'
 import { objectsWithKey } from '../rsc'
 import { moscowDate } from '../time'
 import { fetchOk, isErrorStatus, type LabConnector, type OrderRef, type RawResult } from '../types'
@@ -80,11 +81,7 @@ export const kdlConnector: LabConnector = {
   hosts: ['kdl.ru'],
   requestIntervalMs: 400,
 
-  async detectBlock(page) {
-    const title = await page.evaluate<string>('document.title')
-    const text = await page.evaluate<string>('document.body ? document.body.innerText.slice(0, 2000) : ""')
-    return title === 'Forbidden' || /VPN/i.test(text) ? 'vpn_or_region' : null
-  },
+  detectBlock: detectVpnBlock,
 
   async detectAccount(page) {
     const response = await page.fetchText(ordersUrl(1, 1), { headers: RSC_HEADERS })
@@ -95,7 +92,7 @@ export const kdlConnector: LabConnector = {
     const label = [person?.['surname'], person?.['name']]
       .filter((part): part is string => typeof part === 'string' && part.length > 0)
       .join(' ')
-    return { externalId: null, label: label || 'KDL' }
+    return { externalId: null, label: label || null }
   },
 
   async listOrders(page) {

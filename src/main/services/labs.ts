@@ -36,7 +36,7 @@ export const LAB_MARKERS: readonly { color: string; shape: MarkerShape }[] = [
 /** Labs every install starts with; `connectorId` names a connector in `src/main/lab/connectors`. */
 export const BUILTIN_LABS: readonly { name: string; connectorId: string | null }[] = [
   { name: 'KDL', connectorId: 'kdl' },
-  { name: 'Хеликс', connectorId: null },
+  { name: 'Хеликс', connectorId: 'helix' },
   { name: 'Гемотест', connectorId: null },
   { name: 'Инвитро', connectorId: null },
   { name: 'Другая лаборатория', connectorId: null },
@@ -51,7 +51,10 @@ export class LabService {
     private readonly connectors: typeof connectorFor = connectorFor,
   ) {}
 
-  /** Adds the built-in labs that are missing; never touches labs the person already has. */
+  /**
+   * Adds the built-in labs that are missing and points each one at the connector this version
+   * ships; labs the person added are never touched.
+   */
   ensureBuiltins(): void {
     for (const def of BUILTIN_LABS) {
       const existing = this.db.select().from(lab).where(eq(lab.name, def.name)).get()
@@ -147,11 +150,14 @@ export class LabService {
     dataChanged(this.events, 'labs')
   }
 
-  /** Takes the account's name and id from the lab's own pages, once someone is logged in. */
-  recordIdentity(id: number, info: LabAccountInfo): void {
+  /**
+   * Takes the account's name and id from the lab's own pages, once someone is logged in. Pages that
+   * name nobody leave the label the account has: its lab's name to begin with.
+   */
+  recordIdentity(id: number, { externalId, label }: LabAccountInfo): void {
     this.db
       .update(labAccount)
-      .set({ label: info.label, externalAccountId: info.externalId })
+      .set(label === null ? { externalAccountId: externalId } : { externalAccountId: externalId, label })
       .where(eq(labAccount.id, id))
       .run()
   }

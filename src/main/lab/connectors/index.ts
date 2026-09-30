@@ -1,9 +1,11 @@
 import type { LabConnector } from '../types'
+import { helixConnector } from './helix'
 import { kdlConnector } from './kdl'
 
 /** Every connector the app ships, by the id stored in `lab.connector_id`. */
 export const CONNECTORS: Readonly<Record<string, LabConnector>> = {
   [kdlConnector.id]: kdlConnector,
+  [helixConnector.id]: helixConnector,
 }
 
 export function connectorFor(connectorId: string | null): LabConnector | null {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { BUILTIN_LABS } from '../../services/labs'
 import { answer, FakeLabPage } from '../fake-page'
+import { PAGE_TEXT_EXPRESSION } from '../pages'
 import { CONNECTORS } from './index'
 import { kdlConnector } from './kdl'
 
@@ -52,12 +53,12 @@ describe('kdlConnector', () => {
   it('recognizes the VPN block page', async () => {
     const blocked = new FakeLabPage([], {
       'document.title': 'Forbidden',
-      'document.body ? document.body.innerText.slice(0, 2000) : ""': 'Возможно, у вас включен VPN',
+      [PAGE_TEXT_EXPRESSION]: 'Возможно, у вас включен VPN',
     })
     expect(await kdlConnector.detectBlock(blocked)).toBe('vpn_or_region')
     const fine = new FakeLabPage([], {
       'document.title': 'KDL АНАЛИЗЫ',
-      'document.body ? document.body.innerText.slice(0, 2000) : ""': 'Заказы',
+      [PAGE_TEXT_EXPRESSION]: 'Заказы',
     })
     expect(await kdlConnector.detectBlock(fine)).toBeNull()
   })
@@ -67,6 +68,13 @@ describe('kdlConnector', () => {
       answer('/account/orders', rscPage([], { surname: 'Иванова', name: 'Анна' })),
     ])
     expect(await kdlConnector.detectAccount(loggedIn)).toEqual({ externalId: null, label: 'Иванова Анна' })
+    const nameless = new FakeLabPage([
+      answer(
+        '/account/orders',
+        rscPage([{ orderId: ORDER_ID, createAt: MIDNIGHT_JUL_15, regionDb: 2 }], null),
+      ),
+    ])
+    expect(await kdlConnector.detectAccount(nameless)).toEqual({ externalId: null, label: null })
     const loggedOut = new FakeLabPage([answer('/account/orders', '0:["$","$L1",null,{"children":"login"}]')])
     expect(await kdlConnector.detectAccount(loggedOut)).toBeNull()
   })

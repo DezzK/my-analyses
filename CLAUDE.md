@@ -115,7 +115,9 @@ and commits are English.
   unknown codes): `ImportService` (`src/main/import/importer.ts`). Connectors only return
   `RawOrder`s and their forms (`LabConnector` in `src/main/lab/types.ts`, one file per lab in
   `src/main/lab/connectors/`); a site that refreshes its own session names a quiet `syncUrl` for
-  syncs and a `detectLogin` for the login window.
+  syncs and a `detectLogin` for the login window. What several labs' pages share — the VPN refusal
+  (`detectVpnBlock`), telling a PDF from an error page served in its place (`isPdf`) — lives in
+  `src/main/lab/pages.ts`.
 - Connected lab accounts: connecting, logging in again, syncing, the run history and which orders a
   sync fetches again (`RECHECK_DAYS`): `SyncService` (`src/main/import/sync.ts`).
 - The embedded browser: a persistent session partition per account, pages kept on the lab's hosts,

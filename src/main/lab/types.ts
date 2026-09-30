@@ -39,8 +39,11 @@ export interface OrderRef {
 export interface LabAccountInfo {
   /** The lab's id of the account, when the pages reveal one. */
   externalId: string | null
-  /** A human-readable name of the account, shown in the list of accounts. */
-  label: string
+  /**
+   * A human-readable name of the account, shown in the list of accounts; null when the pages name
+   * nobody, and the account keeps the label it has.
+   */
+  label: string | null
 }
 
 export type BlockReason = 'vpn_or_region' | 'unknown'
