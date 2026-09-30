@@ -1,5 +1,6 @@
-import { ageInDays, ageInYears } from '@shared/domain/age'
+import { ageInDays, ageInYears, DAYS_PER_MONTH } from '@shared/domain/age'
 import { formatDateRu, todayIso } from '@shared/domain/dates'
+import { AGE_UNIT_FORMS } from './labels'
 
 export { formatDateRu as formatDate }
 
@@ -12,13 +13,11 @@ export function plural(n: number, forms: readonly [one: string, few: string, man
   return forms[2]
 }
 
-const AVERAGE_DAYS_PER_MONTH = 30.44
-
 export function formatAge(birthDate: string, on: string = todayIso()): string {
   const years = ageInYears(birthDate, on)
-  if (years >= 1) return `${years} ${plural(years, ['год', 'года', 'лет'])}`
-  const months = Math.floor(ageInDays(birthDate, on) / AVERAGE_DAYS_PER_MONTH)
-  return `${months} ${plural(months, ['месяц', 'месяца', 'месяцев'])}`
+  if (years >= 1) return `${years} ${plural(years, AGE_UNIT_FORMS.years)}`
+  const months = Math.floor(ageInDays(birthDate, on) / DAYS_PER_MONTH)
+  return `${months} ${plural(months, AGE_UNIT_FORMS.months)}`
 }
 
 export function formatDateTime(iso: string): string {

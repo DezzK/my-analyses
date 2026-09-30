@@ -31,7 +31,7 @@ const SECTIONS: Section[] = [
   { to: '/orders', label: 'Заказы', icon: <IconFlask size={ICON_SIZE.shell} /> },
   { to: '/labs', label: 'Лаборатории', icon: <IconBuildingHospital size={ICON_SIZE.shell} /> },
   { to: '/mapping', label: 'Сопоставление', icon: <IconArrowsShuffle size={ICON_SIZE.shell} />, soon: true },
-  { to: '/catalog', label: 'Справочник', icon: <IconBook2 size={ICON_SIZE.shell} />, soon: true },
+  { to: '/catalog', label: 'Справочник', icon: <IconBook2 size={ICON_SIZE.shell} /> },
   { to: '/reports', label: 'Отчёты', icon: <IconFileText size={ICON_SIZE.shell} />, soon: true },
 ]
 

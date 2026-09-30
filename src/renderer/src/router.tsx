@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Center, Loader } from '@mantine/core'
 import { createHashHistory, createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
 import { AnalytePage } from './analytes/AnalytePage'
+import { AnalyteCardPage } from './catalog/AnalyteCardPage'
+import { CatalogPage } from './catalog/CatalogPage'
 import { LabsPage } from './labs/LabsPage'
 import { AppLayout } from './layout/AppLayout'
 import { Welcome, type WelcomeStep } from './onboarding/Welcome'
@@ -54,12 +56,8 @@ const routeTree = rootRoute.addChildren([
       description="Очередь новых показателей и единиц после импорта: проверить, объединить с существующими."
     />
   )),
-  page('/catalog', () => (
-    <ComingSoonPage
-      title="Справочник"
-      description="Показатели, синонимы, единицы и правила референсов по полу, возрасту, условию и лаборатории."
-    />
-  )),
+  page('/catalog', CatalogPage),
+  page('/catalog/$analyteId', AnalyteCardPage),
   page('/reports', () => (
     <ComingSoonPage
       title="Отчёты"

@@ -1,16 +1,13 @@
 import { Button, Divider, Group, Modal, Stack, Text } from '@mantine/core'
 import { modals } from '@mantine/modals'
-import { notifications } from '@mantine/notifications'
 import { IconTrash } from '@tabler/icons-react'
 import type { Patient } from '@shared/api'
 import { api } from '../api'
 import { plural } from '../format'
-import { notifyError } from '../notify'
+import { notifyError, notifyUndoable } from '../notify'
 import { PatientForm } from './PatientForm'
 import { PeriodsEditor } from './PeriodsEditor'
 import { ICON_SIZE } from '../theme'
-
-const UNDO_WINDOW_MS = 10_000
 
 interface Props {
   opened: boolean
@@ -83,24 +80,10 @@ async function confirmRemoval(patient: Patient, onRemoved: () => void): Promise<
       try {
         await api.patients.remove(patient.id)
         onRemoved()
-        const id = `removed-${patient.id}`
-        notifications.show({
-          id,
-          autoClose: UNDO_WINDOW_MS,
+        notifyUndoable({
           title: `Пациент «${patient.title}» удалён`,
-          message: (
-            <Button
-              size="xs"
-              variant="light"
-              mt={4}
-              onClick={() => {
-                void api.patients.restore(patient.id)
-                notifications.hide(id)
-              }}
-            >
-              Отменить удаление
-            </Button>
-          ),
+          undoLabel: 'Отменить удаление',
+          undo: () => api.patients.restore(patient.id),
         })
       } catch (error) {
         notifyError(error)

@@ -21,6 +21,12 @@ export const keys = {
   patients: () => ['patients'] as const satisfies readonly [DataScope],
   periods: (patientId: number) => ['periods', patientId] as const satisfies readonly [DataScope, number],
   units: () => ['catalog', 'units'] as const satisfies readonly [DataScope, string],
+  catalog: () => ['catalog', 'list'] as const satisfies readonly [DataScope, string],
+  analyteCard: (analyteId: number) => ['catalog', 'card', analyteId] as const,
+  rules: (analyteId: number) => ['catalog', 'rules', analyteId] as const,
+  merges: (analyteId: number) => ['catalog', 'merges', analyteId] as const,
+  panels: () => ['catalog', 'panels'] as const satisfies readonly [DataScope, string],
+  labReferences: (analyteId: number) => [DERIVED, 'lab-references', analyteId] as const,
   analyteResults: (analyteId: number, patientId: number) =>
     [DERIVED, 'analyte', analyteId, patientId] as const,
   search: (query: string, patientId: number | null) => [DERIVED, 'search', query, patientId] as const,
@@ -71,13 +77,40 @@ const NONE = new Map()
 /** Units by id, for showing the unit of any value. */
 export function useUnits(): ReadonlyMap<number, Unit> {
   return (
-    useQuery({ queryKey: keys.units(), queryFn: () => api.catalog.units(), select: byId<Unit> }).data ?? NONE
+    useQuery({ queryKey: keys.units(), queryFn: () => api.units.list(), select: byId<Unit> }).data ?? NONE
   )
 }
 
 /** Labs by id, for showing the lab of any order or result. */
 export function useLabMap(): ReadonlyMap<number, Lab> {
   return useQuery({ queryKey: keys.labs(), queryFn: () => api.labs.list(), select: byId<Lab> }).data ?? NONE
+}
+
+export function useCatalog() {
+  return useQuery({ queryKey: keys.catalog(), queryFn: () => api.analytes.list() })
+}
+
+export function useAnalyteCard(analyteId: number) {
+  return useQuery({ queryKey: keys.analyteCard(analyteId), queryFn: () => api.analytes.card(analyteId) })
+}
+
+export function useRules(analyteId: number) {
+  return useQuery({ queryKey: keys.rules(analyteId), queryFn: () => api.rules.list(analyteId) })
+}
+
+export function useMerges(analyteId: number) {
+  return useQuery({ queryKey: keys.merges(analyteId), queryFn: () => api.analytes.merges(analyteId) })
+}
+
+export function useLabReferences(analyteId: number) {
+  return useQuery({
+    queryKey: keys.labReferences(analyteId),
+    queryFn: () => api.rules.labReferences(analyteId),
+  })
+}
+
+export function usePanels() {
+  return useQuery({ queryKey: keys.panels(), queryFn: () => api.panels.list() })
 }
 
 export function useAnalyteResults(analyteId: number, patientId: number | null) {

@@ -4,24 +4,13 @@ import type { Api, AppSettings } from '@shared/api'
 import { requestRestore, type BackupService } from './backup'
 import type { SyncService } from './import/sync'
 import { dataPaths } from './paths'
-import type { AnalyteService } from './services/analytes'
-import type { LabService } from './services/labs'
-import type { OrderService } from './services/orders'
-import type { PatientService } from './services/patients'
-import type { ResultReader } from './services/results'
-import type { UnitService } from './services/units'
+import type { Services as DataServices } from './services'
 import type { SettingsStore } from './settings'
 
-interface Services {
+interface Services extends DataServices {
   window: () => BrowserWindow | null
   settings: SettingsStore
   backups: BackupService
-  patients: PatientService
-  units: UnitService
-  analytes: AnalyteService
-  results: ResultReader
-  orders: OrderService
-  labs: LabService
   sync: SyncService
 }
 
@@ -83,13 +72,36 @@ export function createApi(s: Services): Api {
       updatePeriod: async (id, input) => s.patients.updatePeriod(id, input),
       removePeriod: async (id) => s.patients.removePeriod(id),
     },
-    catalog: {
-      units: async () => s.units.list(),
+    units: {
+      list: async () => s.units.list(),
     },
     analytes: {
       search: async (query, patientId) => s.analytes.search(query, patientId),
       results: async (analyteId, patientId) => s.results.forAnalyte(analyteId, patientId),
       setDisplayUnit: async (analyteId, unitId) => s.analytes.setDisplayUnit(analyteId, unitId),
+      list: async () => s.analytes.list(),
+      card: async (analyteId) => s.analytes.card(analyteId),
+      create: async (input) => s.analytes.create(input),
+      update: async (analyteId, input) => s.analytes.update(analyteId, input),
+      addAlias: async (analyteId, alias) => s.analytes.addAlias(analyteId, alias),
+      removeAlias: async (aliasId) => s.analytes.removeAlias(aliasId),
+      setUnit: async (analyteId, unitId, factor) => s.analytes.setUnit(analyteId, unitId, factor),
+      removeUnit: async (analyteId, unitId) => s.analytes.removeUnit(analyteId, unitId),
+      merge: async (sourceId, targetId) => s.merges.merge(sourceId, targetId),
+      merges: async (analyteId) => s.merges.list(analyteId),
+      unmerge: async (mergeId) => s.merges.unmerge(mergeId),
+    },
+    rules: {
+      list: async (analyteId) => s.rules.list(analyteId),
+      create: async (analyteId, input) => s.rules.create(analyteId, input),
+      update: async (ruleId, input) => s.rules.update(ruleId, input),
+      remove: async (ruleId) => s.rules.remove(ruleId),
+      labReferences: async (analyteId) => s.rules.labReferences(analyteId),
+    },
+    panels: {
+      list: async () => s.panels.list(),
+      save: async (panelId, name, analyteIds) => s.panels.save(panelId, name, analyteIds),
+      remove: async (panelId) => s.panels.remove(panelId),
     },
     orders: {
       list: async (patientId) => s.orders.list(patientId),

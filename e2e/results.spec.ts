@@ -1,17 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { eq } from 'drizzle-orm'
-import { join } from 'node:path'
-import { AttachmentStore } from '../src/main/attachments'
-import type { Db } from '../src/main/db/client'
-import { analyte, analyteAlias, lab } from '../src/main/db/schema'
-import type { EventSink } from '../src/main/events'
-import { ImportService } from '../src/main/import/importer'
+import { analyte, analyteAlias } from '../src/main/db/schema'
 import type { RawOrder, RawResult } from '../src/main/lab/types'
-import { DATA_FILES } from '../src/main/paths'
-import { AnalyteService } from '../src/main/services/analytes'
-import { PatientService } from '../src/main/services/patients'
-import { UnitService } from '../src/main/services/units'
-import { createDataDir, launchApp, snapshot, withDatabase } from './app'
+import { createDataDir, labIdOf, launchApp, seedImports, snapshot } from './app'
 
 /** Made-up results, shaped the way KDL reports them. */
 function result(labCode: string, labName: string, value: string, unit: string, reference: string): RawResult {
@@ -48,33 +39,20 @@ const HELIX_ORDERS = [
   order('h:1', '2025-07-01', [{ ...glucose('5.7'), labCode: HELIX_GLUCOSE, reference: '4.1-5.9 ммоль/л' }]),
 ]
 
-function seed(db: Db, dataDir: string): void {
-  const events: EventSink = { emit: () => {} }
-  const units = new UnitService(db, events)
-  const analytes = new AnalyteService(db, events)
-  const attachments = new AttachmentStore(join(dataDir, DATA_FILES.attachments))
-  const importer = new ImportService({ db, units, analytes, attachments, events })
-  const anna = new PatientService(db, events).create({
-    title: 'Анна',
-    sex: 'female',
-    birthDate: '1990-05-14',
-    note: null,
-  })
-  const labId = (name: string) => db.select().from(lab).where(eq(lab.name, name)).get()?.id ?? -1
-  const target = { labAccountId: null, patientId: anna.id, connectorVersion: 'e2e' }
-  importer.importOrders({ ...target, labId: labId('KDL') }, KDL_ORDERS)
-
-  // As if the person had merged Helix's glucose into KDL's in the catalog.
-  const glucoseId = db.select().from(analyte).where(eq(analyte.name, 'Глюкоза')).get()?.id ?? -1
-  db.insert(analyteAlias)
-    .values({ analyteId: glucoseId, alias: 'Глюкоза', labId: labId('Хеликс'), labCode: HELIX_GLUCOSE })
-    .run()
-  importer.importOrders({ ...target, labId: labId('Хеликс') }, HELIX_ORDERS)
-}
-
 test('results are found, tabulated, charted and grouped into orders', async () => {
   const dataDir = await createDataDir()
-  withDatabase(dataDir, (db) => seed(db, dataDir))
+  seedImports(dataDir, { KDL: KDL_ORDERS }, (db, services, patientId) => {
+    // As if the person had merged Helix's glucose into KDL's in the catalog.
+    const glucoseId = db.select().from(analyte).where(eq(analyte.name, 'Глюкоза')).get()?.id ?? -1
+    const helixId = labIdOf(db, 'Хеликс')
+    db.insert(analyteAlias)
+      .values({ analyteId: glucoseId, alias: 'Глюкоза', labId: helixId, labCode: HELIX_GLUCOSE })
+      .run()
+    services.importer.importOrders(
+      { labId: helixId, labAccountId: null, patientId, connectorVersion: 'e2e' },
+      HELIX_ORDERS,
+    )
+  })
 
   const { app, window } = await launchApp(dataDir)
   try {

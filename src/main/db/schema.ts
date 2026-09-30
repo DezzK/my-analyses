@@ -297,6 +297,26 @@ export const panelItem = sqliteTable(
   (t) => [primaryKey({ columns: [t.panelId, t.analyteId] })],
 )
 
+/**
+ * Merges of one analyte into another. The merged analyte's row is gone, but its data and the ids
+ * of everything that moved are kept here, so the merge can be undone.
+ */
+export const analyteMerge = sqliteTable(
+  'analyte_merge',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** Id the merged analyte had, and gets back when the merge is undone. */
+    sourceId: integer('source_id').notNull(),
+    targetId: integer('target_id')
+      .notNull()
+      .references(() => analyte.id, { onDelete: 'cascade' }),
+    /** JSON: see `MergeRecord` in `src/main/services/analytes.ts`. */
+    record: text('record').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('analyte_merge_target').on(t.targetId)],
+)
+
 export const reportTemplate = sqliteTable('report_template', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   title: text('title').notNull(),

@@ -11,15 +11,15 @@ import { IS_MAC } from '../platform'
 import { useAnalyteSearch } from '../queries'
 import { ICON_SIZE } from '../theme'
 
-/** Typing pauses this long before the query goes out; results still feel immediate. */
-const DEBOUNCE_MS = 150
+/** Typing pauses this long before a search goes out; results still feel immediate. */
+export const SEARCH_DEBOUNCE_MS = 150
 const RESULTS_HEIGHT = 440
 const SHORTCUT_LABEL = IS_MAC ? '⌘K' : 'Ctrl+K'
 
 /** Finds an analyte by name, synonym or lab code from any screen (Ctrl+K / ⌘K). */
 export function AnalyteSearch() {
   const [query, setQuery] = useState('')
-  const [debounced] = useDebouncedValue(query, DEBOUNCE_MS)
+  const [debounced] = useDebouncedValue(query, SEARCH_DEBOUNCE_MS)
   const { patient } = useCurrentPatient()
   const { data: hits = [] } = useAnalyteSearch(debounced, patient?.id ?? null)
   const navigate = useNavigate()

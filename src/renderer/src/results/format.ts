@@ -1,7 +1,7 @@
 import type { ResultRow, Unit } from '@shared/api'
 import type { ShownReference } from '@shared/domain/interpret'
 import type { Deviation } from '@shared/domain/references'
-import type { Comparator } from '@shared/domain/values'
+import type { Comparator, QualitativeCode } from '@shared/domain/values'
 import { QUALITATIVE_LABELS } from '../labels'
 
 const COMPARATOR_SIGNS: Record<Comparator, string> = { '<': '<', '<=': '≤', '>': '>', '>=': '≥' }
@@ -25,14 +25,21 @@ export function valueText(row: ResultRow): string {
 }
 
 /** "3,9–5,5", "< 5", "> 60" or the expected answer, the way labs print references. */
+export function boundsText(
+  low: string | null,
+  high: string | null,
+  expected: QualitativeCode | null,
+): string {
+  if (expected) return QUALITATIVE_LABELS[expected]
+  if (low !== null && high !== null) return `${low}–${high}`
+  if (high !== null) return `< ${high}`
+  if (low !== null) return `> ${low}`
+  return NO_VALUE
+}
+
 export function referenceText(reference: ShownReference | null): string {
   if (!reference) return NO_VALUE
-  if (reference.expected) return QUALITATIVE_LABELS[reference.expected]
-  const { low, high } = reference
-  if (low && high) return `${low.text}–${high.text}`
-  if (high) return `< ${high.text}`
-  if (low) return `> ${low.text}`
-  return NO_VALUE
+  return boundsText(reference.low?.text ?? null, reference.high?.text ?? null, reference.expected)
 }
 
 export function unitText(unitId: number | null, units: ReadonlyMap<number, Unit>): string {

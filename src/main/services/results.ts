@@ -7,16 +7,12 @@ import {
   type RuleWithBounds,
 } from '@shared/domain/interpret'
 import { convert, type UnitInfo } from '@shared/domain/units'
-import { QUALITATIVE_CODES, type QualitativeCode } from '@shared/domain/values'
+import { asQualitativeCode } from '@shared/domain/values'
 import type { Db } from '../db/client'
 import { analyte, analyteUnit, labOrder, referenceRule, result } from '../db/schema'
 import type { AnalyteRow, AnalyteService } from './analytes'
 import type { PatientService } from './patients'
 import type { UnitRow, UnitService } from './units'
-
-function asQualitative(code: string | null): QualitativeCode | null {
-  return QUALITATIVE_CODES.find((c) => c === code) ?? null
-}
 
 /**
  * The catalog as reading results needs it, loaded once per request: every analyte, unit and
@@ -41,7 +37,7 @@ class CatalogSnapshot {
     )
     for (const r of db.select().from(referenceRule).all()) {
       const list = this.rules.get(r.analyteId) ?? []
-      list.push({ ...r, expected: asQualitative(r.expected) })
+      list.push({ ...r, expected: asQualitativeCode(r.expected) })
       this.rules.set(r.analyteId, list)
     }
     for (const u of db.select().from(analyteUnit).all()) {

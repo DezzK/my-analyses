@@ -1,8 +1,9 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm'
-import type { lab, patient, patientPeriod, unit } from '@main/db/schema'
+import type { analyte, lab, patient, patientPeriod, referenceRule, unit } from '@main/db/schema'
 import type { BackupReason } from './backup-policy'
 import type { LabFlag, OrderSource, Specimen, SyncStage, SyncStatus, ValueKind } from './domain/enums'
 import type { Interpretation } from './domain/interpret'
+import type { QualitativeCode } from './domain/values'
 
 export type { BackupReason }
 
@@ -79,7 +80,65 @@ export interface AnalyteSummary {
   description: string | null
   valueKind: ValueKind
   reviewed: boolean
-  aliases: { alias: string; labId: number | null; labCode: string | null }[]
+  aliases: { id: number; alias: string; labId: number | null; labCode: string | null }[]
+}
+
+/** An analyte as the catalog lists it. */
+export interface CatalogEntry {
+  id: number
+  name: string
+  specimen: Specimen | null
+  reviewed: boolean
+  canonicalUnitId: number | null
+  resultCount: number
+  /** Lab codes the analyte is imported by. */
+  codes: { labId: number | null; code: string }[]
+}
+
+/** Everything the analyte's card edits. */
+export interface AnalyteCard extends AnalyteSummary {
+  canonicalUnitId: number | null
+  displayUnitId: number | null
+  molarMass: number | null
+  resultCount: number
+  /** The analyte's units: `factor` converts into the canonical unit where dimensions cannot. */
+  units: { unitId: number; factor: number | null; resultCount: number }[]
+}
+
+export type AnalyteInput = Pick<
+  InferSelectModel<typeof analyte>,
+  'name' | 'specimen' | 'description' | 'valueKind' | 'canonicalUnitId' | 'molarMass' | 'reviewed'
+>
+
+/** A merge of another analyte into this one that can still be undone. */
+export interface AnalyteMerge {
+  id: number
+  sourceName: string
+  createdAt: string
+}
+
+export type ReferenceRule = Omit<InferSelectModel<typeof referenceRule>, 'createdAt' | 'expected'> & {
+  expected: QualitativeCode | null
+}
+export type RuleInput = Omit<ReferenceRule, 'id' | 'analyteId'>
+
+/** A reference a lab printed next to the analyte's results, read into bounds, to start a rule from. */
+export interface LabReference {
+  labId: number
+  text: string
+  low: number | null
+  high: number | null
+  expected: QualitativeCode | null
+  unitId: number | null
+  count: number
+  lastCollectedOn: string
+}
+
+/** A named set of analytes, entered and searched together: «Общий анализ крови». */
+export interface Panel {
+  id: number
+  name: string
+  analyteIds: number[]
 }
 
 /** A unit the analyte's results can be shown in; `convertible` when every result converts into it. */
@@ -179,8 +238,8 @@ export interface Api {
     updatePeriod(id: number, input: PatientPeriodInput): Promise<PatientPeriod>
     removePeriod(id: number): Promise<void>
   }
-  catalog: {
-    units(): Promise<Unit[]>
+  units: {
+    list(): Promise<Unit[]>
   }
   analytes: {
     /** By name, synonym or lab code, ignoring case and ё; the patient's own analytes first. */
@@ -188,6 +247,32 @@ export interface Api {
     results(analyteId: number, patientId: number): Promise<AnalyteResults>
     /** The unit the analyte is shown in everywhere; null returns to its canonical unit. */
     setDisplayUnit(analyteId: number, unitId: number | null): Promise<void>
+    list(): Promise<CatalogEntry[]>
+    card(analyteId: number): Promise<AnalyteCard>
+    create(input: AnalyteInput): Promise<AnalyteSummary>
+    update(analyteId: number, input: AnalyteInput): Promise<void>
+    addAlias(analyteId: number, alias: string): Promise<void>
+    /** Lab codes stay: an import finds the analyte by them. */
+    removeAlias(aliasId: number): Promise<void>
+    /** Allows a unit for the analyte, or changes its factor to the canonical unit. */
+    setUnit(analyteId: number, unitId: number, factor: number | null): Promise<void>
+    removeUnit(analyteId: number, unitId: number): Promise<void>
+    /** Moves everything of `sourceId` into `targetId`; returns the merge, which can be undone. */
+    merge(sourceId: number, targetId: number): Promise<number>
+    merges(analyteId: number): Promise<AnalyteMerge[]>
+    unmerge(mergeId: number): Promise<void>
+  }
+  rules: {
+    list(analyteId: number): Promise<ReferenceRule[]>
+    create(analyteId: number, input: RuleInput): Promise<ReferenceRule>
+    update(ruleId: number, input: RuleInput): Promise<ReferenceRule>
+    remove(ruleId: number): Promise<void>
+    labReferences(analyteId: number): Promise<LabReference[]>
+  }
+  panels: {
+    list(): Promise<Panel[]>
+    save(panelId: number | null, name: string, analyteIds: number[]): Promise<Panel>
+    remove(panelId: number): Promise<void>
   }
   orders: {
     /** Newest first. */

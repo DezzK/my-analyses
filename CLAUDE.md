@@ -12,7 +12,8 @@ commits are English.
   `createTestServices` (`src/main/test-support.ts`), wired as the app wires them.
 - `npx playwright test` — end-to-end against the built app (`npm run build` first); set
   `SCREENSHOT_DIR` to save screenshots of each step. `withDatabase` (`e2e/app.ts`) prepares a state
-  the UI cannot reach alone, such as a connected lab account, while the app is closed.
+  the UI cannot reach alone, such as a connected lab account, while the app is closed; `seedImports`
+  puts a patient's orders in through the app's own import.
 - `npm run db:generate` — after changing `src/main/db/schema.ts`; commit the new `drizzle/` folder.
 
 ## Layout
@@ -54,6 +55,12 @@ commits are English.
 - Analytes, their lab codes, the unit each is shown in, search and the FTS index
   (`normalizeSearchText`): `AnalyteService`.
 - Orders, their summaries and original forms: `OrderService` (`src/main/services/orders.ts`).
+- Merging one analyte into another and undoing it: `MergeService`; reference rules and their
+  consistency (one rule per lab, sex, condition and age): `RuleService`; panels: `PanelService`.
+- Services are wired once, by `createServices` (`src/main/services/index.ts`), for the app and
+  for the tests alike.
+- Age limits of rules stated in years, months or days, and back: `ageToDays`, `daysToAge`
+  (`src/shared/domain/age.ts`).
 - Turning a lab's report into orders and results (dedup, protecting hand edits, new analytes for
   unknown codes): `ImportService` (`src/main/import/importer.ts`). Connectors only return
   `RawOrder`s (`src/main/lab/types.ts`); original forms go to `AttachmentStore`.
@@ -68,8 +75,10 @@ commits are English.
   drawn with its color and shape by `LabMarker`. Values and references are spelled by `valueText` and
   `referenceText` (`src/renderer/src/results/format.ts`), shown by `ResultsTable` and by
   `ResultsChart`, whose options come from `buildChartOption` (`src/renderer/src/results/chart.ts`).
-  Labs and units by id: `useLabMap`, `useUnits`. Links with route params: `AnchorLink`. The
-  platform check: `IS_MAC` (`src/renderer/src/platform.ts`).
+  Labs and units by id: `useLabMap`, `useUnits`. Links with route params: `AnchorLink`,
+  `ButtonLink` (`src/renderer/src/components/links.tsx`). Numbers typed into fields: `readDecimal`
+  (`src/renderer/src/input.ts`). An action that can be undone reports itself with `notifyUndoable`.
+  The platform check: `IS_MAC` (`src/renderer/src/platform.ts`).
 - Numbers in Russian spelling: `formatDecimal` (as measured), `formatSignificant` (after a
   conversion) and `formatNumber` (shortest, e.g. axis ticks), all in `src/shared/domain/numbers.ts`.
 

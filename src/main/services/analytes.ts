@@ -1,11 +1,11 @@
-import { and, eq, inArray, sql } from 'drizzle-orm'
-import type { AnalyteHit, AnalyteSummary } from '@shared/api'
-import type { Specimen, ValueKind } from '@shared/domain/enums'
+import { and, count, eq, inArray, sql } from 'drizzle-orm'
+import type { AnalyteCard, AnalyteHit, AnalyteInput, AnalyteSummary, CatalogEntry } from '@shared/api'
+import { SPECIMENS, VALUE_KINDS, type Specimen, type ValueKind } from '@shared/domain/enums'
 import { inferSpecimen } from '@shared/domain/specimens'
-import { foldCase } from '@shared/domain/text'
+import { compareRussian, foldCase } from '@shared/domain/text'
 import { UserError } from '@shared/errors'
 import type { Db } from '../db/client'
-import { analyte, analyteAlias, analyteUnit } from '../db/schema'
+import { analyte, analyteAlias, analyteUnit, result, unit } from '../db/schema'
 import { dataChanged, type EventSink } from '../events'
 
 export type AnalyteRow = typeof analyte.$inferSelect
@@ -13,6 +13,7 @@ export type AnalyteAliasRow = typeof analyteAlias.$inferSelect
 
 /** Enough hits to scroll through, few enough to show at once. */
 const SEARCH_LIMIT = 50
+const MAX_NAME_LENGTH = 120
 
 /** The text the search index holds for an analyte, and the text a query is compared with. */
 export function normalizeSearchText(text: string): string {
@@ -45,8 +46,7 @@ export class AnalyteService {
   }
 
   summary(id: number): AnalyteSummary {
-    const row = this.get(id)
-    if (!row) throw new UserError('Показатель не найден')
+    const row = this.find(id)
     return {
       id: row.id,
       name: row.name,
@@ -54,8 +54,194 @@ export class AnalyteService {
       description: row.description,
       valueKind: row.valueKind,
       reviewed: row.reviewed,
-      aliases: this.aliases([id]).map(({ alias, labId, labCode }) => ({ alias, labId, labCode })),
+      aliases: this.aliases([id]).map(({ id: aliasId, alias, labId, labCode }) => ({
+        id: aliasId,
+        alias,
+        labId,
+        labCode,
+      })),
     }
+  }
+
+  /** Every analyte, alphabetically, with how many results it has and the codes it is imported by. */
+  list(): CatalogEntry[] {
+    const counts = new Map(
+      this.db
+        .select({ analyteId: result.analyteId, n: count() })
+        .from(result)
+        .groupBy(result.analyteId)
+        .all()
+        .map((r) => [r.analyteId, r.n]),
+    )
+    const codes = Map.groupBy(
+      this.db
+        .select()
+        .from(analyteAlias)
+        .where(sql`${analyteAlias.labCode} is not null`)
+        .all(),
+      (a) => a.analyteId,
+    )
+    return this.db
+      .select()
+      .from(analyte)
+      .all()
+      .sort((a, b) => compareRussian(a.name, b.name))
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        specimen: row.specimen,
+        reviewed: row.reviewed,
+        canonicalUnitId: row.canonicalUnitId,
+        resultCount: counts.get(row.id) ?? 0,
+        codes: (codes.get(row.id) ?? []).map((a) => ({ labId: a.labId, code: a.labCode ?? '' })),
+      }))
+  }
+
+  card(id: number): AnalyteCard {
+    const row = this.find(id)
+    const perUnit = new Map(
+      this.db
+        .select({ unitId: result.unitId, n: count() })
+        .from(result)
+        .where(eq(result.analyteId, id))
+        .groupBy(result.unitId)
+        .all()
+        .map((r) => [r.unitId, r.n]),
+    )
+    const units = this.db.select().from(analyteUnit).where(eq(analyteUnit.analyteId, id)).all()
+    return {
+      ...this.summary(id),
+      canonicalUnitId: row.canonicalUnitId,
+      displayUnitId: row.displayUnitId,
+      molarMass: row.molarMass,
+      resultCount: [...perUnit.values()].reduce((sum, n) => sum + n, 0),
+      units: units.map((u) => ({
+        unitId: u.unitId,
+        factor: u.factor,
+        resultCount: perUnit.get(u.unitId) ?? 0,
+      })),
+    }
+  }
+
+  /** An analyte the person adds by hand; it is reviewed by definition. */
+  create(input: AnalyteInput): AnalyteSummary {
+    const values = this.validate(input, null)
+    const row = this.db
+      .insert(analyte)
+      .values({ ...values, reviewed: true })
+      .returning()
+      .get()
+    if (row.canonicalUnitId !== null) this.allowUnit(row.id, row.canonicalUnitId)
+    this.reindex(row.id)
+    dataChanged(this.events, 'catalog')
+    return this.summary(row.id)
+  }
+
+  update(id: number, input: AnalyteInput): void {
+    const current = this.find(id)
+    const values = this.validate(input, id)
+    const factors = this.db
+      .select()
+      .from(analyteUnit)
+      .where(and(eq(analyteUnit.analyteId, id), sql`${analyteUnit.factor} is not null`))
+      .all()
+    if (values.canonicalUnitId !== current.canonicalUnitId && factors.length > 0) {
+      throw new UserError('Сначала уберите коэффициенты единиц: они заданы относительно основной единицы')
+    }
+    this.db.update(analyte).set(values).where(eq(analyte.id, id)).run()
+    this.reindex(id)
+    dataChanged(this.events, 'catalog')
+  }
+
+  addAlias(analyteId: number, alias: string): void {
+    const text = alias.trim()
+    if (!text) throw new UserError('Введите синоним')
+    const row = this.find(analyteId)
+    const taken = [row.name, ...this.aliases([analyteId]).map((a) => a.alias)].map(normalizeSearchText)
+    if (taken.includes(normalizeSearchText(text))) throw new UserError('Такой синоним уже есть')
+    this.db.insert(analyteAlias).values({ analyteId, alias: text }).run()
+    this.reindex(analyteId)
+    dataChanged(this.events, 'catalog')
+  }
+
+  removeAlias(aliasId: number): void {
+    const row = this.db.select().from(analyteAlias).where(eq(analyteAlias.id, aliasId)).get()
+    if (!row) throw new UserError('Синоним не найден')
+    if (row.labCode !== null) {
+      throw new UserError('Код лаборатории убрать нельзя: по нему импорт узнаёт показатель')
+    }
+    this.db.delete(analyteAlias).where(eq(analyteAlias.id, aliasId)).run()
+    this.reindex(row.analyteId)
+    dataChanged(this.events, 'catalog')
+  }
+
+  /**
+   * Allows `unitId` for the analyte, or changes its factor: value × factor = value in the
+   * canonical unit, for units whose dimension and the molar mass do not relate them.
+   */
+  setUnit(analyteId: number, unitId: number, factor: number | null): void {
+    const row = this.find(analyteId)
+    if (!this.db.select().from(unit).where(eq(unit.id, unitId)).get())
+      throw new UserError('Единица не найдена')
+    if (factor !== null && !(factor > 0)) throw new UserError('Коэффициент должен быть больше нуля')
+    if (factor !== null && (row.canonicalUnitId === null || row.canonicalUnitId === unitId)) {
+      throw new UserError('У основной единицы коэффициента нет')
+    }
+    this.db
+      .insert(analyteUnit)
+      .values({ analyteId, unitId, factor })
+      .onConflictDoUpdate({ target: [analyteUnit.analyteId, analyteUnit.unitId], set: { factor } })
+      .run()
+    if (row.canonicalUnitId === null) {
+      this.db.update(analyte).set({ canonicalUnitId: unitId }).where(eq(analyte.id, analyteId)).run()
+    }
+    dataChanged(this.events, 'catalog')
+  }
+
+  removeUnit(analyteId: number, unitId: number): void {
+    const row = this.find(analyteId)
+    if (row.canonicalUnitId === unitId) throw new UserError('Это основная единица показателя')
+    const used = this.db
+      .select({ n: count() })
+      .from(result)
+      .where(and(eq(result.analyteId, analyteId), eq(result.unitId, unitId)))
+      .get()
+    if ((used?.n ?? 0) > 0) throw new UserError('В этой единице есть результаты показателя')
+    this.db
+      .delete(analyteUnit)
+      .where(and(eq(analyteUnit.analyteId, analyteId), eq(analyteUnit.unitId, unitId)))
+      .run()
+    if (row.displayUnitId === unitId) {
+      this.db.update(analyte).set({ displayUnitId: null }).where(eq(analyte.id, analyteId)).run()
+    }
+    dataChanged(this.events, 'catalog')
+  }
+
+  find(id: number): AnalyteRow {
+    const row = this.get(id)
+    if (!row) throw new UserError('Показатель не найден')
+    return row
+  }
+
+  private validate(input: AnalyteInput, id: number | null): AnalyteInput {
+    const name = input.name.trim()
+    if (!name) throw new UserError('Введите название показателя')
+    if (name.length > MAX_NAME_LENGTH) throw new UserError(`Название длиннее ${MAX_NAME_LENGTH} символов`)
+    if (input.specimen !== null && !SPECIMENS.includes(input.specimen))
+      throw new UserError('Неизвестный биоматериал')
+    if (!VALUE_KINDS.includes(input.valueKind)) throw new UserError('Неизвестный тип значения')
+    if (input.molarMass !== null && !(input.molarMass > 0)) {
+      throw new UserError('Молярная масса должна быть больше нуля')
+    }
+    if (input.canonicalUnitId !== null && id !== null) {
+      const allowed = this.db
+        .select()
+        .from(analyteUnit)
+        .where(and(eq(analyteUnit.analyteId, id), eq(analyteUnit.unitId, input.canonicalUnitId)))
+        .get()
+      if (!allowed) throw new UserError('Основной может быть только единица показателя')
+    }
+    return { ...input, name, description: input.description?.trim() || null }
   }
 
   /**
@@ -98,7 +284,7 @@ export class AnalyteService {
 
   /** Shows the analyte in `unitId` everywhere; it must be one of the analyte's units. */
   setDisplayUnit(analyteId: number, unitId: number | null): void {
-    if (!this.get(analyteId)) throw new UserError('Показатель не найден')
+    this.find(analyteId)
     if (unitId !== null) {
       const allowed = this.db
         .select()

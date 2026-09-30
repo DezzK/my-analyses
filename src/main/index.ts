@@ -8,20 +8,13 @@ import {
   requestRestore,
   resolveBackupDir,
 } from './backup'
-import { AttachmentStore } from './attachments'
 import { checkIntegrity, DatabaseCorruptError, openDatabase, runMigrations } from './db/client'
 import { fanOut, WindowEvents } from './events'
-import { ImportService } from './import/importer'
 import { SyncService } from './import/sync'
 import { registerApi } from './ipc'
 import { LabBrowser } from './lab/browser'
 import { configureDataDir, dataPaths } from './paths'
-import { AnalyteService } from './services/analytes'
-import { LabService } from './services/labs'
-import { OrderService } from './services/orders'
-import { PatientService } from './services/patients'
-import { ResultReader } from './services/results'
-import { UnitService } from './services/units'
+import { createServices } from './services'
 import { SettingsStore } from './settings'
 
 const APP_TITLE = 'Мои анализы'
@@ -81,17 +74,11 @@ async function start(): Promise<void> {
   runMigrations(db, dataPaths.migrations(), () => backups.create('pre-migration'))
 
   const events = fanOut(windowEvents, backupOnDataChange(backups))
-  const patients = new PatientService(db, events)
+  const services = createServices({ db, events, attachmentsDir: dataPaths.attachments() })
+  const { patients, units, labs, importer } = services
   patients.purgeRemoved()
-  const units = new UnitService(db, events)
   units.ensureBuiltins()
-  const labs = new LabService(db, events)
   labs.ensureBuiltins()
-  const analytes = new AnalyteService(db, events)
-  const attachments = new AttachmentStore(dataPaths.attachments())
-  const importer = new ImportService({ db, units, analytes, attachments, events })
-  const results = new ResultReader({ db, units, analytes, patients })
-  const orders = new OrderService({ db, reader: results, attachments })
   const sync = new SyncService({ db, labs, importer, sessions: new LabBrowser(() => mainWindow), events })
   sync.recoverInterrupted()
 
@@ -104,18 +91,7 @@ async function start(): Promise<void> {
   })
   windowEvents.attach(window.webContents)
   registerApi(
-    createApi({
-      window: () => mainWindow,
-      settings,
-      backups,
-      patients,
-      units,
-      analytes,
-      results,
-      orders,
-      labs,
-      sync,
-    }),
+    createApi({ ...services, window: () => mainWindow, settings, backups, sync }),
     (event) => event.sender === window.webContents,
   )
   loadRenderer(window)

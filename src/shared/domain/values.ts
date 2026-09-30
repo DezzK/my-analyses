@@ -108,6 +108,11 @@ export function isUpperBound(comparator: Comparator): boolean {
   return comparator === '<' || comparator === '<='
 }
 
+/** A stored code as a qualitative answer, or null when it is not one. */
+export function asQualitativeCode(code: string | null): QualitativeCode | null {
+  return QUALITATIVE_CODES.find((c) => c === code) ?? null
+}
+
 export function parseQualitative(text: string): QualitativeCode | null {
   return QUALITATIVE_BY_WORD.get(normalizeWords(text)) ?? null
 }
