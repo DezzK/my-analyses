@@ -10,11 +10,13 @@ describe('parseDecimal', () => {
     ['-1.5', { value: -1.5, decimals: 1, sigDigits: 2 }],
     ['0', { value: 0, decimals: 0, sigDigits: 1 }],
     [' 7 ', { value: 7, decimals: 0, sigDigits: 1 }],
+    ['2 000', { value: 2000, decimals: 0, sigDigits: 4 }],
+    ['12\u00a0500,5', { value: 12500.5, decimals: 1, sigDigits: 6 }],
   ])('reads %s with its precision', (text, expected) => {
     expect(parseDecimal(text)).toEqual(expected)
   })
 
-  it.each(['abc', '1.2.3', '', '5 мг', '1:160'])('rejects %s', (text) => {
+  it.each(['abc', '1.2.3', '', '5 мг', '1:160', '20 00', '2 0000', '5 10'])('rejects %s', (text) => {
     expect(parseDecimal(text)).toBeNull()
   })
 })

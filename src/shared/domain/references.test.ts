@@ -16,6 +16,7 @@ describe('parseReference', () => {
     ['>60', { kind: 'range', low: 60, high: null, unitText: null }],
     ['<5 (не обнаружено)', { kind: 'range', low: null, high: 5, unitText: null }],
     ['отрицательно', { kind: 'qualitative', expected: 'negative' }],
+    ['0 - 2 000 1/мл', { kind: 'range', low: 0, high: 2000, unitText: '1/мл' }],
   ])('reads %s', (raw, expected) => {
     const ref = parseReference(raw)
     const values =

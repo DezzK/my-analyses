@@ -246,14 +246,14 @@ const SUPERSCRIPTS: Record<string, string> = {
 
 /**
  * The key a spelling is matched by: lowercase, ё → е, no spaces, one power-of-ten style
- * (`×10⁹/л`, `x10^9/л`, `10*9/л` all become `10*9/л`), micro written as `µ`.
+ * (`×10⁹/л`, `x10^9/л`, `*10^9/л`, `10*9/л` all become `10*9/л`), micro written as `µ`.
  */
 export function normalizeUnitSpelling(spelling: string): string {
   return foldCase(spelling)
     .replaceAll('μ', 'µ')
     .replace(/\s+/g, '')
     .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, (digits) => `*${[...digits].map((d) => SUPERSCRIPTS[d]).join('')}`)
-    .replace(/^[x×х]10/, '10')
+    .replace(/^[x×х*]10/, '10')
     .replaceAll('^', '*')
     .replace(/\*+/g, '*')
 }

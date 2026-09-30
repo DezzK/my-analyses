@@ -12,15 +12,23 @@ export interface ParsedNumber {
   sigDigits: number
 }
 
-/** A decimal as labs write it: optional sign, a point or a comma. Other patterns embed this one. */
-export const DECIMAL_PATTERN = '[+-]?\\d+(?:[.,]\\d+)?'
+/** What some labs put between groups of three digits: "2 000", with a plain or a no-break space. */
+const DIGIT_GROUP_SEPARATOR = '[ \\u00a0\\u202f]'
+
+/**
+ * A decimal as labs write it: optional sign, a point or a comma, the integer part grouped by
+ * threes or not. Other patterns embed this one.
+ */
+export const DECIMAL_PATTERN = `[+-]?(?:\\d{1,3}(?:${DIGIT_GROUP_SEPARATOR}\\d{3})+|\\d+)(?:[.,]\\d+)?`
 const NUMBER = new RegExp(`^${DECIMAL_PATTERN}$`)
+const GROUP_SEPARATORS = new RegExp(DIGIT_GROUP_SEPARATOR, 'g')
 
 export function parseDecimal(text: string): ParsedNumber | null {
   const trimmed = text.trim()
   if (!NUMBER.test(trimmed)) return null
-  const [whole = '', fraction = ''] = trimmed.replace(/^[+-]/, '').split(/[.,]/)
-  const value = Number(trimmed.replace(',', '.'))
+  const plain = trimmed.replace(GROUP_SEPARATORS, '')
+  const [whole = '', fraction = ''] = plain.replace(/^[+-]/, '').split(/[.,]/)
+  const value = Number(plain.replace(',', '.'))
   const digits = `${whole}${fraction}`.replace(/^0+/, '')
   return { value, decimals: fraction.length, sigDigits: Math.max(1, digits.length) }
 }

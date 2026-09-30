@@ -42,6 +42,8 @@ describe('splitValueAndUnit', () => {
     ['1:160', '1:160', null],
     ['не обнаружено', 'не обнаружено', null],
     ['12 (в норме)', '12 (в норме)', null],
+    ['2 000 1/мл', '2 000', '1/мл'],
+    ['9,99 10^12/л', '9,99', '10^12/л'],
   ])('splits %s', (printed, valueText, unitText) => {
     expect(splitValueAndUnit(printed)).toEqual({ valueText, unitText })
   })

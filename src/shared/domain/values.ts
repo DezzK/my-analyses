@@ -139,8 +139,11 @@ const LEADING_NUMBER = new RegExp(
   `^(?<number>(?:${BOUND_ALTERNATION})?\\s*${DECIMAL_PATTERN})\\s*(?<rest>.*)$`,
   'i',
 )
-/** A unit starts with a letter, a percent sign, a micro sign, a slash or a power of ten. */
-const UNIT_START = /^(?:[\p{L}%µμ/]|(?:[x×х*]\s*)?10\s*[*^⁰¹²³⁴⁵⁶⁷⁸⁹])/u
+/**
+ * A unit starts with a letter, a percent sign, a micro sign, a slash, a count per volume (`1/мл`)
+ * or a power of ten.
+ */
+const UNIT_START = /^(?:[\p{L}%µμ/]|1\s*\/|(?:[x×х*]\s*)?10\s*[*^⁰¹²³⁴⁵⁶⁷⁸⁹])/u
 
 export function splitValueAndUnit(printed: string): SplitValue {
   const text = printed.replace(/\s+/g, ' ').trim()
