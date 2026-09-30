@@ -11,8 +11,11 @@ import {
   IconSettings,
 } from '@tabler/icons-react'
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
+import { pendingCount } from '../mapping/MappingPage'
+import { useCurrentPatient } from '../patients/current'
 import { PatientSwitcher } from '../patients/PatientSwitcher'
 import { IS_MAC } from '../platform'
+import { useMappingQueue } from '../queries'
 import { AnalyteSearch, SearchButton } from '../search/AnalyteSearch'
 import { ICON_SIZE, TITLE_WEIGHT } from '../theme'
 
@@ -30,7 +33,7 @@ const SECTIONS: Section[] = [
   { to: '/', label: 'Обзор', icon: <IconLayoutDashboard size={ICON_SIZE.shell} /> },
   { to: '/orders', label: 'Заказы', icon: <IconFlask size={ICON_SIZE.shell} /> },
   { to: '/labs', label: 'Лаборатории', icon: <IconBuildingHospital size={ICON_SIZE.shell} /> },
-  { to: '/mapping', label: 'Сопоставление', icon: <IconArrowsShuffle size={ICON_SIZE.shell} />, soon: true },
+  { to: '/mapping', label: 'Сопоставление', icon: <IconArrowsShuffle size={ICON_SIZE.shell} /> },
   { to: '/catalog', label: 'Справочник', icon: <IconBook2 size={ICON_SIZE.shell} /> },
   { to: '/reports', label: 'Отчёты', icon: <IconFileText size={ICON_SIZE.shell} />, soon: true },
 ]
@@ -41,7 +44,15 @@ const SETTINGS: Section = {
   icon: <IconSettings size={ICON_SIZE.shell} />,
 }
 
-function SectionLink({ section, pathname }: { section: Section; pathname: string }) {
+function SectionLink({
+  section,
+  pathname,
+  count = 0,
+}: {
+  section: Section
+  pathname: string
+  count?: number
+}) {
   const active = section.to === '/' ? pathname === '/' : pathname.startsWith(section.to)
   return (
     <NavLink
@@ -55,6 +66,10 @@ function SectionLink({ section, pathname }: { section: Section; pathname: string
           <Badge size="xs" variant="light" color="gray">
             скоро
           </Badge>
+        ) : count > 0 ? (
+          <Badge size="sm" variant="filled" aria-label={`Ждут проверки: ${count}`}>
+            {count}
+          </Badge>
         ) : null
       }
       style={{ borderRadius: 8 }}
@@ -64,6 +79,9 @@ function SectionLink({ section, pathname }: { section: Section; pathname: string
 
 export function AppLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const { patient } = useCurrentPatient()
+  const { data: queue } = useMappingQueue(patient?.id ?? null)
+  const counts: Partial<Record<Section['to'], number>> = { '/mapping': pendingCount(queue) }
   return (
     <AppShell header={{ height: 56 }} navbar={{ width: 232, breakpoint: 0 }} padding="xl">
       <AppShell.Header className="drag-region" pl={IS_MAC ? MAC_TRAFFIC_LIGHTS_INSET : 'md'} pr="md">
@@ -81,7 +99,7 @@ export function AppLayout() {
       <AppShell.Navbar p="sm">
         <Stack gap={2} style={{ flex: 1 }}>
           {SECTIONS.map((section) => (
-            <SectionLink key={section.to} section={section} pathname={pathname} />
+            <SectionLink key={section.to} section={section} pathname={pathname} count={counts[section.to]} />
           ))}
         </Stack>
         <SectionLink section={SETTINGS} pathname={pathname} />

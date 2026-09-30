@@ -6,6 +6,7 @@ import { ImportService } from '../import/importer'
 import { connectorFor } from '../lab/connectors'
 import { AnalyteService } from './analytes'
 import { LabService } from './labs'
+import { MappingService } from './mapping'
 import { MergeService } from './merges'
 import { OrderService } from './orders'
 import { PanelService } from './panels'
@@ -38,6 +39,20 @@ export function createServices(deps: {
   const rules = new RuleService({ db, units, events })
   const panels = new PanelService(db, events)
   const results = new ResultReader({ db, units, analytes, patients })
-  const orders = new OrderService({ db, reader: results, attachments })
-  return { units, labs, patients, analytes, attachments, importer, merges, rules, panels, results, orders }
+  const orders = new OrderService({ db, reader: results, attachments, patients, events })
+  const mapping = new MappingService({ db, analytes, units, orders, results, patients })
+  return {
+    units,
+    labs,
+    patients,
+    analytes,
+    attachments,
+    importer,
+    merges,
+    rules,
+    panels,
+    results,
+    orders,
+    mapping,
+  }
 }

@@ -5,7 +5,7 @@ import type { Patient } from '@shared/api'
 import { formatAge } from '../format'
 import { useCurrentPatient } from './current'
 import { PatientModal } from './PatientModal'
-import { ICON_SIZE } from '../theme'
+import { ICON_SIZE, TITLE_WEIGHT } from '../theme'
 
 /** Two stacked lines (name, age) fit the header's height. */
 const COMPACT_LINE_HEIGHT = 1.2
@@ -32,7 +32,7 @@ export function PatientSwitcher() {
                 {patient ? initials(patient.title) : '?'}
               </Avatar>
               <div>
-                <Text size="sm" fw={600} lh={COMPACT_LINE_HEIGHT}>
+                <Text size="sm" fw={TITLE_WEIGHT} lh={COMPACT_LINE_HEIGHT}>
                   {patient?.title ?? 'Нет пациента'}
                 </Text>
                 {patient && (

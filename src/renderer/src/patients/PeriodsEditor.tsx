@@ -9,7 +9,7 @@ import { api, errorMessage } from '../api'
 import { formatDate } from '../format'
 import { PERIOD_KIND_LABELS } from '../labels'
 import { usePeriods } from '../queries'
-import { ICON_SIZE } from '../theme'
+import { ICON_SIZE, TITLE_WEIGHT } from '../theme'
 
 function describe(period: PatientPeriod): string {
   const from = `с ${formatDate(period.startDate)}`
@@ -25,7 +25,7 @@ export function PeriodsEditor({ patientId }: { patientId: number }) {
 
   return (
     <Stack gap="xs">
-      <Text fw={600}>Периоды</Text>
+      <Text fw={TITLE_WEIGHT}>Периоды</Text>
       <Text size="sm" c="dimmed">
         Беременность и менопауза меняют нормы: по датам периода приложение выберет подходящий референс.
       </Text>

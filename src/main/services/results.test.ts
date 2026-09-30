@@ -5,8 +5,8 @@ import { analyte, unit } from '../db/schema'
 import type { RawOrder, RawResult } from '../lab/types'
 import { createTestServices } from '../test-support'
 import type { AnalyteService } from './analytes'
-import { OrderService } from './orders'
-import { ResultReader } from './results'
+import type { OrderService } from './orders'
+import type { ResultReader } from './results'
 
 const GLUCOSE_CODE = '1.1.A1.1'
 const GLUCOSE_MOLAR_MASS = 180.16
@@ -60,8 +60,8 @@ describe('reading results', () => {
         order('2:2', '2026-08-08', [glucose('6.20'), BILE_ACIDS], true),
       ],
     )
-    reader = new ResultReader({ db, units: app.units, analytes, patients: app.patients })
-    orders = new OrderService({ db, reader, attachments: app.attachments })
+    reader = app.results
+    orders = app.orders
     const row = db.select().from(analyte).where(eq(analyte.name, 'Глюкоза')).get()
     if (!row) throw new Error('The import created glucose')
     glucoseId = row.id

@@ -282,6 +282,17 @@ export class AnalyteService {
     })
   }
 
+  /** Takes analytes off the review queue (`reviewed`), or puts them back on it. */
+  setReviewed(ids: readonly number[], reviewed: boolean): void {
+    if (ids.length === 0) return
+    this.db
+      .update(analyte)
+      .set({ reviewed })
+      .where(inArray(analyte.id, [...ids]))
+      .run()
+    dataChanged(this.events, 'catalog')
+  }
+
   /** Shows the analyte in `unitId` everywhere; it must be one of the analyte's units. */
   setDisplayUnit(analyteId: number, unitId: number | null): void {
     this.find(analyteId)

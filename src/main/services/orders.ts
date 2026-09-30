@@ -1,10 +1,14 @@
 import { desc, eq } from 'drizzle-orm'
 import type { OrderDetails, OrderSummary, ResultRow } from '@shared/api'
+import { cycleOn } from '@shared/domain/conditions'
+import { CYCLE_PHASES, type CyclePhase } from '@shared/domain/enums'
 import { isDeviation } from '@shared/domain/references'
 import { UserError } from '@shared/errors'
 import type { AttachmentStore } from '../attachments'
 import type { Db } from '../db/client'
 import { labOrder, result } from '../db/schema'
+import { dataChanged, type EventSink } from '../events'
+import type { PatientService } from './patients'
 import type { ResultReader } from './results'
 
 type OrderRow = typeof labOrder.$inferSelect
@@ -30,6 +34,8 @@ export class OrderService {
       db: Db
       reader: ResultReader
       attachments: AttachmentStore
+      patients: PatientService
+      events: EventSink
     },
   ) {}
 
@@ -48,6 +54,21 @@ export class OrderService {
     const order = this.find(orderId)
     const results = this.deps.reader.forPatient(order.patientId, eq(result.orderId, orderId))
     return { ...summarize(order, results), results }
+  }
+
+  /** Records the cycle phase the sample was collected in; only a woman outside pregnancy has one. */
+  setCyclePhase(orderId: number, phase: CyclePhase | null): void {
+    const order = this.find(orderId)
+    if (phase !== null) {
+      if (!CYCLE_PHASES.includes(phase)) throw new UserError('Неизвестная фаза цикла')
+      const patient = this.deps.patients.get(order.patientId)
+      if (patient.sex !== 'female') throw new UserError('Фаза цикла бывает только у женщин')
+      if (!cycleOn(order.collectedOn, this.deps.patients.periods(order.patientId))) {
+        throw new UserError('В день сдачи шла беременность или менопауза: фазы цикла не было')
+      }
+    }
+    this.deps.db.update(labOrder).set({ cyclePhase: phase }).where(eq(labOrder.id, orderId)).run()
+    dataChanged(this.deps.events, 'orders')
   }
 
   /** Where the order's original form is stored. */

@@ -74,6 +74,13 @@ export function createApi(s: Services): Api {
     },
     units: {
       list: async () => s.units.list(),
+      map: async (unitId, targetId) => s.units.map(unitId, targetId),
+      accept: async (unitId) => s.units.accept(unitId),
+    },
+    mapping: {
+      queue: async (patientId) => s.mapping.queue(patientId),
+      setReviewed: async (analyteIds, reviewed) => s.analytes.setReviewed(analyteIds, reviewed),
+      suggestions: async (analyteId) => s.mapping.suggestions(analyteId),
     },
     analytes: {
       search: async (query, patientId) => s.analytes.search(query, patientId),
@@ -106,6 +113,7 @@ export function createApi(s: Services): Api {
     orders: {
       list: async (patientId) => s.orders.list(patientId),
       get: async (orderId) => s.orders.get(orderId),
+      setCyclePhase: async (orderId, phase) => s.orders.setCyclePhase(orderId, phase),
       openForm: async (orderId) => {
         const failure = await shell.openPath(s.orders.formPath(orderId))
         if (failure) throw new Error(failure)

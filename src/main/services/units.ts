@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import {
   BUILTIN_UNITS,
   createUnitResolver,
@@ -6,8 +6,10 @@ import {
   UNKNOWN_UNIT_PREFIX,
   type UnitRowLike,
 } from '@shared/domain/units'
+import { UserError } from '@shared/errors'
 import type { Db } from '../db/client'
-import { unit, unitSpelling } from '../db/schema'
+import { analyte, analyteUnit, referenceRule, result, unit, unitSpelling } from '../db/schema'
+import { inTransaction } from '../db/transaction'
 import { dataChanged, type EventSink } from '../events'
 
 export type UnitRow = typeof unit.$inferSelect
@@ -74,6 +76,66 @@ export class UnitService {
     this.invalidate()
     dataChanged(this.events, 'catalog')
     return { unit: row, created: true }
+  }
+
+  /**
+   * Says that a spelling nobody had mapped means an existing unit: from now on imports read it so,
+   * and everything stored in the placeholder unit moves into that unit.
+   */
+  map(unitId: number, targetId: number): void {
+    const placeholder = this.unknown(unitId)
+    if (!this.get(targetId)) throw new UserError('Единица не найдена')
+    if (targetId === unitId) throw new UserError('Выберите другую единицу')
+    const moved = { unitId: targetId }
+    inTransaction(this.db, () => {
+      this.db.update(result).set(moved).where(eq(result.unitId, unitId)).run()
+      this.db.update(referenceRule).set(moved).where(eq(referenceRule.unitId, unitId)).run()
+      for (const row of this.db.select().from(analyteUnit).where(eq(analyteUnit.unitId, unitId)).all()) {
+        this.db
+          .insert(analyteUnit)
+          .values({ ...row, unitId: targetId })
+          .onConflictDoNothing()
+          .run()
+      }
+      this.db.delete(analyteUnit).where(eq(analyteUnit.unitId, unitId)).run()
+      this.db
+        .update(analyte)
+        .set({ canonicalUnitId: targetId })
+        .where(eq(analyte.canonicalUnitId, unitId))
+        .run()
+      this.db.update(analyte).set({ displayUnitId: targetId }).where(eq(analyte.displayUnitId, unitId)).run()
+      // A spelling someone mapped never gets a placeholder, so it cannot be here twice.
+      this.db
+        .insert(unitSpelling)
+        .values({ spelling: placeholder.code.slice(UNKNOWN_UNIT_PREFIX.length), unitId: targetId })
+        .run()
+      this.db.delete(unit).where(eq(unit.id, unitId)).run()
+    })
+    this.invalidate()
+    dataChanged(this.events, 'catalog', 'orders')
+  }
+
+  /** Keeps a spelling nobody had mapped as a unit of its own, off the review queue. */
+  accept(unitId: number): void {
+    this.unknown(unitId)
+    this.db.update(unit).set({ reviewed: true }).where(eq(unit.id, unitId)).run()
+    this.invalidate()
+    dataChanged(this.events, 'catalog')
+  }
+
+  /** Units an import made up for spellings nobody has mapped yet. */
+  listUnknown(): UnitRow[] {
+    return this.db.select().from(unit).where(eq(unit.reviewed, false)).orderBy(asc(unit.display)).all()
+  }
+
+  private unknown(unitId: number): UnitRow {
+    const row = this.db
+      .select()
+      .from(unit)
+      .where(and(eq(unit.id, unitId), eq(unit.reviewed, false)))
+      .get()
+    if (!row) throw new UserError('Эта единица уже сопоставлена')
+    return row
   }
 
   private invalidate(): void {

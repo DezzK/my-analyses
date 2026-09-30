@@ -12,6 +12,14 @@ const PHASE_CONDITION: Record<CyclePhase, ReferenceCondition> = {
   luteal: 'phase_luteal',
 }
 
+/** Conditions that only an order's recorded cycle phase can establish. */
+export const CYCLE_PHASE_CONDITIONS: readonly ReferenceCondition[] = Object.values(PHASE_CONDITION)
+
+/** Whether a cycle phase can be asked about on `date`: not during a pregnancy or after menopause. */
+export function cycleOn(date: string, periods: readonly PeriodLike[]): boolean {
+  return conditionsOn(date, periods, null).size === 0
+}
+
 export interface PeriodLike {
   kind: PeriodKind
   startDate: string

@@ -49,7 +49,11 @@ commits are English.
 - Heading weight and icon sizes: `TITLE_WEIGHT` and `ICON_SIZE` (`src/renderer/src/theme.ts`).
 - Rules about patients and periods: `PatientService` (`src/main/services/patients.ts`). The UI never
   validates on a service's behalf; it shows the `UserError` the service throws.
-- Which spelling means which unit, and the built-in units in the database: `UnitService`.
+- Which spelling means which unit, the built-in units in the database, and mapping an unknown
+  spelling onto a unit (or keeping it as its own): `UnitService`.
+- The review queue after imports: new analytes and what they may be merged with, unknown units,
+  orders whose norms need a cycle phase (`cycleOn`, `CYCLE_PHASE_CONDITIONS` in
+  `src/shared/domain/conditions.ts`), results the lab judged otherwise: `MappingService`.
 - Labs, their chart markers (`LAB_MARKERS`), the built-in labs and which connector serves a lab
   (`LabService.connector`): `LabService`.
 - Analytes, their lab codes, the unit each is shown in, search and the FTS index

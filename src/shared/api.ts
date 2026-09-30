@@ -1,7 +1,15 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm'
 import type { analyte, lab, patient, patientPeriod, referenceRule, unit } from '@main/db/schema'
 import type { BackupReason } from './backup-policy'
-import type { LabFlag, OrderSource, Specimen, SyncStage, SyncStatus, ValueKind } from './domain/enums'
+import type {
+  CyclePhase,
+  LabFlag,
+  OrderSource,
+  Specimen,
+  SyncStage,
+  SyncStatus,
+  ValueKind,
+} from './domain/enums'
 import type { Interpretation } from './domain/interpret'
 import type { QualitativeCode } from './domain/values'
 
@@ -134,6 +142,41 @@ export interface LabReference {
   lastCollectedOn: string
 }
 
+/** An analyte an import created that nobody has looked at yet. */
+export interface UnreviewedAnalyte {
+  id: number
+  name: string
+  specimen: Specimen | null
+  unitId: number | null
+  codes: { labId: number | null; code: string }[]
+  resultCount: number
+}
+
+/** A unit spelling an import met that no known unit had. */
+export interface UnknownUnit {
+  id: number
+  display: string
+  resultCount: number
+  analyteNames: string[]
+}
+
+/** What waits for the person after imports; the patient parts are about the current patient. */
+export interface MappingQueue {
+  analytes: UnreviewedAnalyte[]
+  units: UnknownUnit[]
+  /** Orders with results whose norm depends on a cycle phase nobody recorded. */
+  phaseOrders: OrderSummary[]
+  /** Results the lab judged otherwise than the app: a reading error or a disputable reference. */
+  disagreements: ResultRow[]
+}
+
+/** An existing analyte a new one may be the same as. */
+export interface MatchSuggestion {
+  id: number
+  name: string
+  unitId: number | null
+}
+
 /** A named set of analytes, entered and searched together: «Общий анализ крови». */
 export interface Panel {
   id: number
@@ -240,6 +283,17 @@ export interface Api {
   }
   units: {
     list(): Promise<Unit[]>
+    /** An unknown spelling means `targetId`; its results move there and imports read it so. */
+    map(unitId: number, targetId: number): Promise<void>
+    /** Keeps an unknown spelling as a unit of its own. */
+    accept(unitId: number): Promise<void>
+  }
+  mapping: {
+    queue(patientId: number): Promise<MappingQueue>
+    /** Takes analytes off the queue as looked at (`reviewed`), or puts them back. */
+    setReviewed(analyteIds: number[], reviewed: boolean): Promise<void>
+    /** Existing analytes that share words of the name with this one, the likeliest first. */
+    suggestions(analyteId: number): Promise<MatchSuggestion[]>
   }
   analytes: {
     /** By name, synonym or lab code, ignoring case and ё; the patient's own analytes first. */
@@ -280,6 +334,8 @@ export interface Api {
     get(orderId: number): Promise<OrderDetails>
     /** Opens the original lab form in the system's PDF viewer. */
     openForm(orderId: number): Promise<void>
+    /** The cycle phase the sample was collected in: some norms depend on it. */
+    setCyclePhase(orderId: number, phase: CyclePhase | null): Promise<void>
   }
   labs: {
     list(): Promise<Lab[]>

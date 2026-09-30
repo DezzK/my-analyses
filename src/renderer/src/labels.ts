@@ -1,6 +1,7 @@
 import type { BackupReason } from '@shared/api'
 import type { AgeUnit } from '@shared/domain/age'
 import type {
+  CyclePhase,
   LabFlag,
   PeriodKind,
   ReferenceCondition,
@@ -82,13 +83,19 @@ export const VALUE_KIND_LABELS: Record<ValueKind, string> = {
   text: 'Текст',
 }
 
+export const CYCLE_PHASE_LABELS: Record<CyclePhase, string> = {
+  follicular: 'Фолликулярная фаза',
+  ovulatory: 'Овуляторная фаза',
+  luteal: 'Лютеиновая фаза',
+}
+
 export const CONDITION_LABELS: Record<ReferenceCondition, string> = {
   pregnancy_t1: 'Беременность, I триместр',
   pregnancy_t2: 'Беременность, II триместр',
   pregnancy_t3: 'Беременность, III триместр',
-  phase_follicular: 'Фолликулярная фаза',
-  phase_ovulatory: 'Овуляторная фаза',
-  phase_luteal: 'Лютеиновая фаза',
+  phase_follicular: CYCLE_PHASE_LABELS.follicular,
+  phase_ovulatory: CYCLE_PHASE_LABELS.ovulatory,
+  phase_luteal: CYCLE_PHASE_LABELS.luteal,
   postmenopause: 'Постменопауза',
 }
 

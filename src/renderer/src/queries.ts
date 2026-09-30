@@ -27,6 +27,8 @@ export const keys = {
   merges: (analyteId: number) => ['catalog', 'merges', analyteId] as const,
   panels: () => ['catalog', 'panels'] as const satisfies readonly [DataScope, string],
   labReferences: (analyteId: number) => [DERIVED, 'lab-references', analyteId] as const,
+  mapping: (patientId: number) => [DERIVED, 'mapping', patientId] as const,
+  suggestions: (analyteId: number) => [DERIVED, 'suggestions', analyteId] as const,
   analyteResults: (analyteId: number, patientId: number) =>
     [DERIVED, 'analyte', analyteId, patientId] as const,
   search: (query: string, patientId: number | null) => [DERIVED, 'search', query, patientId] as const,
@@ -106,6 +108,22 @@ export function useLabReferences(analyteId: number) {
   return useQuery({
     queryKey: keys.labReferences(analyteId),
     queryFn: () => api.rules.labReferences(analyteId),
+  })
+}
+
+export function useMappingQueue(patientId: number | null) {
+  return useQuery({
+    queryKey: keys.mapping(patientId ?? 0),
+    queryFn: () => api.mapping.queue(patientId ?? 0),
+    enabled: patientId !== null,
+  })
+}
+
+export function useSuggestions(analyteId: number | null) {
+  return useQuery({
+    queryKey: keys.suggestions(analyteId ?? 0),
+    queryFn: () => api.mapping.suggestions(analyteId ?? 0),
+    enabled: analyteId !== null,
   })
 }
 

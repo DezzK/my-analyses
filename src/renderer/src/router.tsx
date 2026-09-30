@@ -6,6 +6,7 @@ import { AnalyteCardPage } from './catalog/AnalyteCardPage'
 import { CatalogPage } from './catalog/CatalogPage'
 import { LabsPage } from './labs/LabsPage'
 import { AppLayout } from './layout/AppLayout'
+import { MappingPage } from './mapping/MappingPage'
 import { Welcome, type WelcomeStep } from './onboarding/Welcome'
 import { OrdersPage } from './orders/OrdersPage'
 import { ComingSoonPage } from './pages/ComingSoonPage'
@@ -50,12 +51,7 @@ const routeTree = rootRoute.addChildren([
   page('/orders', OrdersPage),
   page('/labs', LabsPage),
   page('/analytes/$analyteId', AnalytePage),
-  page('/mapping', () => (
-    <ComingSoonPage
-      title="Сопоставление"
-      description="Очередь новых показателей и единиц после импорта: проверить, объединить с существующими."
-    />
-  )),
+  page('/mapping', MappingPage),
   page('/catalog', CatalogPage),
   page('/catalog/$analyteId', AnalyteCardPage),
   page('/reports', () => (
