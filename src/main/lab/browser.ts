@@ -2,7 +2,7 @@ import { BrowserWindow, session, shell, type Event, type WebContents } from 'ele
 import { setTimeout as sleep } from 'node:timers/promises'
 import type { FetchInit, FetchedText, LabConnector, LabPage } from './types'
 
-/** Chromium's error for a navigation that was cancelled, here by the host guard below. */
+/** Chromium's error for a navigation that was canceled, here by the host guard below. */
 const ERR_ABORTED = -3
 const LOGIN_WINDOW = { width: 1100, height: 820 }
 /** How often the login window asks the connector whether someone has logged in by now. */
