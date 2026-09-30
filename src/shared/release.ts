@@ -8,7 +8,7 @@
 export const APP_ID = 'io.github.dezzk.my-analyses'
 
 /** GitHub repository whose releases carry the installers and the update files. */
-export const RELEASE_REPO = { owner: 'DezzK', repo: 'my-analyzes' } as const
+export const RELEASE_REPO = { owner: 'DezzK', repo: 'my-analyses' } as const
 
 /** Every release carries the macOS builds' description under this name for the app's own updater. */
 export const MAC_FEED_FILE = 'latest-mac.json'
