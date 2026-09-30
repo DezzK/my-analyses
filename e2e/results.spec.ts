@@ -23,7 +23,7 @@ const urineProtein: RawResult = {
 }
 
 function order(externalKey: string, collectedOn: string, results: RawResult[]): RawOrder {
-  return { externalKey, collectedOn, results, rawPayload: JSON.stringify(results), pdf: null }
+  return { externalKey, collectedOn, results, rawPayload: JSON.stringify(results), forms: [] }
 }
 
 const KDL_ORDERS = [

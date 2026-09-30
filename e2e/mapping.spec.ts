@@ -13,7 +13,7 @@ function raw(
 }
 
 function order(externalKey: string, collectedOn: string, results: RawResult[]): RawOrder {
-  return { externalKey, collectedOn, results, rawPayload: externalKey, pdf: null }
+  return { externalKey, collectedOn, results, rawPayload: externalKey, forms: [] }
 }
 
 test('the mapping queue merges, accepts, maps units and shows disagreements', async () => {

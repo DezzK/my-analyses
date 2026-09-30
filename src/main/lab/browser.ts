@@ -1,6 +1,6 @@
 import { BrowserWindow, session, shell, type Event, type WebContents } from 'electron'
 import { setTimeout as sleep } from 'node:timers/promises'
-import type { FetchInit, FetchedText, LabConnector, LabPage } from './types'
+import type { FetchedBytes, FetchInit, FetchedText, LabConnector, LabPage } from './types'
 
 /** Chromium's error for a navigation that was canceled, here by the host guard below. */
 const ERR_ABORTED = -3
@@ -38,6 +38,9 @@ const labPagePreferences = (partition: string) => ({
   nodeIntegration: false,
 })
 
+/** Bytes per `String.fromCharCode` call when a page turns a file into base64. */
+const BASE64_SLICE = 0x8000
+
 /** Requests made from inside the lab's page, so they carry its session; spaced by the connector. */
 class WebContentsLabPage implements LabPage {
   private nextRequestAt = 0
@@ -60,13 +63,35 @@ class WebContentsLabPage implements LabPage {
     return Promise.race([evaluation, timeout]).finally(() => clearTimeout(timer))
   }
 
-  async fetchText(url: string, init?: FetchInit): Promise<FetchedText> {
+  fetchText(url: string, init?: FetchInit): Promise<FetchedText> {
+    return this.request(url, init, '({ status: r.status, url: r.url, text: await r.text() })')
+  }
+
+  async fetchBytes(url: string, init?: FetchInit): Promise<FetchedBytes> {
+    // Bytes cross into the main process as base64, built in slices: one huge argument list overflows.
+    const { base64, ...response } = await this.request<{ status: number; url: string; base64: string }>(
+      url,
+      init,
+      `(() => { const b = new Uint8Array(await r.arrayBuffer()); let s = ""; ` +
+        `for (let i = 0; i < b.length; i += ${BASE64_SLICE}) s += String.fromCharCode.apply(null, b.subarray(i, i + ${BASE64_SLICE})); ` +
+        'return { status: r.status, url: r.url, base64: btoa(s) }; })()',
+    )
+    return { ...response, bytes: new Uint8Array(Buffer.from(base64, 'base64')) }
+  }
+
+  /** One request from inside the page, after the connector's pause; `read` turns the response `r` into T. */
+  private async request<T>(url: string, init: FetchInit | undefined, read: string): Promise<T> {
     const wait = this.nextRequestAt - Date.now()
     if (wait > 0) await sleep(wait)
+    const options = {
+      method: init?.method ?? 'GET',
+      headers: init?.headers ?? {},
+      ...(init?.body === undefined ? {} : { body: init.body }),
+      credentials: init?.credentials ?? 'include',
+    }
     try {
-      return await this.evaluate<FetchedText>(
-        `fetch(${JSON.stringify(url)}, { headers: ${JSON.stringify(init?.headers ?? {})}, credentials: 'include' })` +
-          '.then(async (r) => ({ status: r.status, url: r.url, text: await r.text() }))',
+      return await this.evaluate<T>(
+        `fetch(${JSON.stringify(url)}, ${JSON.stringify(options)}).then(async (r) => ${read})`,
       )
     } finally {
       this.nextRequestAt = Date.now() + this.intervalMs
@@ -163,7 +188,7 @@ export class LabBrowser implements LabSessions {
     const window = new BrowserWindow({ show: false, webPreferences: labPagePreferences(partition) })
     this.guard(window.webContents, connector)
     try {
-      await window.loadURL(connector.homeUrl).catch(ignoreAborted)
+      await window.loadURL(connector.syncUrl ?? connector.homeUrl).catch(ignoreAborted)
       return await task(new WebContentsLabPage(window.webContents, connector.requestIntervalMs))
     } finally {
       window.destroy()

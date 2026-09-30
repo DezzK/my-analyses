@@ -258,7 +258,8 @@ export interface OrderSummary {
   collectedTime: string | null
   source: OrderSource
   note: string | null
-  hasForm: boolean
+  /** How many original forms the lab issued, or the person attached. */
+  formCount: number
   resultCount: number
   /** Results outside their reference. */
   deviationCount: number
@@ -267,7 +268,7 @@ export interface OrderSummary {
 export interface OrderDetails extends OrderSummary {
   patientId: number
   cyclePhase: CyclePhase | null
-  formFile: string | null
+  formFiles: string[]
   results: ResultRow[]
 }
 
@@ -279,8 +280,8 @@ export interface OrderInput {
   collectedTime: string | null
   cyclePhase: CyclePhase | null
   note: string | null
-  /** A form stored by `forms.pick`, or null. */
-  formFile: string | null
+  /** Forms stored by `forms.pick`, in the order they are shown. */
+  formFiles: string[]
 }
 
 /** One result as the person types it: stored as typed, read like a lab's. */
@@ -434,8 +435,8 @@ export interface Api {
     /** Newest first. */
     list(patientId: number): Promise<OrderSummary[]>
     get(orderId: number): Promise<OrderDetails>
-    /** Opens the original lab form in the system's PDF viewer. */
-    openForm(orderId: number): Promise<void>
+    /** Opens the order's original form number `index`, from 0, in the system's viewer. */
+    openForm(orderId: number, index: number): Promise<void>
     /** The cycle phase the sample was collected in: some norms depend on it. */
     setCyclePhase(orderId: number, phase: CyclePhase | null): Promise<void>
     /** An order entered by hand; import never touches it. Returns its id. */

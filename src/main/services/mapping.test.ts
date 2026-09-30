@@ -17,7 +17,7 @@ function raw(
 }
 
 function order(externalKey: string, collectedOn: string, results: RawResult[]): RawOrder {
-  return { externalKey, collectedOn, results, rawPayload: externalKey, pdf: null }
+  return { externalKey, collectedOn, results, rawPayload: externalKey, forms: [] }
 }
 
 describe('the mapping queue', () => {

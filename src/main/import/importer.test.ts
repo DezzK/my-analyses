@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { AttachmentStore } from '../attachments'
+import type { OrderForms } from '../services/order-forms'
 import type { Db } from '../db/client'
 import { analyte, labOrder, result, unit } from '../db/schema'
 import type { RawOrder, RawResult } from '../lab/types'
@@ -58,7 +59,7 @@ function order(results: RawResult[], externalKey = '5:1001'): RawOrder {
     collectedOn: '2026-08-08',
     results,
     rawPayload: JSON.stringify(results),
-    pdf: null,
+    forms: [],
   }
 }
 
@@ -66,11 +67,12 @@ describe('ImportService', () => {
   let db: Db
   let importer: ImportService
   let attachments: AttachmentStore
+  let forms: OrderForms
   let target: ImportTarget
 
   beforeEach(() => {
     const app = createTestServices()
-    ;({ db, importer, attachments } = app)
+    ;({ db, importer, attachments, forms } = app)
     target = { labId: app.kdlId, labAccountId: null, patientId: app.anna.id, connectorVersion: 'test' }
   })
 
@@ -147,12 +149,22 @@ describe('ImportService', () => {
     ).toBe(5)
   })
 
-  it('keeps the original form next to the order', () => {
-    const pdf = new TextEncoder().encode('%PDF-1.7 fake')
-    importer.importOrders(target, [{ ...order(RESULTS), pdf }])
-    const stored = db.select().from(labOrder).get()
-    expect(stored?.formFile).toMatch(/^[0-9a-f]{64}\.pdf$/)
-    expect(existsSync(attachments.path(stored?.formFile ?? ''))).toBe(true)
+  it("keeps every original form next to the order, in the lab's order, until the lab sends others", () => {
+    const pdfs = (...texts: string[]) => texts.map((text) => new TextEncoder().encode(`%PDF-1.7 ${text}`))
+    importer.importOrders(target, [{ ...order(RESULTS), forms: pdfs('first sample', 'second sample') }])
+    const orderId = db.select().from(labOrder).get()?.id ?? -1
+    const stored = forms.of(orderId)
+    expect(stored).toHaveLength(2)
+    expect(
+      stored.every((file) => /^[0-9a-f]{64}\.pdf$/.test(file) && existsSync(attachments.path(file))),
+    ).toBe(true)
+    expect(importer.needsForms(target.labId, order(RESULTS))).toBe(false)
+
+    // A later import that fetched no forms keeps the stored ones; one that fetched new ones replaces them.
+    expect(importer.importOrders(target, [order(RESULTS)]).ordersUnchanged).toBe(1)
+    expect(forms.of(orderId)).toEqual(stored)
+    importer.importOrders(target, [{ ...order(RESULTS), forms: pdfs('reissued') }])
+    expect(forms.of(orderId)).toHaveLength(1)
   })
 
   it('indexes new analytes for search by name and lab code', () => {

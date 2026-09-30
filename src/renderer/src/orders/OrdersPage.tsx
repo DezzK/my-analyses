@@ -7,6 +7,7 @@ import {
   Center,
   Group,
   Loader,
+  Menu,
   Modal,
   Select,
   Stack,
@@ -217,16 +218,7 @@ function OrderResults({
           >
             Добавить результат
           </Button>
-          {order.hasForm && (
-            <Button
-              variant="light"
-              size="xs"
-              leftSection={<IconFileTypePdf size={ICON_SIZE.small} />}
-              onClick={() => api.orders.openForm(order.id).catch(notifyError)}
-            >
-              Открыть бланк
-            </Button>
-          )}
+          <FormsButton orderId={order.id} count={order.formCount} />
         </Group>
         <Button
           variant="subtle"
@@ -315,5 +307,35 @@ function OrderHeaderModal({
         </Group>
       </Stack>
     </Modal>
+  )
+}
+
+const openForm = (orderId: number, index: number) => api.orders.openForm(orderId, index).catch(notifyError)
+
+/** The lab's original forms: one opens at once, several are picked from a menu. */
+function FormsButton({ orderId, count }: { orderId: number; count: number }) {
+  if (count === 0) return null
+  const button = (
+    <Button
+      variant="light"
+      size="xs"
+      leftSection={<IconFileTypePdf size={ICON_SIZE.small} />}
+      onClick={count === 1 ? () => void openForm(orderId, 0) : undefined}
+    >
+      {count === 1 ? 'Открыть бланк' : `Бланки · ${count}`}
+    </Button>
+  )
+  if (count === 1) return button
+  return (
+    <Menu position="bottom-start">
+      <Menu.Target>{button}</Menu.Target>
+      <Menu.Dropdown>
+        {Array.from({ length: count }, (_, index) => (
+          <Menu.Item key={index} onClick={() => void openForm(orderId, index)}>
+            Бланк {index + 1}
+          </Menu.Item>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
   )
 }

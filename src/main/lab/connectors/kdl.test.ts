@@ -143,8 +143,8 @@ describe('kdlConnector', () => {
       collectedOn: '2026-07-15',
       data: { orderId: 1, createAt: 1, regionDb: 2 },
     }
-    const bytes = await kdlConnector.fetchOrderPdf?.(page, ref)
-    expect(Buffer.from(bytes ?? []).toString()).toBe('%PDF-1.7 fake')
+    const forms = await kdlConnector.fetchOrderForms?.(page, ref)
+    expect(forms?.map((bytes) => Buffer.from(bytes).toString())).toEqual(['%PDF-1.7 fake'])
   })
 })
 

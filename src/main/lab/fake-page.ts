@@ -1,6 +1,10 @@
-import type { FetchInit, FetchedText, LabPage } from './types'
+import type { FetchedBytes, FetchInit, FetchedText, LabPage } from './types'
 
-type Route = (url: string, init: FetchInit | undefined) => FetchedText | null
+const HTTP_OK = 200
+
+/** What a route answers: text, or the bytes of a file. */
+type Answer = { status: number; url: string; text?: string; bytes?: Uint8Array }
+type Route = (url: string, init: FetchInit | undefined) => Answer | null
 
 /** A LabPage for tests: answers expressions from a table and requests from routes, and logs them. */
 export class FakeLabPage implements LabPage {
@@ -22,17 +26,39 @@ export class FakeLabPage implements LabPage {
   }
 
   async fetchText(url: string, init?: FetchInit): Promise<FetchedText> {
+    const { status, url: final, text = '' } = this.route(url, init)
+    return { status, url: final, text }
+  }
+
+  async fetchBytes(url: string, init?: FetchInit): Promise<FetchedBytes> {
+    const { status, url: final, bytes = new Uint8Array(), text } = this.route(url, init)
+    return { status, url: final, bytes: text === undefined ? bytes : new TextEncoder().encode(text) }
+  }
+
+  private route(url: string, init: FetchInit | undefined): Answer {
     this.requests.push({ url, init })
     for (const route of this.routes) {
       const response = route(url, init)
       if (response) return response
     }
-    return { status: 404, url, text: '' }
+    return { status: 404, url }
   }
 }
 
 /** A route answering 200 with `text` for URLs containing `fragment`. */
-export function answer(fragment: string, text: string | ((url: string) => string)): Route {
-  return (url) =>
-    url.includes(fragment) ? { status: 200, url, text: typeof text === 'string' ? text : text(url) } : null
+export function answer(fragment: string, text: string | ((url: string, init?: FetchInit) => string)): Route {
+  return (url, init) =>
+    url.includes(fragment)
+      ? { status: HTTP_OK, url, text: typeof text === 'string' ? text : text(url, init) }
+      : null
+}
+
+/** A route answering 200 with a file for URLs containing `fragment`. */
+export function answerBytes(fragment: string, bytes: Uint8Array): Route {
+  return (url) => (url.includes(fragment) ? { status: HTTP_OK, url, bytes } : null)
+}
+
+/** A route answering `status` with no body for URLs containing `fragment`. */
+export function refuse(fragment: string, status: number): Route {
+  return (url) => (url.includes(fragment) ? { status, url } : null)
 }

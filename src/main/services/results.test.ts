@@ -31,13 +31,13 @@ const BILE_ACIDS: RawResult = {
   flag: 'normal',
 }
 
-function order(externalKey: string, collectedOn: string, results: RawResult[], pdf = false): RawOrder {
+function order(externalKey: string, collectedOn: string, results: RawResult[], withForm = false): RawOrder {
   return {
     externalKey,
     collectedOn,
     results,
     rawPayload: JSON.stringify({ collectedOn, results }),
-    pdf: pdf ? new TextEncoder().encode(`%PDF ${externalKey}`) : null,
+    forms: withForm ? [new TextEncoder().encode(`%PDF ${externalKey}`)] : [],
   }
 }
 
@@ -96,14 +96,14 @@ describe('reading results', () => {
 
   it('summarizes orders with their deviations and opens one with its results', () => {
     const list = orders.list(annaId)
-    expect(list.map((o) => [o.collectedOn, o.resultCount, o.deviationCount, o.hasForm])).toEqual([
-      ['2026-08-08', 2, 1, true],
-      ['2025-03-01', 1, 0, false],
+    expect(list.map((o) => [o.collectedOn, o.resultCount, o.deviationCount, o.formCount])).toEqual([
+      ['2026-08-08', 2, 1, 1],
+      ['2025-03-01', 1, 0, 0],
     ])
     const latest = orders.get(list[0]?.id ?? -1)
     expect(latest.results.map((r) => r.analyteName)).toEqual(['Глюкоза', 'Жёлчные кислоты'])
-    expect(orders.formPath(latest.id)).toMatch(/\.pdf$/)
-    expect(() => orders.formPath(list[1]?.id ?? -1)).toThrow('нет бланка')
+    expect(orders.formPath(latest.id, 0)).toMatch(/\.pdf$/)
+    expect(() => orders.formPath(list[1]?.id ?? -1, 0)).toThrow('нет такого бланка')
   })
 })
 

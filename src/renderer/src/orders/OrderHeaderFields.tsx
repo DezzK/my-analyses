@@ -1,5 +1,16 @@
 import { useState } from 'react'
-import { Button, Group, Input, Modal, Select, SimpleGrid, Stack, Text, TextInput } from '@mantine/core'
+import {
+  ActionIcon,
+  Button,
+  Group,
+  Input,
+  Modal,
+  Select,
+  SimpleGrid,
+  Stack,
+  Text,
+  TextInput,
+} from '@mantine/core'
 import { TimeInput } from '@mantine/dates'
 import { IconPaperclip, IconX } from '@tabler/icons-react'
 import type { OrderDetails, OrderInput, Patient } from '@shared/api'
@@ -18,14 +29,14 @@ export interface HeaderValues {
   collectedTime: string
   cyclePhase: string | null
   note: string
-  form: { key: string; name: string } | null
+  /** Attached forms: a stored file's key, and what to call it here. */
+  forms: { key: string; name: string }[]
 }
 
 const NEW_LAB = 'new-lab'
-const ATTACHED = 'бланк приложен'
 
 export function emptyHeader(): HeaderValues {
-  return { labId: null, collectedOn: null, collectedTime: '', cyclePhase: null, note: '', form: null }
+  return { labId: null, collectedOn: null, collectedTime: '', cyclePhase: null, note: '', forms: [] }
 }
 
 export function headerOf(order: OrderDetails): HeaderValues {
@@ -35,7 +46,7 @@ export function headerOf(order: OrderDetails): HeaderValues {
     collectedTime: order.collectedTime ?? '',
     cyclePhase: order.cyclePhase,
     note: order.note ?? '',
-    form: order.formFile ? { key: order.formFile, name: ATTACHED } : null,
+    forms: order.formFiles.map((key, index) => ({ key, name: `Бланк ${index + 1}` })),
   }
 }
 
@@ -48,7 +59,7 @@ export function orderInput(values: HeaderValues, patientId: number): OrderInput 
     collectedTime: values.collectedTime || null,
     cyclePhase: (values.cyclePhase as CyclePhase | null) ?? null,
     note: values.note || null,
-    formFile: values.form?.key ?? null,
+    formFiles: values.forms.map((form) => form.key),
   }
 }
 
@@ -67,7 +78,7 @@ export function OrderHeaderFields({
   const attach = () =>
     api.forms
       .pick()
-      .then((form) => form && set({ form }))
+      .then((form) => form && set({ forms: [...values.forms, form] }))
       .catch(notifyError)
 
   return (
@@ -114,34 +125,34 @@ export function OrderHeaderFields({
           value={values.note}
           onChange={(e) => set({ note: e.currentTarget.value })}
         />
-        <Input.Wrapper label="Бланк" description="PDF или фотография">
-          <Group gap="xs" mt={4} wrap="nowrap">
-            {values.form ? (
-              <>
-                <Text size="sm" truncate>
-                  {values.form.name}
+        <Input.Wrapper label="Бланки" description="PDF или фотографии">
+          <Stack gap={4} mt={4}>
+            {values.forms.map((form, index) => (
+              <Group key={`${form.key}-${index}`} gap="xs" wrap="nowrap">
+                <Text size="sm" truncate style={{ flex: 1 }}>
+                  {form.name}
                 </Text>
-                <Button
-                  size="xs"
+                <ActionIcon
                   variant="subtle"
                   color="gray"
-                  leftSection={<IconX size={ICON_SIZE.small} />}
-                  onClick={() => set({ form: null })}
+                  aria-label={`Убрать «${form.name}»`}
+                  onClick={() => set({ forms: values.forms.filter((_, i) => i !== index) })}
                 >
-                  Убрать
-                </Button>
-              </>
-            ) : (
+                  <IconX size={ICON_SIZE.small} />
+                </ActionIcon>
+              </Group>
+            ))}
+            <Group>
               <Button
                 size="xs"
                 variant="light"
                 leftSection={<IconPaperclip size={ICON_SIZE.small} />}
                 onClick={() => void attach()}
               >
-                Приложить
+                {values.forms.length ? 'Приложить ещё' : 'Приложить'}
               </Button>
-            )}
-          </Group>
+            </Group>
+          </Stack>
         </Input.Wrapper>
       </SimpleGrid>
       <NewLabModal

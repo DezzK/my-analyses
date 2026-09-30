@@ -24,7 +24,7 @@ describe('entering orders by hand', () => {
       collectedTime: null,
       cyclePhase: null,
       note: null,
-      formFile: null,
+      formFiles: [],
       results,
       ...overrides,
     }
@@ -126,7 +126,7 @@ describe('entering orders by hand', () => {
             },
           ],
           rawPayload: 'k1',
-          pdf: null,
+          forms: [],
         },
       ],
     )
@@ -189,10 +189,25 @@ describe('entering orders by hand', () => {
 
   it('never lets an unknown file name stand for a form', () => {
     expect(() =>
-      app.orders.create(order([row(glucose, '5', mmol)], { formFile: '../../etc/passwd' })),
+      app.orders.create(order([row(glucose, '5', mmol)], { formFiles: ['../../etc/passwd'] })),
     ).toThrow('Not an attachment key')
     const key = app.attachments.store(new TextEncoder().encode('photo'), 'jpg')
-    const id = app.orders.create(order([row(glucose, '5', mmol)], { formFile: key }))
-    expect(app.orders.formPath(id)).toMatch(/\.jpg$/)
+    const id = app.orders.create(order([row(glucose, '5', mmol)], { formFiles: [key] }))
+    expect(app.orders.formPath(id, 0)).toMatch(/\.jpg$/)
+  })
+
+  it('keeps several forms in the order given, and brings them back with an undone delete', () => {
+    const [photo, scan] = ['photo', 'scan'].map((text) =>
+      app.attachments.store(new TextEncoder().encode(text), 'jpg'),
+    )
+    const id = app.orders.create(order([row(glucose, '5', mmol)], { formFiles: [photo ?? '', scan ?? ''] }))
+    expect(app.orders.get(id)).toMatchObject({ formCount: 2, formFiles: [photo, scan] })
+    app.orders.update(id, order([], { formFiles: [scan ?? ''] }))
+    expect(app.orders.get(id).formFiles).toEqual([scan])
+    expect(() => app.orders.formPath(id, 1)).toThrow('нет такого бланка')
+
+    const token = app.orders.remove(id)
+    app.orders.undoRemove(token)
+    expect(app.orders.get(id).formFiles).toEqual([scan])
   })
 })

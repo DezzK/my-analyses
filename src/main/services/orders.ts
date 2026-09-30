@@ -15,13 +15,13 @@ import { formatDateRu } from '@shared/domain/dates'
 import { isDeviation } from '@shared/domain/references'
 import { parseValue } from '@shared/domain/values'
 import { UserError } from '@shared/errors'
-import type { AttachmentStore } from '../attachments'
 import type { Db } from '../db/client'
 import { analyteUnit, labOrder, result } from '../db/schema'
 import { inTransaction } from '../db/transaction'
 import { dataChanged, type EventSink } from '../events'
 import type { AnalyteService } from './analytes'
 import type { LabService } from './labs'
+import type { OrderForms } from './order-forms'
 import type { PatientService } from './patients'
 import type { ResultReader } from './results'
 import type { UnitService } from './units'
@@ -34,7 +34,7 @@ type StoredResult = typeof result.$inferSelect
 const FAR_OFF_FACTOR = 10
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
 
-function summarize(order: OrderRow, results: readonly ResultRow[]): OrderSummary {
+function summarize(order: OrderRow, results: readonly ResultRow[], formCount: number): OrderSummary {
   return {
     id: order.id,
     labId: order.labId,
@@ -42,7 +42,7 @@ function summarize(order: OrderRow, results: readonly ResultRow[]): OrderSummary
     collectedTime: order.collectedTime,
     source: order.source,
     note: order.note,
-    hasForm: order.formFile !== null,
+    formCount,
     resultCount: results.length,
     deviationCount: results.filter((r) => isDeviation(r.read.deviation)).length,
   }
@@ -54,13 +54,13 @@ function summarize(order: OrderRow, results: readonly ResultRow[]): OrderSummary
  */
 export class OrderService {
   /** Deleted orders kept for their undo, by token; an undo window is seconds long. */
-  private readonly removed = new Map<string, { order: OrderRow; results: StoredResult[] }>()
+  private readonly removed = new Map<string, { order: OrderRow; results: StoredResult[]; forms: string[] }>()
 
   constructor(
     private readonly deps: {
       db: Db
       reader: ResultReader
-      attachments: AttachmentStore
+      forms: OrderForms
       patients: PatientService
       analytes: AnalyteService
       units: UnitService
@@ -78,24 +78,26 @@ export class OrderService {
       .orderBy(desc(labOrder.collectedOn), desc(labOrder.collectedTime), desc(labOrder.id))
       .all()
     const byOrder = Map.groupBy(this.deps.reader.forPatient(patientId), (r) => r.orderId)
-    return orders.map((order) => summarize(order, byOrder.get(order.id) ?? []))
+    const forms = this.deps.forms.counts(orders.map((order) => order.id))
+    return orders.map((order) => summarize(order, byOrder.get(order.id) ?? [], forms.get(order.id) ?? 0))
   }
 
   get(orderId: number): OrderDetails {
     const order = this.find(orderId)
     const results = this.deps.reader.forPatient(order.patientId, eq(result.orderId, orderId))
+    const formFiles = this.deps.forms.of(orderId)
     return {
-      ...summarize(order, results),
+      ...summarize(order, results, formFiles.length),
       patientId: order.patientId,
       cyclePhase: order.cyclePhase,
-      formFile: order.formFile,
+      formFiles,
       results,
     }
   }
 
   /** An order entered by hand, with its results; import never touches it. */
   create(order: ManualOrder): number {
-    const header = this.validateHeader(order)
+    const { formFiles, ...header } = this.validateHeader(order)
     const rows = this.validateRows(order.results)
     const id = inTransaction(this.deps.db, () => {
       const created = this.deps.db
@@ -103,6 +105,7 @@ export class OrderService {
         .values({ ...header, source: 'manual' })
         .returning({ id: labOrder.id })
         .get().id
+      this.deps.forms.replace(created, formFiles)
       for (const row of rows) {
         this.deps.db
           .insert(result)
@@ -155,12 +158,15 @@ export class OrderService {
 
   update(orderId: number, header: OrderInput): void {
     this.find(orderId)
-    const values = this.validateHeader(header)
-    this.deps.db
-      .update(labOrder)
-      .set({ ...values, updatedAt: new Date().toISOString() })
-      .where(eq(labOrder.id, orderId))
-      .run()
+    const { formFiles, ...values } = this.validateHeader(header)
+    inTransaction(this.deps.db, () => {
+      this.deps.db
+        .update(labOrder)
+        .set({ ...values, updatedAt: new Date().toISOString() })
+        .where(eq(labOrder.id, orderId))
+        .run()
+      this.deps.forms.replace(orderId, formFiles)
+    })
     dataChanged(this.deps.events, 'orders')
   }
 
@@ -176,9 +182,10 @@ export class OrderService {
   remove(orderId: number): string {
     const order = this.find(orderId)
     const results = this.deps.db.select().from(result).where(eq(result.orderId, orderId)).all()
+    const forms = this.deps.forms.of(orderId)
     this.deps.db.delete(labOrder).where(eq(labOrder.id, orderId)).run()
     const token = randomUUID()
-    this.removed.set(token, { order, results })
+    this.removed.set(token, { order, results, forms })
     dataChanged(this.deps.events, 'orders')
     return token
   }
@@ -189,6 +196,7 @@ export class OrderService {
     inTransaction(this.deps.db, () => {
       this.deps.db.insert(labOrder).values(snapshot.order).run()
       for (const row of snapshot.results) this.deps.db.insert(result).values(row).run()
+      this.deps.forms.replace(snapshot.order.id, snapshot.forms)
     })
     this.removed.delete(token)
     dataChanged(this.deps.events, 'orders')
@@ -225,11 +233,10 @@ export class OrderService {
     dataChanged(this.deps.events, 'orders')
   }
 
-  /** Where the order's original form is stored. */
-  formPath(orderId: number): string {
-    const { formFile } = this.find(orderId)
-    if (!formFile) throw new UserError('У этого заказа нет бланка')
-    return this.deps.attachments.path(formFile)
+  /** Where the order's original form number `index`, from 0, is stored. */
+  formPath(orderId: number, index: number): string {
+    this.find(orderId)
+    return this.deps.forms.path(orderId, index)
   }
 
   private find(orderId: number): OrderRow {
@@ -272,8 +279,6 @@ export class OrderService {
     const collectedTime = input.collectedTime?.trim() || null
     if (collectedTime !== null && !TIME.test(collectedTime)) throw new UserError('Время сдачи — в виде ЧЧ:ММ')
     this.checkPhase(input.patientId, input.collectedOn, input.cyclePhase)
-    // The key names a stored file; `path` refuses anything else.
-    if (input.formFile !== null) this.deps.attachments.path(input.formFile)
     return { ...input, collectedTime, note: input.note?.trim() || null }
   }
 

@@ -148,8 +148,8 @@ export function createApi(s: Services): Api {
       addResult: async (orderId, input) => s.orders.addResult(orderId, input),
       updateResult: async (resultId, input) => s.orders.updateResult(resultId, input),
       removeResult: async (resultId) => s.orders.removeResult(resultId),
-      openForm: async (orderId) => {
-        const failure = await shell.openPath(s.orders.formPath(orderId))
+      openForm: async (orderId, index) => {
+        const failure = await shell.openPath(s.orders.formPath(orderId, index))
         if (failure) throw new Error(failure)
       },
     },

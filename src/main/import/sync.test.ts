@@ -16,6 +16,7 @@ import {
   type RawResult,
 } from '../lab/types'
 import type { LabService } from '../services/labs'
+import type { OrderForms } from '../services/order-forms'
 import { createTestServices, TEST_TODAY } from '../test-support'
 import { RECHECK_DAYS, SyncService } from './sync'
 
@@ -78,11 +79,11 @@ class FakeConnector implements LabConnector {
     return { ...order, externalKey: ref.externalKey, rawPayload: JSON.stringify(order.results) }
   }
 
-  async fetchOrderPdf(_page: LabPage, ref: OrderRef) {
+  async fetchOrderForms(_page: LabPage, ref: OrderRef) {
     this.forms.push(ref.externalKey)
-    return new TextEncoder().encode(
-      `%PDF ${ref.externalKey} ${JSON.stringify(this.orders.get(ref.externalKey))}`,
-    )
+    return [
+      new TextEncoder().encode(`%PDF ${ref.externalKey} ${JSON.stringify(this.orders.get(ref.externalKey))}`),
+    ]
   }
 }
 
@@ -124,6 +125,7 @@ describe('SyncService', () => {
   let connector: FakeConnector
   let sessions: FakeSessions
   let labs: LabService
+  let forms: OrderForms
   let sync: SyncService
   let kdlId: number
   let patientId: number
@@ -131,7 +133,7 @@ describe('SyncService', () => {
   beforeEach(() => {
     connector = new FakeConnector()
     const app = createTestServices({ connectors: (id) => (id === connector.id ? connector : null) })
-    ;({ db, events, labs, kdlId } = app)
+    ;({ db, events, labs, forms, kdlId } = app)
     patientId = app.anna.id
     sessions = new FakeSessions()
     sync = new SyncService({ db, labs, importer: app.importer, sessions, events, today: () => TEST_TODAY })
@@ -152,7 +154,7 @@ describe('SyncService', () => {
     expect(connector.fetched).toEqual(['recent', 'old'])
     expect(connector.forms).toEqual(['recent', 'old'])
     const orders = db.select().from(labOrder).all()
-    expect(orders.every((o) => o.formFile !== null && o.patientId === patientId)).toBe(true)
+    expect(orders.every((o) => forms.of(o.id).length === 1 && o.patientId === patientId)).toBe(true)
     expect(labs.getAccount(account.id)).toMatchObject({ label: 'Иванова Анна', lastSyncAt: run.finishedAt })
     expect(sync.accounts()).toEqual([expect.objectContaining({ id: account.id, lastRun: run })])
     expect(progressEvents().map((p) => p.map((item) => `${item.stage} ${item.done}/${item.total}`))).toEqual([

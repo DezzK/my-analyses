@@ -16,7 +16,7 @@ const ferritin: RawResult = {
 }
 
 function order(externalKey: string, collectedOn: string, results: RawResult[]): RawOrder {
-  return { externalKey, collectedOn, results, rawPayload: externalKey, pdf: null }
+  return { externalKey, collectedOn, results, rawPayload: externalKey, forms: [] }
 }
 
 test('the catalog edits an analyte, its rules, merges and panels', async () => {

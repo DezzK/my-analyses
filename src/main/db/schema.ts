@@ -231,8 +231,6 @@ export const labOrder = sqliteTable(
     connectorVersion: text('connector_version'),
     rawPayload: text('raw_payload'),
     rawHash: text('raw_hash'),
-    /** The original lab form (PDF or photo): its file name in the attachments folder, `<sha256>.<ext>`. */
-    formFile: text('form_file'),
     note: text('note'),
     createdAt: createdAt(),
     updatedAt: text('updated_at').notNull().default(isoNow),
@@ -245,6 +243,23 @@ export const labOrder = sqliteTable(
       .where(sql`${t.externalKey} is not null`),
     index('lab_order_patient_date').on(t.patientId, t.collectedOn),
   ],
+)
+
+/**
+ * An order's original lab forms, PDFs or photos, in the order the lab lists them: a lab may issue
+ * one per sample or per group of tests. `file` is the name in the attachments folder,
+ * `<sha256>.<ext>`.
+ */
+export const orderForm = sqliteTable(
+  'order_form',
+  {
+    orderId: integer('order_id')
+      .notNull()
+      .references(() => labOrder.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    file: text('file').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.orderId, t.position] })],
 )
 
 export const result = sqliteTable(

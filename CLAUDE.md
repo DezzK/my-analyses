@@ -75,8 +75,10 @@ and commits are English.
   (`normalizeSearchText`): `AnalyteService`.
 - Orders, their summaries and original forms, entering them by hand and correcting results (what
   a typed order must satisfy, the ten-times warning, undoing a delete): `OrderService`
-  (`src/main/services/orders.ts`). Original forms are PDFs or photos stored as `<sha256>.<ext>` by
-  `AttachmentStore` (`FORM_EXTENSIONS`, `src/main/attachments.ts`).
+  (`src/main/services/orders.ts`). An order's original forms — several when the lab issues one per
+  sample or per group of tests — belong to `OrderForms` (`src/main/services/order-forms.ts`); the
+  files, PDFs or photos stored as `<sha256>.<ext>`, to `AttachmentStore` (`FORM_EXTENSIONS`,
+  `src/main/attachments.ts`).
 - A typed date that must be real and not in the future: `assertPastDate`; a typed name, trimmed and
   neither empty nor too long: `typedName` (both in `src/main/services/validation.ts`). The unit an
   analyte is shown in: `shownUnitId`.
@@ -111,7 +113,9 @@ and commits are English.
   (`src/shared/domain/age.ts`).
 - Turning a lab's report into orders and results (dedup, protecting hand edits, new analytes for
   unknown codes): `ImportService` (`src/main/import/importer.ts`). Connectors only return
-  `RawOrder`s (`src/main/lab/types.ts`); original forms go to `AttachmentStore`.
+  `RawOrder`s and their forms (`LabConnector` in `src/main/lab/types.ts`, one file per lab in
+  `src/main/lab/connectors/`); a site that refreshes its own session names a quiet `syncUrl` for
+  syncs and a `detectLogin` for the login window.
 - Connected lab accounts: connecting, logging in again, syncing, the run history and which orders a
   sync fetches again (`RECHECK_DAYS`): `SyncService` (`src/main/import/sync.ts`).
 - The embedded browser: a persistent session partition per account, pages kept on the lab's hosts,

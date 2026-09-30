@@ -133,13 +133,13 @@ export const kdlConnector: LabConnector = {
     }
   },
 
-  async fetchOrderPdf(page, ref) {
+  async fetchOrderForms(page, ref) {
     // The site's own code sends this content type when it asks for the form.
     const response = await fetchOk(page, orderUrl(keyOf(ref), 'pdf'), {
       headers: { 'Content-Type': 'application/pdf' },
     })
     const body = JSON.parse(response.text) as KdlResponse<{ pdf?: string }>
     const base64 = body.status === 'success' ? body.data?.pdf?.replace(/^data:[^,]*,/, '') : undefined
-    return base64 ? new Uint8Array(Buffer.from(base64, 'base64')) : null
+    return base64 ? [new Uint8Array(Buffer.from(base64, 'base64'))] : []
   },
 }

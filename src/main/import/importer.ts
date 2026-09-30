@@ -4,13 +4,13 @@ import type { SyncStats } from '@shared/api'
 import type { ValueKind } from '@shared/domain/enums'
 import { parseReference } from '@shared/domain/references'
 import { parseValue, splitValueAndUnit } from '@shared/domain/values'
-import type { AttachmentStore } from '../attachments'
 import type { Db } from '../db/client'
 import { labOrder, result } from '../db/schema'
 import { inTransaction } from '../db/transaction'
 import { dataChanged, type EventSink } from '../events'
 import type { RawOrder, RawResult } from '../lab/types'
 import type { AnalyteService } from '../services/analytes'
+import type { OrderForms } from '../services/order-forms'
 import type { UnitService } from '../services/units'
 
 /** Where imported orders go: the lab, the account they came from and the patient they belong to. */
@@ -76,7 +76,7 @@ export class ImportService {
       db: Db
       units: UnitService
       analytes: AnalyteService
-      attachments: AttachmentStore
+      forms: OrderForms
       events: EventSink
     },
   ) {}
@@ -99,12 +99,13 @@ export class ImportService {
   }
 
   /**
-   * Whether the lab's original form is worth fetching along with this report: the order is new,
-   * has no form yet, or its report changed since the form was stored.
+   * Whether the lab's original forms are worth fetching along with this report: the order is new,
+   * has no forms yet, or its report changed since the forms were stored.
    */
-  needsForm(labId: number, report: Pick<RawOrder, 'externalKey' | 'rawPayload'>): boolean {
+  needsForms(labId: number, report: Pick<RawOrder, 'externalKey' | 'rawPayload'>): boolean {
     const existing = this.find(labId, report.externalKey)
-    return !existing?.formFile || !sameReport(existing, report.rawPayload)
+    if (!existing || !sameReport(existing, report.rawPayload)) return true
+    return this.deps.forms.of(existing.id).length === 0
   }
 
   private find(labId: number, externalKey: string) {
@@ -118,8 +119,12 @@ export class ImportService {
   private importOrder(target: ImportTarget, raw: RawOrder, stats: SyncStats): void {
     const { db } = this.deps
     const existing = this.find(target.labId, raw.externalKey)
-    const formFile = raw.pdf ? this.deps.attachments.store(raw.pdf, 'pdf') : (existing?.formFile ?? null)
-    if (existing && sameReport(existing, raw.rawPayload) && existing.formFile === formFile) {
+    const storedForms = existing ? this.deps.forms.of(existing.id) : []
+    const fetched = this.deps.forms.storePdfs(raw.forms)
+    // Forms the lab did not send this time stay as they were.
+    const forms = fetched.length > 0 ? fetched : storedForms
+    const sameForms = forms.length === storedForms.length && forms.every((file, i) => file === storedForms[i])
+    if (existing && sameReport(existing, raw.rawPayload) && sameForms) {
       stats.ordersUnchanged += 1
       return
     }
@@ -130,7 +135,6 @@ export class ImportService {
       connectorVersion: target.connectorVersion,
       rawPayload: raw.rawPayload,
       rawHash: sha256(raw.rawPayload),
-      formFile,
       updatedAt: new Date().toISOString(),
     }
     const orderId = existing
@@ -147,6 +151,7 @@ export class ImportService {
           .returning({ id: labOrder.id })
           .get().id
     stats[existing ? 'ordersUpdated' : 'ordersAdded'] += 1
+    if (!sameForms) this.deps.forms.replace(orderId, forms)
 
     for (const item of raw.results) this.importResult(target, orderId, item, stats)
   }

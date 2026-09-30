@@ -22,8 +22,11 @@ export interface RawOrder {
   results: RawResult[]
   /** The lab's response exactly as received, kept so a connector fix can re-read it. */
   rawPayload: string
-  /** The original form, when the lab gives one; stored as is, never parsed. */
-  pdf: Uint8Array | null
+  /**
+   * The original forms, as many as the lab issues (one per sample, say), stored as they are and
+   * never parsed. Empty when none were fetched this time: the forms stored before stay.
+   */
+  forms: Uint8Array[]
 }
 
 /** What a connector needs to fetch one order's details later; its content is the connector's own. */
@@ -43,7 +46,15 @@ export interface LabAccountInfo {
 export type BlockReason = 'vpn_or_region' | 'unknown'
 
 export interface FetchInit {
+  method?: 'GET' | 'POST'
   headers?: Record<string, string>
+  /** Sent as is: a JSON body goes with its own `Content-Type` header. */
+  body?: string
+  /**
+   * The page's cookies go with every request unless `omit`: an API on another host that trusts
+   * only its token refuses a request that carries them.
+   */
+  credentials?: 'include' | 'omit'
 }
 
 export interface FetchedText {
@@ -51,6 +62,12 @@ export interface FetchedText {
   /** The final URL after redirects; a login page here means the session has expired. */
   url: string
   text: string
+}
+
+export interface FetchedBytes {
+  status: number
+  url: string
+  bytes: Uint8Array
 }
 
 /** A lab's page open inside the app; requests made through it carry the page's own session. */
@@ -64,6 +81,8 @@ export interface LabPage {
   evaluate<T>(expression: string): Promise<T>
   /** Requests go one at a time, spaced by the connector's `requestIntervalMs`. */
   fetchText(url: string, init?: FetchInit): Promise<FetchedText>
+  /** The same, for a file such as a PDF form. */
+  fetchBytes(url: string, init?: FetchInit): Promise<FetchedBytes>
 }
 
 const FIRST_ERROR_STATUS = 400
@@ -93,7 +112,15 @@ export class LabHttpError extends Error {
 
 /** Fetches through the page; an error status becomes a `LabHttpError`. */
 export async function fetchOk(page: LabPage, url: string, init?: FetchInit): Promise<FetchedText> {
-  const response = await page.fetchText(url, init)
+  return refuseErrors(await page.fetchText(url, init))
+}
+
+/** Fetches a file through the page; an error status becomes a `LabHttpError`. */
+export async function fetchBytesOk(page: LabPage, url: string, init?: FetchInit): Promise<FetchedBytes> {
+  return refuseErrors(await page.fetchBytes(url, init))
+}
+
+function refuseErrors<T extends { status: number; url: string }>(response: T): T {
   if (isErrorStatus(response.status)) throw new LabHttpError(response.status, response.url)
   return response
 }
@@ -106,8 +133,13 @@ export async function fetchOk(page: LabPage, url: string, init?: FetchInit): Pro
 export interface LabConnector {
   id: string
   version: string
-  /** Where the person logs in, and where a sync starts. */
+  /** Where the person logs in, and where a sync starts unless `syncUrl` says otherwise. */
   homeUrl: string
+  /**
+   * Where a sync opens the account instead: a page of the lab's origin that runs none of the
+   * site's own code, for a site that would otherwise refresh the session behind the connector.
+   */
+  syncUrl?: string
   /** Hosts the account lives on; the embedded browser does not navigate anywhere else. */
   hosts: readonly string[]
   /** Pause between requests, so the site's protection is not tripped. */
@@ -115,7 +147,13 @@ export interface LabConnector {
   detectBlock(page: LabPage): Promise<BlockReason | null>
   /** Null when nobody is logged in. */
   detectAccount(page: LabPage): Promise<LabAccountInfo | null>
+  /**
+   * Whether someone has logged in, asked of the login window while the site itself runs there.
+   * Only a connector whose `detectAccount` would disturb that site's session needs its own.
+   */
+  detectLogin?(page: LabPage): Promise<boolean>
   listOrders(page: LabPage): Promise<OrderRef[]>
-  fetchOrder(page: LabPage, ref: OrderRef): Promise<Omit<RawOrder, 'pdf'>>
-  fetchOrderPdf?(page: LabPage, ref: OrderRef): Promise<Uint8Array | null>
+  fetchOrder(page: LabPage, ref: OrderRef): Promise<Omit<RawOrder, 'forms'>>
+  /** The order's original forms; empty when the lab has issued none yet. */
+  fetchOrderForms?(page: LabPage, ref: OrderRef): Promise<Uint8Array[]>
 }

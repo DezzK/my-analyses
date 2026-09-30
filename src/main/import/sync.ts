@@ -40,14 +40,14 @@ function hasPatient(account: LabAccountRow): account is AccountWithPatient {
   return account.defaultPatientId !== null
 }
 
-/** The original form; one the lab has not issued yet is asked for again on a later sync. */
-async function fetchForm(connector: LabConnector, page: LabPage, ref: OrderRef): Promise<Uint8Array | null> {
-  if (!connector.fetchOrderPdf) return null
+/** The original forms; ones the lab has not issued yet are asked for again on a later sync. */
+async function fetchForms(connector: LabConnector, page: LabPage, ref: OrderRef): Promise<Uint8Array[]> {
+  if (!connector.fetchOrderForms) return []
   try {
-    return await connector.fetchOrderPdf(page, ref)
+    return await connector.fetchOrderForms(page, ref)
   } catch (error) {
-    console.warn(`No form for order ${ref.externalKey}`, error)
-    return null
+    console.warn(`No forms for order ${ref.externalKey}`, error)
+    return []
   }
 }
 
@@ -218,8 +218,8 @@ export class SyncService {
     for (const [done, ref] of due.entries()) {
       this.report({ accountId: account.id, stage: 'orders', done, total: due.length })
       const report = await connector.fetchOrder(page, ref)
-      const pdf = importer.needsForm(account.labId, report) ? await fetchForm(connector, page, ref) : null
-      addStats(stats, importer.importOrders(target, [{ ...report, pdf }]))
+      const forms = importer.needsForms(account.labId, report) ? await fetchForms(connector, page, ref) : []
+      addStats(stats, importer.importOrders(target, [{ ...report, forms }]))
     }
     return 'ok'
   }
@@ -239,7 +239,8 @@ export class SyncService {
       connector,
       account.sessionPartition,
       `${lab.name}: вход в личный кабинет`,
-      async (page) => (await connector.detectAccount(page)) !== null,
+      async (page) =>
+        connector.detectLogin ? connector.detectLogin(page) : (await connector.detectAccount(page)) !== null,
     )
     return outcome === 'logged-in'
   }

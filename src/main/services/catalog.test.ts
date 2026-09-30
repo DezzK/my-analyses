@@ -31,7 +31,7 @@ function seed(app: App) {
         raw('FER-K', 'Ферритин', '40', 'нг/мл', '10-120 нг/мл'),
       ],
       rawPayload: 'k1',
-      pdf: null,
+      forms: [],
     },
   ])
   app.importer.importOrders({ ...target, labId: helixId }, [
@@ -40,7 +40,7 @@ function seed(app: App) {
       collectedOn: '2026-09-01',
       results: [raw('TSH-H', 'Тиреотропный гормон', '2.4', 'мкМЕ/мл', '0.35-4.94 мкМЕ/мл')],
       rawPayload: 'h1',
-      pdf: null,
+      forms: [],
     },
   ])
   const id = (name: string) => app.db.select().from(analyte).where(eq(analyte.name, name)).get()?.id ?? -1

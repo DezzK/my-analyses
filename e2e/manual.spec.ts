@@ -16,7 +16,7 @@ const EARLIER: RawOrder = {
     raw('CRP', 'С-реактивный белок', '2 мг/л', '<5 мг/л'),
   ],
   rawPayload: 'k1',
-  pdf: null,
+  forms: [],
 }
 
 test('an order is typed by hand from a panel, checked against earlier results and corrected', async () => {

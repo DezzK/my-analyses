@@ -8,6 +8,7 @@ import { AnalyteService } from './analytes'
 import { LabService } from './labs'
 import { MappingService } from './mapping'
 import { MergeService } from './merges'
+import { OrderForms } from './order-forms'
 import { OrderService } from './orders'
 import { PanelService } from './panels'
 import { PatientService } from './patients'
@@ -35,7 +36,8 @@ export function createServices(deps: {
   const patients = new PatientService(db, events, deps.today ?? todayIso)
   const analytes = new AnalyteService(db, events)
   const attachments = new AttachmentStore(deps.attachmentsDir)
-  const importer = new ImportService({ db, units, analytes, attachments, events })
+  const forms = new OrderForms({ db, attachments })
+  const importer = new ImportService({ db, units, analytes, forms, events })
   const merges = new MergeService({ db, analytes, events })
   const rules = new RuleService({ db, units, events })
   const panels = new PanelService(db, events)
@@ -44,7 +46,7 @@ export function createServices(deps: {
   const orders = new OrderService({
     db,
     reader: results,
-    attachments,
+    forms,
     patients,
     analytes,
     units,
@@ -60,6 +62,7 @@ export function createServices(deps: {
     patients,
     analytes,
     attachments,
+    forms,
     importer,
     merges,
     rules,
