@@ -20,6 +20,11 @@ export function normalizeSearchText(text: string): string {
   return foldCase(text)
 }
 
+/** The unit an analyte is shown in: the one the person chose, else its canonical unit. */
+export function shownUnitId(row: Pick<AnalyteRow, 'displayUnitId' | 'canonicalUnitId'>): number | null {
+  return row.displayUnitId ?? row.canonicalUnitId
+}
+
 /** A LIKE pattern matching `needle` anywhere, with LIKE's own wildcards taken literally. */
 function containing(needle: string): string {
   return `%${needle.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
@@ -113,6 +118,7 @@ export class AnalyteService {
       ...this.summary(id),
       canonicalUnitId: row.canonicalUnitId,
       displayUnitId: row.displayUnitId,
+      shownUnitId: shownUnitId(row),
       molarMass: row.molarMass,
       resultCount: [...perUnit.values()].reduce((sum, n) => sum + n, 0),
       units: units.map((u) => ({

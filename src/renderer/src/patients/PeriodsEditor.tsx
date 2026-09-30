@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { ActionIcon, Alert, Button, Group, Paper, Select, Stack, Text, Tooltip } from '@mantine/core'
-import { DateInput } from '@mantine/dates'
 import { IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
 import { useMutation } from '@tanstack/react-query'
 import type { PatientPeriod, PatientPeriodInput } from '@shared/api'
@@ -10,6 +9,7 @@ import { formatDate } from '../format'
 import { PERIOD_KIND_LABELS } from '../labels'
 import { usePeriods } from '../queries'
 import { ICON_SIZE, TITLE_WEIGHT } from '../theme'
+import { DateField } from '../components/DateField'
 
 function describe(period: PatientPeriod): string {
   const from = `с ${formatDate(period.startDate)}`
@@ -100,20 +100,16 @@ function PeriodForm({
             onChange={(value) => value && setKind(value as PeriodKind)}
             allowDeselect={false}
           />
-          <DateInput
+          <DateField
             label={kind === 'pregnancy' ? 'Начало срока' : 'Начало'}
             description={kind === 'pregnancy' ? 'Первый день последней менструации' : undefined}
-            valueFormat="DD.MM.YYYY"
-            placeholder="ДД.ММ.ГГГГ"
             value={startDate}
             onChange={setStartDate}
           />
           {kind === 'pregnancy' && (
-            <DateInput
+            <DateField
               label="Окончание"
               description="Пусто, если продолжается"
-              valueFormat="DD.MM.YYYY"
-              placeholder="ДД.ММ.ГГГГ"
               clearable
               value={endDate}
               onChange={setEndDate}

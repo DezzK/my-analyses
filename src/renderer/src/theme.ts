@@ -3,6 +3,9 @@ import { createTheme } from '@mantine/core'
 /** Weight of headings and of text that plays a heading's role (window and dialog titles). */
 export const TITLE_WEIGHT = 650
 
+/** Width of a table column that holds a row's two icon buttons (edit, delete). */
+export const ACTIONS_COLUMN_WIDTH = 80
+
 /** Icon sizes by where the icon sits: the window shell and the search field, buttons and menus, small buttons and hints. */
 export const ICON_SIZE = { shell: 18, button: 16, small: 14 } as const
 

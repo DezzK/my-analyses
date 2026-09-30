@@ -151,8 +151,8 @@ describe('ImportService', () => {
     const pdf = new TextEncoder().encode('%PDF-1.7 fake')
     importer.importOrders(target, [{ ...order(RESULTS), pdf }])
     const stored = db.select().from(labOrder).get()
-    expect(stored?.pdfFile).toMatch(/^[0-9a-f]{64}$/)
-    expect(existsSync(attachments.path(stored?.pdfFile ?? ''))).toBe(true)
+    expect(stored?.formFile).toMatch(/^[0-9a-f]{64}\.pdf$/)
+    expect(existsSync(attachments.path(stored?.formFile ?? ''))).toBe(true)
   })
 
   it('indexes new analytes for search by name and lab code', () => {

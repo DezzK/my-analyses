@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Group, Table, Text, Tooltip } from '@mantine/core'
 import { IconAlertTriangle, IconFlag } from '@tabler/icons-react'
 import type { Lab, ResultRow, Unit } from '@shared/api'
@@ -7,7 +8,7 @@ import { LabMarker } from '../components/LabMarker'
 import { formatDate } from '../format'
 import { LAB_FLAG_LABELS, REFERENCE_SOURCE_LABELS } from '../labels'
 import { DEVIATION_MARKS, referenceText, unitText, valueText } from './format'
-import { ICON_SIZE } from '../theme'
+import { ACTIONS_COLUMN_WIDTH, ICON_SIZE } from '../theme'
 
 interface Lookups {
   labs: ReadonlyMap<number, Lab>
@@ -22,8 +23,14 @@ interface Lookups {
 export function ResultsTable({
   rows,
   by,
+  actions,
   ...lookups
-}: { rows: ResultRow[]; by: 'date' | 'analyte' } & Lookups) {
+}: {
+  rows: ResultRow[]
+  by: 'date' | 'analyte'
+  /** What can be done with a row, in a last column. */
+  actions?: (row: ResultRow) => ReactNode
+} & Lookups) {
   return (
     <Table.ScrollContainer minWidth={560}>
       <Table className="tabular" verticalSpacing="xs" highlightOnHover>
@@ -34,6 +41,7 @@ export function ResultsTable({
             <Table.Th>Референс</Table.Th>
             <Table.Th>Единицы</Table.Th>
             {by === 'date' && <Table.Th>Лаборатория</Table.Th>}
+            {actions && <Table.Th />}
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -60,6 +68,7 @@ export function ResultsTable({
                   <LabName lab={lookups.labs.get(row.labId)} />
                 </Table.Td>
               )}
+              {actions && <Table.Td w={ACTIONS_COLUMN_WIDTH}>{actions(row)}</Table.Td>}
             </Table.Tr>
           ))}
         </Table.Tbody>

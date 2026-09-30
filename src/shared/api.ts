@@ -107,6 +107,8 @@ export interface CatalogEntry {
 export interface AnalyteCard extends AnalyteSummary {
   canonicalUnitId: number | null
   displayUnitId: number | null
+  /** The unit results are shown in: the one the person chose, else the canonical one. */
+  shownUnitId: number | null
   molarMass: number | null
   resultCount: number
   /** The analyte's units: `factor` converts into the canonical unit where dimensions cannot. */
@@ -231,7 +233,41 @@ export interface OrderSummary {
 }
 
 export interface OrderDetails extends OrderSummary {
+  patientId: number
+  cyclePhase: CyclePhase | null
+  formFile: string | null
   results: ResultRow[]
+}
+
+/** An order's own fields, as the person enters or corrects them. */
+export interface OrderInput {
+  patientId: number
+  labId: number
+  collectedOn: string
+  collectedTime: string | null
+  cyclePhase: CyclePhase | null
+  note: string | null
+  /** A form stored by `forms.pick`, or null. */
+  formFile: string | null
+}
+
+/** One result as the person types it: stored as typed, read like a lab's. */
+export interface ResultInput {
+  analyteId: number
+  rawValue: string
+  unitId: number | null
+  refRaw: string | null
+  note: string | null
+}
+
+export interface ManualOrder extends OrderInput {
+  results: ResultInput[]
+}
+
+/** Something about a typed result worth a second look; saving is still allowed. */
+export interface RowWarning {
+  row: number
+  message: string
 }
 
 export interface BackupInfo {
@@ -336,9 +372,27 @@ export interface Api {
     openForm(orderId: number): Promise<void>
     /** The cycle phase the sample was collected in: some norms depend on it. */
     setCyclePhase(orderId: number, phase: CyclePhase | null): Promise<void>
+    /** An order entered by hand; import never touches it. Returns its id. */
+    create(order: ManualOrder): Promise<number>
+    /** Warnings about results being typed, such as a value ten times off the previous one. */
+    check(order: ManualOrder): Promise<RowWarning[]>
+    update(orderId: number, header: OrderInput): Promise<void>
+    /** Deletes the order and its results; the returned token undoes it for a while. */
+    remove(orderId: number): Promise<string>
+    undoRemove(token: string): Promise<void>
+    addResult(orderId: number, input: ResultInput): Promise<void>
+    /** Corrects a result; an imported one is then kept as corrected by later imports. */
+    updateResult(resultId: number, input: ResultInput): Promise<void>
+    removeResult(resultId: number): Promise<void>
+  }
+  forms: {
+    /** Asks for a PDF or a photo of a lab form and stores it; null when the person cancels. */
+    pick(): Promise<{ key: string; name: string } | null>
   }
   labs: {
     list(): Promise<Lab[]>
+    /** A lab the app has no connector for, to enter its forms by hand. */
+    create(name: string): Promise<Lab>
     accounts(): Promise<LabAccount[]>
     /**
      * Opens the lab's site for the person to log in. Once they have, the account is kept and its

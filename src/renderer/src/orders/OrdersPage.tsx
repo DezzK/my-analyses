@@ -1,17 +1,33 @@
 import { useState } from 'react'
-import { Accordion, Badge, Button, Center, Group, Loader, Stack, Text } from '@mantine/core'
-import { IconFileTypePdf, IconFlask } from '@tabler/icons-react'
+import {
+  Accordion,
+  ActionIcon,
+  Badge,
+  Button,
+  Center,
+  Group,
+  Loader,
+  Modal,
+  Select,
+  Stack,
+  Text,
+} from '@mantine/core'
+import { modals } from '@mantine/modals'
+import { IconFileTypePdf, IconFlask, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
-import type { Lab, OrderSummary, Unit } from '@shared/api'
+import type { Lab, OrderDetails, OrderSummary, ResultRow, Unit } from '@shared/api'
 import { api } from '../api'
 import { EmptyState } from '../components/EmptyState'
+import { ButtonLink } from '../components/links'
 import { PageHeader } from '../components/PageHeader'
 import { formatDate, plural } from '../format'
-import { notifyError } from '../notify'
+import { notifyError, notifyUndoable } from '../notify'
 import { useCurrentPatient } from '../patients/current'
 import { useLabMap, useOrder, useOrders, useUnits } from '../queries'
 import { LabName, ResultsTable } from '../results/ResultsTable'
 import { ICON_SIZE, TITLE_WEIGHT } from '../theme'
+import { headerOf, OrderHeaderFields, orderInput, type HeaderValues } from './OrderHeaderFields'
+import { ResultEditor, type ResultEdit } from './ResultEditor'
 
 export function OrdersPage() {
   const { patient } = useCurrentPatient()
@@ -36,16 +52,26 @@ export function OrdersPage() {
             ? `${orders.length} ${plural(orders.length, ['заказ', 'заказа', 'заказов'])}, новые сверху`
             : undefined
         }
+        actions={
+          <ButtonLink to="/orders/new" leftSection={<IconPlus size={ICON_SIZE.button} />}>
+            Новый заказ
+          </ButtonLink>
+        }
       />
       {orders.length === 0 ? (
         <EmptyState
           icon={IconFlask}
           title="Заказов пока нет"
-          description="Заказы появятся после синхронизации с личным кабинетом лаборатории."
+          description="Заказы появятся после синхронизации с личным кабинетом лаборатории или после ручного ввода."
         >
-          <Button component={Link} to="/labs" mt="xs">
-            Подключить лабораторию
-          </Button>
+          <Group mt="xs">
+            <Button component={Link} to="/labs">
+              Подключить лабораторию
+            </Button>
+            <Button component={Link} to="/orders/new" variant="default">
+              Внести вручную
+            </Button>
+          </Group>
         </EmptyState>
       ) : (
         <Accordion variant="separated" radius="lg" value={open} onChange={setOpen}>
@@ -120,6 +146,8 @@ function OrderResults({
   units: ReadonlyMap<number, Unit>
 }) {
   const { data, isLoading } = useOrder(order.id)
+  const [edit, setEdit] = useState<ResultEdit | null>(null)
+  const [editingHeader, setEditingHeader] = useState(false)
   if (isLoading || !data) {
     return (
       <Center py="md">
@@ -127,32 +155,165 @@ function OrderResults({
       </Center>
     )
   }
+  const imported = order.source === 'import'
+  const removeOrder = () =>
+    modals.openConfirmModal({
+      title: 'Удалить заказ?',
+      children: (
+        <Text size="sm">
+          {imported
+            ? 'Заказ из кабинета лаборатории вернётся при следующем обновлении, если он ещё там.'
+            : 'Вместе с заказом удалятся его результаты.'}
+        </Text>
+      ),
+      labels: { confirm: 'Удалить', cancel: 'Отмена' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => {
+        api.orders
+          .remove(order.id)
+          .then((token) =>
+            notifyUndoable({
+              title: `Заказ от ${formatDate(order.collectedOn)} удалён`,
+              undoLabel: 'Отменить удаление',
+              undo: () => api.orders.undoRemove(token),
+            }),
+          )
+          .catch(notifyError)
+      },
+    })
+  const removeResult = (row: ResultRow) =>
+    modals.openConfirmModal({
+      title: `Удалить «${row.analyteName}»?`,
+      children: <Text size="sm">Результат {row.rawValue} исчезнет из заказа.</Text>,
+      labels: { confirm: 'Удалить', cancel: 'Отмена' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => {
+        api.orders.removeResult(row.id).catch(notifyError)
+      },
+    })
+
   return (
     <Stack gap="sm">
-      {(order.hasForm || order.note) && (
-        <Group justify="space-between">
-          <Text size="sm" c="dimmed">
-            {order.note}
-          </Text>
+      {order.note && (
+        <Text size="sm" c="dimmed">
+          {order.note}
+        </Text>
+      )}
+      <Group justify="space-between">
+        <Group gap="xs">
+          <Button
+            variant="default"
+            size="xs"
+            leftSection={<IconPencil size={ICON_SIZE.small} />}
+            onClick={() => setEditingHeader(true)}
+          >
+            Изменить заказ
+          </Button>
+          <Button
+            variant="default"
+            size="xs"
+            leftSection={<IconPlus size={ICON_SIZE.small} />}
+            onClick={() => setEdit({ orderId: order.id, imported, row: null })}
+          >
+            Добавить результат
+          </Button>
           {order.hasForm && (
             <Button
               variant="light"
               size="xs"
-              leftSection={<IconFileTypePdf size={ICON_SIZE.button} />}
+              leftSection={<IconFileTypePdf size={ICON_SIZE.small} />}
               onClick={() => api.orders.openForm(order.id).catch(notifyError)}
             >
               Открыть бланк
             </Button>
           )}
         </Group>
-      )}
+        <Button
+          variant="subtle"
+          color="red"
+          size="xs"
+          leftSection={<IconTrash size={ICON_SIZE.small} />}
+          onClick={removeOrder}
+        >
+          Удалить заказ
+        </Button>
+      </Group>
       {data.results.length === 0 ? (
         <Text size="sm" c="dimmed">
-          Лаборатория ещё не прислала результаты.
+          {imported ? 'Лаборатория ещё не прислала результаты.' : 'Результатов нет.'}
         </Text>
       ) : (
-        <ResultsTable rows={data.results} by="analyte" labs={labs} units={units} />
+        <ResultsTable
+          rows={data.results}
+          by="analyte"
+          labs={labs}
+          units={units}
+          actions={(row) => (
+            <Group gap={4} wrap="nowrap">
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                aria-label={`Исправить «${row.analyteName}»`}
+                onClick={() => setEdit({ orderId: order.id, imported, row })}
+              >
+                <IconPencil size={ICON_SIZE.button} />
+              </ActionIcon>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                aria-label={`Удалить «${row.analyteName}»`}
+                onClick={() => removeResult(row)}
+              >
+                <IconTrash size={ICON_SIZE.button} />
+              </ActionIcon>
+            </Group>
+          )}
+        />
       )}
+      <ResultEditor edit={edit} onClose={() => setEdit(null)} />
+      <OrderHeaderModal order={data} opened={editingHeader} onClose={() => setEditingHeader(false)} />
     </Stack>
+  )
+}
+
+/** Corrects an order's own fields, down to whose it is. */
+function OrderHeaderModal({
+  order,
+  opened,
+  onClose,
+}: {
+  order: OrderDetails
+  opened: boolean
+  onClose: () => void
+}) {
+  const { patients } = useCurrentPatient()
+  const [values, setValues] = useState<HeaderValues>(() => headerOf(order))
+  const [patientId, setPatientId] = useState(String(order.patientId))
+  const patient = patients.find((p) => String(p.id) === patientId)
+  const save = () =>
+    api.orders
+      .update(order.id, orderInput(values, Number(patientId)))
+      .then(onClose)
+      .catch(notifyError)
+  return (
+    <Modal opened={opened} onClose={onClose} title={`Заказ от ${formatDate(order.collectedOn)}`} size="xl">
+      <Stack>
+        <Select
+          label="Чей заказ"
+          allowDeselect={false}
+          data={patients.map((p) => ({ value: String(p.id), label: p.title }))}
+          value={patientId}
+          onChange={(value) => value && setPatientId(value)}
+          w={320}
+        />
+        {patient && <OrderHeaderFields values={values} onChange={setValues} patient={patient} />}
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button onClick={() => void save()}>Сохранить</Button>
+        </Group>
+      </Stack>
+    </Modal>
   )
 }

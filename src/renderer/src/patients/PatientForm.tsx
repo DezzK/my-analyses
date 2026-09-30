@@ -1,11 +1,11 @@
 import { Alert, Button, Group, Radio, Stack, Textarea, TextInput } from '@mantine/core'
-import { DateInput } from '@mantine/dates'
 import { useForm } from '@mantine/form'
 import { useMutation } from '@tanstack/react-query'
 import type { Patient, PatientInput } from '@shared/api'
 import { SEXES, type Sex } from '@shared/domain/enums'
 import { api, errorMessage } from '../api'
 import { SEX_LABELS } from '../labels'
+import { DateField } from '../components/DateField'
 
 interface FormValues {
   title: string
@@ -63,12 +63,7 @@ export function PatientForm({ initial, submitLabel, onSaved, onCancel }: Props) 
             ))}
           </Group>
         </Radio.Group>
-        <DateInput
-          label="Дата рождения"
-          placeholder="ДД.ММ.ГГГГ"
-          valueFormat="DD.MM.YYYY"
-          {...form.getInputProps('birthDate')}
-        />
+        <DateField label="Дата рождения" {...form.getInputProps('birthDate')} />
         <Textarea label="Заметка" autosize minRows={2} maxRows={6} {...form.getInputProps('note')} />
         {save.error && (
           <Alert color="red" variant="light">

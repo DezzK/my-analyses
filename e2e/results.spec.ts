@@ -74,7 +74,7 @@ test('results are found, tabulated, charted and grouped into orders', async () =
     await expect(window.locator('svg').filter({ hasText: 'ммоль/л' }).first()).toBeVisible()
     await snapshot(window, '11-analyte-chart')
 
-    await window.getByRole('link', { name: 'Заказы' }).click()
+    await window.getByRole('link', { name: 'Заказы', exact: true }).click()
     await window.getByRole('button', { name: /08\.08\.2026/ }).click()
     await expect(window.getByRole('link', { name: 'С-реактивный белок' })).toBeVisible()
     await snapshot(window, '12-orders')

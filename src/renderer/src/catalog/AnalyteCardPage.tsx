@@ -46,7 +46,7 @@ import {
   useUnits,
 } from '../queries'
 import { LabName } from '../results/ResultsTable'
-import { ICON_SIZE } from '../theme'
+import { ACTIONS_COLUMN_WIDTH, ICON_SIZE } from '../theme'
 import { AnalyteForm } from './AnalyteForm'
 import { RuleForm, type RuleDraft } from './RuleForm'
 import { agesText, normText } from './rule-text'
@@ -424,7 +424,7 @@ function RulesCard({ card }: { card: AnalyteCard }) {
                       )}
                     </Group>
                   </Table.Td>
-                  <Table.Td w={80}>
+                  <Table.Td w={ACTIONS_COLUMN_WIDTH}>
                     <Group gap={4} wrap="nowrap">
                       <ActionIcon
                         variant="subtle"

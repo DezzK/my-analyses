@@ -45,7 +45,7 @@ export function OverviewPage() {
             <Button component={Link} to="/labs">
               Подключить лабораторию
             </Button>
-            <Button component={Link} to="/orders" variant="default">
+            <Button component={Link} to="/orders/new" variant="default">
               Внести вручную
             </Button>
           </Group>

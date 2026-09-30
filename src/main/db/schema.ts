@@ -230,8 +230,8 @@ export const labOrder = sqliteTable(
     connectorVersion: text('connector_version'),
     rawPayload: text('raw_payload'),
     rawHash: text('raw_hash'),
-    /** SHA-256 of the original lab form, stored as `<hash>.pdf` in the attachments folder. */
-    pdfFile: text('pdf_file'),
+    /** The original lab form (PDF or photo): its file name in the attachments folder, `<sha256>.<ext>`. */
+    formFile: text('form_file'),
     note: text('note'),
     createdAt: createdAt(),
     updatedAt: text('updated_at').notNull().default(isoNow),

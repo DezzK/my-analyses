@@ -1,5 +1,5 @@
 import { QueryClient, useQuery } from '@tanstack/react-query'
-import type { DataScope, Lab, Unit } from '@shared/api'
+import type { DataScope, Lab, ManualOrder, Unit } from '@shared/api'
 import { api, onAppEvent } from './api'
 
 export const queryClient = new QueryClient({
@@ -28,6 +28,7 @@ export const keys = {
   panels: () => ['catalog', 'panels'] as const satisfies readonly [DataScope, string],
   labReferences: (analyteId: number) => [DERIVED, 'lab-references', analyteId] as const,
   mapping: (patientId: number) => [DERIVED, 'mapping', patientId] as const,
+  orderCheck: (order: string) => [DERIVED, 'order-check', order] as const,
   suggestions: (analyteId: number) => [DERIVED, 'suggestions', analyteId] as const,
   analyteResults: (analyteId: number, patientId: number) =>
     [DERIVED, 'analyte', analyteId, patientId] as const,
@@ -92,8 +93,12 @@ export function useCatalog() {
   return useQuery({ queryKey: keys.catalog(), queryFn: () => api.analytes.list() })
 }
 
-export function useAnalyteCard(analyteId: number) {
-  return useQuery({ queryKey: keys.analyteCard(analyteId), queryFn: () => api.analytes.card(analyteId) })
+export function useAnalyteCard(analyteId: number | null) {
+  return useQuery({
+    queryKey: keys.analyteCard(analyteId ?? 0),
+    queryFn: () => api.analytes.card(analyteId ?? 0),
+    enabled: analyteId !== null,
+  })
 }
 
 export function useRules(analyteId: number) {
@@ -124,6 +129,17 @@ export function useSuggestions(analyteId: number | null) {
     queryKey: keys.suggestions(analyteId ?? 0),
     queryFn: () => api.mapping.suggestions(analyteId ?? 0),
     enabled: analyteId !== null,
+  })
+}
+
+/** Warnings about an order being typed; `order` is its JSON, so every edit asks again. */
+export function useOrderCheck(order: ManualOrder | null) {
+  const json = order ? JSON.stringify(order) : ''
+  return useQuery({
+    queryKey: keys.orderCheck(json),
+    queryFn: () => api.orders.check(JSON.parse(json) as ManualOrder),
+    enabled: order !== null && order.results.length > 0,
+    placeholderData: (previous) => previous,
   })
 }
 

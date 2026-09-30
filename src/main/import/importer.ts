@@ -104,7 +104,7 @@ export class ImportService {
    */
   needsForm(labId: number, report: Pick<RawOrder, 'externalKey' | 'rawPayload'>): boolean {
     const existing = this.find(labId, report.externalKey)
-    return !existing?.pdfFile || !sameReport(existing, report.rawPayload)
+    return !existing?.formFile || !sameReport(existing, report.rawPayload)
   }
 
   private find(labId: number, externalKey: string) {
@@ -118,8 +118,8 @@ export class ImportService {
   private importOrder(target: ImportTarget, raw: RawOrder, stats: SyncStats): void {
     const { db } = this.deps
     const existing = this.find(target.labId, raw.externalKey)
-    const pdfFile = raw.pdf ? this.deps.attachments.store(raw.pdf) : (existing?.pdfFile ?? null)
-    if (existing && sameReport(existing, raw.rawPayload) && existing.pdfFile === pdfFile) {
+    const formFile = raw.pdf ? this.deps.attachments.store(raw.pdf, 'pdf') : (existing?.formFile ?? null)
+    if (existing && sameReport(existing, raw.rawPayload) && existing.formFile === formFile) {
       stats.ordersUnchanged += 1
       return
     }
@@ -130,7 +130,7 @@ export class ImportService {
       connectorVersion: target.connectorVersion,
       rawPayload: raw.rawPayload,
       rawHash: sha256(raw.rawPayload),
-      pdfFile,
+      formFile,
       updatedAt: new Date().toISOString(),
     }
     const orderId = existing

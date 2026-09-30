@@ -152,7 +152,7 @@ describe('SyncService', () => {
     expect(connector.fetched).toEqual(['recent', 'old'])
     expect(connector.forms).toEqual(['recent', 'old'])
     const orders = db.select().from(labOrder).all()
-    expect(orders.every((o) => o.pdfFile !== null && o.patientId === patientId)).toBe(true)
+    expect(orders.every((o) => o.formFile !== null && o.patientId === patientId)).toBe(true)
     expect(labs.getAccount(account.id)).toMatchObject({ label: 'Иванова Анна', lastSyncAt: run.finishedAt })
     expect(sync.accounts()).toEqual([expect.objectContaining({ id: account.id, lastRun: run })])
     expect(progressEvents().map((p) => p.map((item) => `${item.stage} ${item.done}/${item.total}`))).toEqual([

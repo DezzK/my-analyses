@@ -15,6 +15,9 @@ commits are English.
   the UI cannot reach alone, such as a connected lab account, while the app is closed; `seedImports`
   puts a patient's orders in through the app's own import.
 - `npm run db:generate` — after changing `src/main/db/schema.ts`; commit the new `drizzle/` folder.
+  A rename cannot be generated without a terminal: `drizzle-kit generate --custom`, write the SQL,
+  and bring the new folder's `snapshot.json` in line with the schema (generate must then report no
+  changes). Test a data migration against `someMigrations` (`src/main/test-support.ts`).
 
 ## Layout
 
@@ -58,7 +61,12 @@ commits are English.
   (`LabService.connector`): `LabService`.
 - Analytes, their lab codes, the unit each is shown in, search and the FTS index
   (`normalizeSearchText`): `AnalyteService`.
-- Orders, their summaries and original forms: `OrderService` (`src/main/services/orders.ts`).
+- Orders, their summaries and original forms, entering them by hand and correcting results (what
+  a typed order must satisfy, the ten-times warning, undoing a delete): `OrderService`
+  (`src/main/services/orders.ts`). Original forms are PDFs or photos stored as `<sha256>.<ext>` by
+  `AttachmentStore` (`FORM_EXTENSIONS`, `src/main/attachments.ts`).
+- A typed date that must be real and not in the future: `assertPastDate`
+  (`src/main/services/validation.ts`). The unit an analyte is shown in: `shownUnitId`.
 - Merging one analyte into another and undoing it: `MergeService`; reference rules and their
   consistency (one rule per lab, sex, condition and age): `RuleService`; panels: `PanelService`.
 - Services are wired once, by `createServices` (`src/main/services/index.ts`), for the app and
@@ -80,7 +88,7 @@ commits are English.
   `referenceText` (`src/renderer/src/results/format.ts`), shown by `ResultsTable` and by
   `ResultsChart`, whose options come from `buildChartOption` (`src/renderer/src/results/chart.ts`).
   Labs and units by id: `useLabMap`, `useUnits`. Links with route params: `AnchorLink`,
-  `ButtonLink` (`src/renderer/src/components/links.tsx`). Numbers typed into fields: `readDecimal`
+  `ButtonLink` (`src/renderer/src/components/links.tsx`). Dates are typed in `DateField`. Numbers typed into fields: `readDecimal`
   (`src/renderer/src/input.ts`). An action that can be undone reports itself with `notifyUndoable`.
   The platform check: `IS_MAC` (`src/renderer/src/platform.ts`).
 - Numbers in Russian spelling: `formatDecimal` (as measured), `formatSignificant` (after a

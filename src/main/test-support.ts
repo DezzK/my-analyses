@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs'
+import { cpSync, mkdtempSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { openDatabase, runMigrations, type Db } from './db/client'
@@ -11,6 +11,21 @@ export const MIGRATIONS_DIR = resolve(__dirname, '../../drizzle')
 
 /** "Today" in tests that depend on it. */
 export const TEST_TODAY = '2026-09-30'
+
+/**
+ * A folder with some of the shipped migrations, as an older app version shipped them: `pick`
+ * chooses from their folder names, oldest first.
+ */
+export function someMigrations(pick: (names: string[]) => string[]): string {
+  const folder = mkdtempSync(join(tmpdir(), 'migrations-'))
+  const shipped = readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort()
+  for (const name of pick(shipped))
+    cpSync(join(MIGRATIONS_DIR, name), join(folder, name), { recursive: true })
+  return folder
+}
 
 export function createTestDb(): Db {
   const db = openDatabase(':memory:')

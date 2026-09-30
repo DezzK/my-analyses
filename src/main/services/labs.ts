@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { asc, count, eq } from 'drizzle-orm'
 import type { Lab } from '@shared/api'
 import type { MarkerShape } from '@shared/domain/enums'
+import { foldCase } from '@shared/domain/text'
 import { UserError } from '@shared/errors'
 import type { Db } from '../db/client'
 import { lab, labAccount } from '../db/schema'
@@ -11,6 +12,8 @@ import type { LabAccountInfo, LabConnector } from '../lab/types'
 
 export type LabRow = typeof lab.$inferSelect
 export type LabAccountRow = typeof labAccount.$inferSelect
+
+const MAX_NAME_LENGTH = 60
 
 /** Electron keeps a partition named `persist:…` on disk; each account gets one of its own. */
 const SESSION_PARTITION_PREFIX = 'persist:lab-'
@@ -61,6 +64,24 @@ export class LabService {
         .values({ name: def.name, connectorId: def.connectorId, ...this.nextMarker() })
         .run()
     }
+  }
+
+  /** A lab the app has no connector for: its forms are entered by hand. */
+  create(name: string): Lab {
+    const title = name.trim()
+    if (!title) throw new UserError('Введите название лаборатории')
+    if (title.length > MAX_NAME_LENGTH) throw new UserError(`Название длиннее ${MAX_NAME_LENGTH} символов`)
+    const taken = this.list().some((existing) => foldCase(existing.name) === foldCase(title))
+    if (taken) throw new UserError('Такая лаборатория уже есть')
+    const row = this.db
+      .insert(lab)
+      .values({ name: title, connectorId: null, ...this.nextMarker() })
+      .returning({ id: lab.id })
+      .get()
+    dataChanged(this.events, 'labs')
+    const created = this.list().find((existing) => existing.id === row.id)
+    if (!created) throw new Error(`Lab ${row.id} was not saved`)
+    return created
   }
 
   list(): Lab[] {

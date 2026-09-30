@@ -1,6 +1,9 @@
 import { app, dialog, shell, type BrowserWindow, type OpenDialogOptions } from 'electron'
+import { readFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import type { Api, AppSettings } from '@shared/api'
+import { UserError } from '@shared/errors'
+import { FORM_EXTENSIONS, formExtensionOf } from './attachments'
 import { requestRestore, type BackupService } from './backup'
 import type { SyncService } from './import/sync'
 import { dataPaths } from './paths'
@@ -114,13 +117,38 @@ export function createApi(s: Services): Api {
       list: async (patientId) => s.orders.list(patientId),
       get: async (orderId) => s.orders.get(orderId),
       setCyclePhase: async (orderId, phase) => s.orders.setCyclePhase(orderId, phase),
+      create: async (order) => s.orders.create(order),
+      check: async (order) => s.orders.check(order),
+      update: async (orderId, header) => s.orders.update(orderId, header),
+      remove: async (orderId) => s.orders.remove(orderId),
+      undoRemove: async (token) => s.orders.undoRemove(token),
+      addResult: async (orderId, input) => s.orders.addResult(orderId, input),
+      updateResult: async (resultId, input) => s.orders.updateResult(resultId, input),
+      removeResult: async (resultId) => s.orders.removeResult(resultId),
       openForm: async (orderId) => {
         const failure = await shell.openPath(s.orders.formPath(orderId))
         if (failure) throw new Error(failure)
       },
     },
+    forms: {
+      pick: async () => {
+        const win = s.window()
+        const options: OpenDialogOptions = {
+          title: 'Бланк заказа',
+          properties: ['openFile'],
+          filters: [{ name: 'PDF или фото бланка', extensions: [...FORM_EXTENSIONS] }],
+        }
+        const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+        const file = picked.filePaths[0]
+        if (picked.canceled || !file) return null
+        const extension = formExtensionOf(file)
+        if (!extension) throw new UserError('Бланк — это PDF или фотография')
+        return { key: s.attachments.store(await readFile(file), extension), name: basename(file) }
+      },
+    },
     labs: {
       list: async () => s.labs.list(),
+      create: async (name) => s.labs.create(name),
       accounts: async () => s.sync.accounts(),
       connect: (labId, patientId) => s.sync.connect(labId, patientId),
       login: (accountId) => s.sync.login(accountId),

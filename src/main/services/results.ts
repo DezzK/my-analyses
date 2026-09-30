@@ -3,14 +3,16 @@ import type { AnalyteResults, ResultRow, UnitOption } from '@shared/api'
 import {
   interpret,
   type AnalyteFacts,
+  type Interpretation,
   type PatientFacts,
+  type ResultFacts,
   type RuleWithBounds,
 } from '@shared/domain/interpret'
 import { convert, type UnitInfo } from '@shared/domain/units'
 import { asQualitativeCode } from '@shared/domain/values'
 import type { Db } from '../db/client'
 import { analyte, analyteUnit, labOrder, referenceRule, result } from '../db/schema'
-import type { AnalyteRow, AnalyteService } from './analytes'
+import { shownUnitId, type AnalyteRow, type AnalyteService } from './analytes'
 import type { PatientService } from './patients'
 import type { UnitRow, UnitService } from './units'
 
@@ -56,10 +58,9 @@ class CatalogSnapshot {
     return id === null ? null : (this.units.get(id) ?? null)
   }
 
-  /** The unit an analyte is shown in: the one the person chose, else its canonical unit. */
   target(analyteId: number): UnitInfo | null {
     const row = this.analytes.get(analyteId)
-    return this.unit(row?.displayUnitId ?? null) ?? this.unit(row?.canonicalUnitId ?? null)
+    return row ? this.unit(shownUnitId(row)) : null
   }
 
   factsFor(analyteId: number): AnalyteFacts {
@@ -117,6 +118,15 @@ export class ResultReader {
       units: catalog.unitOptions(analyteId),
       rows: this.read(patientId, catalog, eq(result.analyteId, analyteId)),
     }
+  }
+
+  /** Results typed but not stored yet, read exactly as they will be once stored. */
+  preview(patientId: number, rows: readonly (ResultFacts & { analyteId: number })[]): Interpretation[] {
+    const catalog = new CatalogSnapshot(this.deps.db, this.deps.units)
+    const patient = this.patientFacts(patientId)
+    return rows.map((row) =>
+      interpret(row, catalog.target(row.analyteId), patient, catalog.factsFor(row.analyteId)),
+    )
   }
 
   /** Every result of the patient, or those `where` selects; newest orders first. */

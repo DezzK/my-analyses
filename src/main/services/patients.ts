@@ -6,6 +6,7 @@ import { UserError } from '@shared/errors'
 import type { Db } from '../db/client'
 import { labOrder, patient, patientPeriod } from '../db/schema'
 import { dataChanged, type EventSink } from '../events'
+import { assertPastDate } from './validation'
 
 const MAX_TITLE_LENGTH = 80
 const EARLIEST_BIRTH_DATE = '1900-01-01'
@@ -164,7 +165,6 @@ export class PatientService {
   }
 
   private assertPastDate(value: string, what: string): void {
-    if (epochDay(value) === null) throw new UserError(`Проверьте поле «${what}»`)
-    if (value > this.today()) throw new UserError(`Поле «${what}» не может быть в будущем`)
+    assertPastDate(value, what, this.today())
   }
 }

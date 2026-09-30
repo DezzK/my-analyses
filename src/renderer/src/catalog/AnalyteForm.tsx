@@ -31,9 +31,9 @@ interface Values {
   reviewed: boolean
 }
 
-function valuesOf(card: AnalyteCard | null): Values {
+function valuesOf(card: AnalyteCard | null, initialName = ''): Values {
   return {
-    name: card?.name ?? '',
+    name: card?.name ?? initialName,
     specimen: card?.specimen ?? '',
     valueKind: card?.valueKind ?? 'numeric',
     description: card?.description ?? '',
@@ -49,18 +49,20 @@ function valuesOf(card: AnalyteCard | null): Values {
  */
 export function AnalyteForm({
   card,
+  initialName,
   onSaved,
 }: {
   card: AnalyteCard | null
+  initialName?: string
   onSaved?: (analyte: AnalyteSummary | null) => void
 }) {
   const units = useUnits()
-  const form = useForm<Values>({ initialValues: valuesOf(card) })
+  const form = useForm<Values>({ initialValues: valuesOf(card, initialName) })
   // A new version of the card (after any save) resets the form to it.
   useEffect(() => {
-    form.setValues(valuesOf(card))
-    form.resetDirty(valuesOf(card))
-  }, [card])
+    form.setValues(valuesOf(card, initialName))
+    form.resetDirty(valuesOf(card, initialName))
+  }, [card, initialName])
 
   const unitChoices = (card ? card.units.map((u) => u.unitId) : [...units.keys()]).flatMap((id) => {
     const unit = units.get(id)

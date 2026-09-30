@@ -8,6 +8,7 @@ import { LabsPage } from './labs/LabsPage'
 import { AppLayout } from './layout/AppLayout'
 import { MappingPage } from './mapping/MappingPage'
 import { Welcome, type WelcomeStep } from './onboarding/Welcome'
+import { NewOrderPage } from './orders/NewOrderPage'
 import { OrdersPage } from './orders/OrdersPage'
 import { ComingSoonPage } from './pages/ComingSoonPage'
 import { OverviewPage } from './pages/OverviewPage'
@@ -49,6 +50,7 @@ const page = <TPath extends string>(path: TPath, component: () => React.ReactNod
 const routeTree = rootRoute.addChildren([
   page('/', OverviewPage),
   page('/orders', OrdersPage),
+  page('/orders/new', NewOrderPage),
   page('/labs', LabsPage),
   page('/analytes/$analyteId', AnalytePage),
   page('/mapping', MappingPage),

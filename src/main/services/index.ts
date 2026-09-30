@@ -39,7 +39,18 @@ export function createServices(deps: {
   const rules = new RuleService({ db, units, events })
   const panels = new PanelService(db, events)
   const results = new ResultReader({ db, units, analytes, patients })
-  const orders = new OrderService({ db, reader: results, attachments, patients, events })
+  const today = deps.today ?? todayIso
+  const orders = new OrderService({
+    db,
+    reader: results,
+    attachments,
+    patients,
+    analytes,
+    units,
+    labs,
+    events,
+    today,
+  })
   const mapping = new MappingService({ db, analytes, units, orders, results, patients })
   return {
     units,
