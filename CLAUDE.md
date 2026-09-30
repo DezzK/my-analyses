@@ -30,6 +30,13 @@ commits are English.
   implemented once in `src/main/api.ts`.
 - Backup retention, delay and file naming: `src/shared/backup-policy.ts`.
 - Civil-date arithmetic: `src/shared/domain/dates.ts`; age: `src/shared/domain/age.ts`.
+- Reading lab strings: numbers and their precision (`numbers.ts`, `DECIMAL_PATTERN`), values,
+  bounds and qualitative words (`values.ts`), reference ranges (`references.ts`) — all under
+  `src/shared/domain`.
+- Units: the built-in dictionary, spelling normalization and conversion (`src/shared/domain/units.ts`);
+  a unit's scale relates it to its dimension, molar mass bridges molar and mass concentrations.
+- Which reference applies and whether a value deviates: `chooseRule` and `evaluate` in
+  `src/shared/domain/references.ts`; trimesters and other conditions: `src/shared/domain/conditions.ts`.
 - Russian names of the closed sets: `src/renderer/src/labels.ts`.
 - Rules about patients and periods: `PatientService` (`src/main/services/patients.ts`). The UI never
   validates on a service's behalf; it shows the `UserError` the service throws.
