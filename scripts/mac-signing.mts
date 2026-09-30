@@ -5,8 +5,7 @@
  */
 import { signApp } from '@electron/osx-sign'
 import { execFileSync } from 'node:child_process'
-import { X509Certificate } from 'node:crypto'
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -16,7 +15,7 @@ export const SIGNING_DIR_ENV = 'MY_ANALYSES_SIGNING_DIR'
 const FILES = {
   key: 'signing-key.pem',
   certificate: 'signing-certificate.pem',
-  /** The key and certificate together: what to back up, and what re-creates the keychain. */
+  /** The key and certificate together: what to back up, what CI gets, what re-creates the keychain. */
   bundle: 'signing-identity.p12',
   keychain: 'signing.keychain-db',
   config: 'certificate.cnf',
@@ -46,7 +45,7 @@ function run(command: string, args: string[]): string {
 
 /** Creates the identity once; refuses to replace one, since the installed apps trust only it. */
 export function createSigningIdentity(dir = signingDir(), commonName = COMMON_NAME): SigningIdentity {
-  if (existsSync(join(dir, FILES.certificate))) throw new Error(`A signing identity already exists in ${dir}`)
+  if (existsSync(join(dir, FILES.bundle))) throw new Error(`A signing identity already exists in ${dir}`)
   mkdirSync(dir, { recursive: true, mode: 0o700 })
   writeFileSync(
     join(dir, FILES.config),
@@ -107,13 +106,19 @@ export function createSigningIdentity(dir = signingDir(), commonName = COMMON_NA
   return signingIdentity(dir)
 }
 
+/** Puts an identity exported as .p12 in `dir`: how CI gets the identity from its secret. */
+export function importSigningIdentity(p12: Buffer, dir = signingDir()): SigningIdentity {
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  writeFileSync(join(dir, FILES.bundle), p12, { mode: 0o600 })
+  return signingIdentity(dir)
+}
+
 /**
- * The identity in `dir`, its keychain created from the .p12 when missing (after a restore from a
- * backup, say) and unlocked. The keychain is never added to the system's search list.
+ * The identity in `dir`, its keychain created from the .p12 when missing (on CI, or after a
+ * restore from a backup) and unlocked. The keychain is never added to the system's search list.
  */
 export function signingIdentity(dir = signingDir()): SigningIdentity {
-  const certificate = join(dir, FILES.certificate)
-  if (!existsSync(certificate)) {
+  if (!existsSync(join(dir, FILES.bundle))) {
     throw new Error(`No signing identity in ${dir}: create it once with \`npm run release:identity\``)
   }
   const keychain = join(dir, FILES.keychain)
@@ -143,7 +148,10 @@ export function signingIdentity(dir = signingDir()): SigningIdentity {
     ])
   }
   run('security', ['unlock-keychain', '-p', NO_PASSWORD, keychain])
-  const sha1 = new X509Certificate(readFileSync(certificate)).fingerprint.replaceAll(':', '')
+  // `1) <SHA-1> "<name>" (CSSMERR_TP_NOT_TRUSTED)`: listed, though not trusted, which it need not be.
+  const listed = run('security', ['find-identity', '-p', 'codesigning', keychain])
+  const sha1 = /^\s*\d+\)\s+([0-9A-F]{40})\s/m.exec(listed)?.[1]
+  if (!sha1) throw new Error(`The keychain in ${dir} holds no signing identity`)
   return { keychain, sha1 }
 }
 

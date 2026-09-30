@@ -5,14 +5,16 @@ import { promisify } from 'node:util'
 import { MAC_ARCHES } from '@shared/release'
 import { MacUpdater } from './mac-updater'
 import type { Updater } from './updater'
-import { WindowsUpdater } from './windows-updater'
+import { AutoUpdater } from './auto-updater'
 
 const execFileAsync = promisify(execFile)
 
 /** This system's updater; none in a development build, which is never replaced. */
 export function createUpdater(): Updater | null {
   if (!app.isPackaged) return null
-  if (process.platform === 'win32') return new WindowsUpdater()
+  if (process.platform === 'win32') return new AutoUpdater()
+  // electron-updater replaces an AppImage only; a Linux build unpacked anywhere else stays as it is.
+  if (process.platform === 'linux') return process.env['APPIMAGE'] ? new AutoUpdater() : null
   const arch = MAC_ARCHES.find((known) => known === process.arch)
   if (process.platform !== 'darwin' || !arch) return null
   return new MacUpdater({

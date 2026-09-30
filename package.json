@@ -1,6 +1,7 @@
 {
   "name": "my-analyses",
   "productName": "Мои анализы",
+  "desktopName": "my-analyses.desktop",
   "version": "0.1.0",
   "description": "Family lab results tracker: imports from lab accounts, tables, charts and printable reports",
   "private": true,
@@ -15,10 +16,9 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "format": "prettier --write .",
-    "dist:mac": "npm run build && electron-builder --mac",
-    "dist:win": "npm run build && electron-builder --win",
+    "check": "npm run typecheck && npm test && npm run build && playwright test",
     "icon": "sips -s format png build/icon.svg --out build/icon.png",
-    "release": "node scripts/release.mts",
+    "release": "node scripts/release.mts tag",
     "release:identity": "node scripts/release-identity.mts"
   },
   "dependencies": {

@@ -19,11 +19,14 @@ commits are English.
   and bring the new folder's `snapshot.json` in line with the schema (generate must then report no
   changes). Test a data migration against `someMigrations` (`src/main/test-support.ts`).
 
-- `npm run release` publishes the version in `package.json` as a GitHub release: every check, the
-  Mac zips (signed in `afterPack`) and the Windows installer, `latest-mac.json` and `install.sh`;
-  `npm run release -- --dry-run` stops before uploading. It signs with the identity that
-  `npm run release:identity` creates once in `~/.config/my-analyses-release` — back that folder up:
-  installed Macs accept updates signed by it alone. `npm run icon` renders `build/icon.svg`.
+- `npm run check` — every check CI runs: types, unit tests, the bundle, end-to-end tests.
+- `npm run release` tags the version in `package.json` and pushes it once `npm run check` passes;
+  CI (`.github/workflows/release.yml`) then builds the Mac zips (signed in `afterPack`), the Windows
+  installer and the Linux AppImage, writes `latest-mac.json` and `install.sh`, and publishes the
+  GitHub release — the steps are `scripts/release-steps.mts`. `node scripts/release.mts build mac`
+  tries the Mac build here. Macs are signed with the identity `npm run release:identity` creates once
+  in `~/.config/my-analyses-release`; CI gets its `.p12` from the `MAC_SIGNING_P12` secret. Back that
+  folder up: installed Macs accept updates signed by it alone. `npm run icon` renders `build/icon.svg`.
 
 ## Layout
 
@@ -97,9 +100,10 @@ commits are English.
 - The app's own updates — when to check, the status the UI shows, installing on quit or with a
   restart: `UpdateService`; each platform's way behind `Updater`: `MacUpdater` (feed, SHA-512, the
   signature against the running app's designated requirement, swapping bundles after the app quits)
-  and `WindowsUpdater` (electron-updater) — all in `src/main/updates/`. The release signing identity
+  and `AutoUpdater` (electron-updater: the Windows installer, the Linux AppImage) — all in
+  `src/main/updates/`. The release signing identity
   and signing: `scripts/mac-signing.mts`; the Mac install script: `scripts/install-macos.sh`, filled
-  in by `scripts/release.mts`.
+  in by `scripts/release-steps.mts`.
 - Services are wired once, by `createServices` (`src/main/services/index.ts`), for the app and
   for the tests alike.
 - Age limits of rules stated in years, months or days, and back: `ageToDays`, `daysToAge`

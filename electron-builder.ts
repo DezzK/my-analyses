@@ -5,7 +5,8 @@ import { APP_ID, MAC_ARCHES, RELEASE_REPO } from './src/shared/release.ts'
 
 /**
  * Installers without app stores: a signed zip per Mac architecture, which the install script and
- * the app's own updater unpack, and an NSIS installer for Windows, which electron-updater runs.
+ * the app's own updater unpack; an NSIS installer for Windows and an AppImage for Linux, which
+ * electron-updater replaces.
  */
 const config: Configuration = {
   appId: APP_ID,
@@ -23,6 +24,11 @@ const config: Configuration = {
   win: {
     target: [{ target: 'nsis', arch: ['x64'] }],
     artifactName: 'my-analyses-${version}-win-${arch}-setup.${ext}',
+  },
+  linux: {
+    target: [{ target: 'AppImage', arch: ['x64'] }],
+    category: 'Office',
+    artifactName: 'my-analyses-${version}-linux-${arch}.${ext}',
   },
   nsis: {
     oneClick: true,

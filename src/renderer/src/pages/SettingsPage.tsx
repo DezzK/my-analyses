@@ -164,6 +164,9 @@ function AboutCard() {
       <Text size="sm" c="dimmed">
         Данные: <Code>{info?.dataDir}</Code>
       </Text>
+      <Text size="sm" c="dimmed">
+        Приложение не является медицинским изделием: оно не ставит диагнозов и не заменяет врача.
+      </Text>
       {status && status.state !== 'disabled' && (
         <Group mt="sm">
           {status.state === 'ready' ? (

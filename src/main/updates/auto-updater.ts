@@ -2,10 +2,11 @@ import { autoUpdater, type ProgressInfo } from 'electron-updater'
 import type { Updater } from './updater'
 
 /**
- * Windows updates through electron-updater: the NSIS installer of the latest release, checked
- * against the SHA-512 its `latest.yml` states, installs itself when the app quits.
+ * Windows and Linux updates through electron-updater: the NSIS installer or the AppImage of the
+ * latest release, checked against the SHA-512 its `latest.yml` or `latest-linux.yml` states,
+ * replaces the app when it quits.
  */
-export class WindowsUpdater implements Updater {
+export class AutoUpdater implements Updater {
   constructor() {
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true

@@ -1,0 +1,67 @@
+# Builds every platform and publishes the release when a `v<version>` tag is pushed
+# (`npm run release`). The steps themselves are `scripts/release-steps.mts`.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  build:
+    needs: checks
+    strategy:
+      matrix:
+        include:
+          - platform: mac
+            os: macos-latest
+          - platform: windows
+            os: windows-latest
+          - platform: linux
+            os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: Signing identity
+        if: matrix.platform == 'mac'
+        run: node scripts/release.mts identity
+        env:
+          MAC_SIGNING_P12: ${{ secrets.MAC_SIGNING_P12 }}
+          MY_ANALYSES_SIGNING_DIR: ${{ runner.temp }}/signing
+      - run: node scripts/release.mts build ${{ matrix.platform }}
+        env:
+          MY_ANALYSES_SIGNING_DIR: ${{ runner.temp }}/signing
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: release/publish
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release/publish
+          merge-multiple: true
+      - run: node scripts/release.mts publish
+        env:
+          GH_TOKEN: ${{ github.token }}

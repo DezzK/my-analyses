@@ -1,0 +1,21 @@
+# Every check of the app, on each push and pull request, and before every release.
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+jobs:
+  checks:
+    # The macOS updater's tests sign real app bundles, which takes a Mac.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run check
