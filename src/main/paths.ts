@@ -12,13 +12,24 @@ export function configureDataDir(): void {
   app.setPath('userData', override || join(app.getPath('appData'), name))
 }
 
+/** What the data folder holds; end-to-end tests prepare data folders with the same names. */
+export const DATA_FILES = {
+  database: 'data.sqlite',
+  attachments: 'attachments',
+  settings: 'settings.json',
+  pendingRestore: 'restore-pending.json',
+  defaultBackups: 'backups',
+} as const
+
+const inDataDir = (name: string) => join(app.getPath('userData'), name)
+
 export const dataPaths = {
   dataDir: () => app.getPath('userData'),
-  database: () => join(app.getPath('userData'), 'data.sqlite'),
-  attachments: () => join(app.getPath('userData'), 'attachments'),
-  settings: () => join(app.getPath('userData'), 'settings.json'),
-  pendingRestore: () => join(app.getPath('userData'), 'restore-pending.json'),
-  defaultBackups: () => join(app.getPath('userData'), 'backups'),
+  database: () => inDataDir(DATA_FILES.database),
+  attachments: () => inDataDir(DATA_FILES.attachments),
+  settings: () => inDataDir(DATA_FILES.settings),
+  pendingRestore: () => inDataDir(DATA_FILES.pendingRestore),
+  defaultBackups: () => inDataDir(DATA_FILES.defaultBackups),
   migrations: () =>
     app.isPackaged ? join(process.resourcesPath, 'drizzle') : join(app.getAppPath(), 'drizzle'),
 }

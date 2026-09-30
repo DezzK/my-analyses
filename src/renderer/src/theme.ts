@@ -12,9 +12,14 @@ export const theme = createTheme({
   headings: { fontFamily: FONT_STACK, fontWeight: String(TITLE_WEIGHT) },
   defaultRadius: 'md',
   cursorType: 'pointer',
+  // People who asked their system for less motion get dialogs and menus without animation.
+  respectReducedMotion: true,
   components: {
     Card: { defaultProps: { withBorder: true, radius: 'lg', padding: 'lg' } },
     Paper: { defaultProps: { radius: 'lg' } },
-    Modal: { defaultProps: { radius: 'lg', centered: true } },
+    Modal: {
+      defaultProps: { radius: 'lg', centered: true },
+      styles: { title: { fontWeight: TITLE_WEIGHT } },
+    },
   },
 })

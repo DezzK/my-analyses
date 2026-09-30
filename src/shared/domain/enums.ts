@@ -42,6 +42,10 @@ export type OrderSource = (typeof ORDER_SOURCES)[number]
 export const SYNC_STATUSES = ['running', 'ok', 'error', 'blocked', 'login_required'] as const
 export type SyncStatus = (typeof SYNC_STATUSES)[number]
 
+/** What a running sync is busy with, shown to the person while they wait. */
+export const SYNC_STAGES = ['connecting', 'listing', 'orders'] as const
+export type SyncStage = (typeof SYNC_STAGES)[number]
+
 /** Marker shapes a lab can take on charts; names match ECharts symbol names. */
 export const MARKER_SHAPES = ['circle', 'rect', 'triangle', 'diamond', 'roundRect', 'pin'] as const
 export type MarkerShape = (typeof MARKER_SHAPES)[number]

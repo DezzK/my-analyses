@@ -56,10 +56,46 @@ export interface FetchedText {
 /** A lab's page open inside the app; requests made through it carry the page's own session. */
 export interface LabPage {
   url(): string
-  /** Runs a function inside the page and returns its JSON-serializable result. */
-  evaluate<T>(fn: (...args: never[]) => unknown, ...args: unknown[]): Promise<T>
+  /**
+   * Evaluates a JavaScript expression inside the page (`document.title`) and returns its
+   * JSON-serializable value. An expression, not a function: bundled code does not survive
+   * `Function.prototype.toString` reliably.
+   */
+  evaluate<T>(expression: string): Promise<T>
+  /** Requests go one at a time, spaced by the connector's `requestIntervalMs`. */
   fetchText(url: string, init?: FetchInit): Promise<FetchedText>
-  fetchJson<T>(url: string, init?: FetchInit): Promise<T>
+}
+
+const FIRST_ERROR_STATUS = 400
+const HTTP_UNAUTHORIZED = 401
+
+/** Whether the lab refused or failed the request. */
+export function isErrorStatus(status: number): boolean {
+  return status >= FIRST_ERROR_STATUS
+}
+
+/** A request the lab answered with an error status. */
+export class LabHttpError extends Error {
+  override readonly name = 'LabHttpError'
+
+  constructor(
+    readonly status: number,
+    readonly url: string,
+  ) {
+    super(`HTTP ${status} from ${url}`)
+  }
+
+  /** The lab no longer recognizes the session: the person has to log in again. */
+  get sessionExpired(): boolean {
+    return this.status === HTTP_UNAUTHORIZED
+  }
+}
+
+/** Fetches through the page; an error status becomes a `LabHttpError`. */
+export async function fetchOk(page: LabPage, url: string, init?: FetchInit): Promise<FetchedText> {
+  const response = await page.fetchText(url, init)
+  if (isErrorStatus(response.status)) throw new LabHttpError(response.status, response.url)
+  return response
 }
 
 /**

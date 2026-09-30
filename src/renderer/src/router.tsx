@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Center, Loader } from '@mantine/core'
 import { createHashHistory, createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
+import { LabsPage } from './labs/LabsPage'
 import { AppLayout } from './layout/AppLayout'
 import { Welcome, type WelcomeStep } from './onboarding/Welcome'
 import { ComingSoonPage } from './pages/ComingSoonPage'
@@ -48,12 +49,7 @@ const routeTree = rootRoute.addChildren([
       description="История посещений лабораторий и ручной ввод результатов заказом: дата и лаборатория один раз, затем показатели."
     />
   )),
-  page('/labs', () => (
-    <ComingSoonPage
-      title="Лаборатории"
-      description="Подключение личных кабинетов и кнопка «Обновить всё». Первой будет KDL."
-    />
-  )),
+  page('/labs', LabsPage),
   page('/mapping', () => (
     <ComingSoonPage
       title="Сопоставление"

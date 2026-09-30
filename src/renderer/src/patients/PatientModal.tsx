@@ -3,9 +3,9 @@ import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
 import { IconTrash } from '@tabler/icons-react'
 import type { Patient } from '@shared/api'
-import { api, errorMessage } from '../api'
+import { api } from '../api'
 import { plural } from '../format'
-import { TITLE_WEIGHT } from '../theme'
+import { notifyError } from '../notify'
 import { PatientForm } from './PatientForm'
 import { PeriodsEditor } from './PeriodsEditor'
 
@@ -24,7 +24,7 @@ export function PatientModal({ opened, patient, onClose, onCreated }: Props) {
     <Modal
       opened={opened}
       onClose={onClose}
-      title={<Text fw={TITLE_WEIGHT}>{patient ? `Пациент: ${patient.title}` : 'Новый пациент'}</Text>}
+      title={patient ? `Пациент: ${patient.title}` : 'Новый пациент'}
       size="lg"
     >
       <Stack gap="lg">
@@ -102,7 +102,7 @@ async function confirmRemoval(patient: Patient, onRemoved: () => void): Promise<
           ),
         })
       } catch (error) {
-        notifications.show({ color: 'red', message: errorMessage(error) })
+        notifyError(error)
       }
     },
   })

@@ -8,10 +8,15 @@ import {
   requestRestore,
   resolveBackupDir,
 } from './backup'
+import { AttachmentStore } from './attachments'
 import { checkIntegrity, DatabaseCorruptError, openDatabase, runMigrations } from './db/client'
 import { fanOut, WindowEvents } from './events'
+import { ImportService } from './import/importer'
+import { SyncService } from './import/sync'
 import { registerApi } from './ipc'
+import { LabBrowser } from './lab/browser'
 import { configureDataDir, dataPaths } from './paths'
+import { AnalyteService } from './services/analytes'
 import { LabService } from './services/labs'
 import { PatientService } from './services/patients'
 import { UnitService } from './services/units'
@@ -76,14 +81,30 @@ async function start(): Promise<void> {
   const events = fanOut(windowEvents, backupOnDataChange(backups))
   const patients = new PatientService(db, events)
   patients.purgeRemoved()
-  new UnitService(db, events).ensureBuiltins()
-  new LabService(db).ensureBuiltins()
+  const units = new UnitService(db, events)
+  units.ensureBuiltins()
+  const labs = new LabService(db, events)
+  labs.ensureBuiltins()
+  const importer = new ImportService({
+    db,
+    units,
+    analytes: new AnalyteService(db),
+    attachments: new AttachmentStore(dataPaths.attachments()),
+    events,
+  })
+  const sync = new SyncService({ db, labs, importer, sessions: new LabBrowser(() => mainWindow), events })
+  sync.recoverInterrupted()
 
   const window = createMainWindow()
   mainWindow = window
+  // Login and sync windows of the embedded browser must not keep the app running on their own.
+  window.on('closed', () => {
+    mainWindow = null
+    app.quit()
+  })
   windowEvents.attach(window.webContents)
   registerApi(
-    createApi({ window: () => mainWindow, settings, backups, patients }),
+    createApi({ window: () => mainWindow, settings, backups, patients, labs, sync }),
     (event) => event.sender === window.webContents,
   )
   loadRenderer(window)

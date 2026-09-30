@@ -22,3 +22,8 @@ body {
 .no-drag {
   -webkit-app-region: no-drag;
 }
+
+/* Table cells that must stay on one line: dates, status badges. */
+.nowrap {
+  white-space: nowrap;
+}

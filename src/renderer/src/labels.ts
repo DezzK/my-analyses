@@ -1,5 +1,5 @@
 import type { BackupReason } from '@shared/api'
-import type { PeriodKind, Sex } from '@shared/domain/enums'
+import type { PeriodKind, Sex, SyncStage, SyncStatus } from '@shared/domain/enums'
 
 /** Russian names of the shared closed sets, for the UI only. */
 
@@ -16,4 +16,18 @@ export const BACKUP_REASON_LABELS: Record<BackupReason, string> = {
   manual: 'Вручную',
   'pre-migration': 'Перед обновлением',
   'pre-restore': 'Перед восстановлением',
+}
+
+export const SYNC_STATUS_LABELS: Record<SyncStatus, string> = {
+  running: 'Идёт обновление',
+  ok: 'Готово',
+  error: 'Ошибка',
+  blocked: 'Сайт не пустил',
+  login_required: 'Нужен вход',
+}
+
+export const SYNC_STAGE_LABELS: Record<SyncStage, string> = {
+  connecting: 'Открываю личный кабинет',
+  listing: 'Получаю список заказов',
+  orders: 'Загружаю заказы',
 }

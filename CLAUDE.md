@@ -10,7 +10,8 @@ commits are English.
 - `npm run dev` — app with hot reload; `npm run build` — bundles into `out/`.
 - `npm run typecheck`, `npm test` (Vitest).
 - `npx playwright test` — end-to-end against the built app (`npm run build` first); set
-  `SCREENSHOT_DIR` to save screenshots of each step.
+  `SCREENSHOT_DIR` to save screenshots of each step. `withDatabase` (`e2e/app.ts`) prepares a state
+  the UI cannot reach alone, such as a connected lab account, while the app is closed.
 - `npm run db:generate` — after changing `src/main/db/schema.ts`; commit the new `drizzle/` folder.
 
 ## Layout
@@ -41,12 +42,21 @@ commits are English.
 - Rules about patients and periods: `PatientService` (`src/main/services/patients.ts`). The UI never
   validates on a service's behalf; it shows the `UserError` the service throws.
 - Which spelling means which unit, and the built-in units in the database: `UnitService`.
-- Labs, their chart markers (`LAB_MARKERS`) and the built-in labs: `LabService`.
+- Labs, their chart markers (`LAB_MARKERS`), the built-in labs and which connector serves a lab
+  (`LabService.connector`): `LabService`.
 - Analytes, their lab codes and the FTS index (`normalizeSearchText`): `AnalyteService`.
 - Turning a lab's report into orders and results (dedup, protecting hand edits, new analytes for
   unknown codes): `ImportService` (`src/main/import/importer.ts`). Connectors only return
   `RawOrder`s (`src/main/lab/types.ts`); original forms go to `AttachmentStore`.
+- Connected lab accounts: connecting, logging in again, syncing, the run history and which orders a
+  sync fetches again (`RECHECK_DAYS`): `SyncService` (`src/main/import/sync.ts`).
+- The embedded browser: a persistent session partition per account, pages kept on the lab's hosts,
+  the login window that closes itself once the person is in: `LabBrowser` (`src/main/lab/browser.ts`).
+  Services depend on its `LabSessions` port; tests use a fake one.
 - Folding case and ё for every word comparison: `foldCase` (`src/shared/domain/text.ts`).
+- Names inside the data folder: `DATA_FILES` (`src/main/paths.ts`).
+- In the UI, a failed call is reported with `notifyError` (`src/renderer/src/notify.ts`), and a lab is
+  drawn with its color and shape by `LabMarker`.
 
 ## Conventions
 

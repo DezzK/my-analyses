@@ -29,7 +29,7 @@ interface Section {
 const SECTIONS: Section[] = [
   { to: '/', label: 'Обзор', icon: <IconLayoutDashboard size={SHELL_ICON_SIZE} /> },
   { to: '/orders', label: 'Заказы', icon: <IconFlask size={SHELL_ICON_SIZE} />, soon: true },
-  { to: '/labs', label: 'Лаборатории', icon: <IconBuildingHospital size={SHELL_ICON_SIZE} />, soon: true },
+  { to: '/labs', label: 'Лаборатории', icon: <IconBuildingHospital size={SHELL_ICON_SIZE} /> },
   { to: '/mapping', label: 'Сопоставление', icon: <IconArrowsShuffle size={SHELL_ICON_SIZE} />, soon: true },
   { to: '/catalog', label: 'Справочник', icon: <IconBook2 size={SHELL_ICON_SIZE} />, soon: true },
   { to: '/reports', label: 'Отчёты', icon: <IconFileText size={SHELL_ICON_SIZE} />, soon: true },

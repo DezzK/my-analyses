@@ -5,10 +5,11 @@ import { IconCloudUpload, IconFolderOpen, IconHistory } from '@tabler/icons-reac
 import { useMutation } from '@tanstack/react-query'
 import type { BackupInfo } from '@shared/api'
 import { CHANGE_BACKUP_DELAY_MS, KEEP_RECENT } from '@shared/backup-policy'
-import { api, errorMessage } from '../api'
+import { api } from '../api'
 import { PageHeader } from '../components/PageHeader'
 import { formatBytes, formatDateTime, plural } from '../format'
 import { BACKUP_REASON_LABELS } from '../labels'
+import { notifyError } from '../notify'
 import { keys, queryClient, useAppInfo, useBackups, useSettings } from '../queries'
 
 const MS_PER_SECOND = 1000
@@ -31,12 +32,12 @@ function BackupsCard() {
   const choose = useMutation({
     mutationFn: () => api.settings.chooseBackupDir(),
     onSuccess: (next) => next && queryClient.setQueryData(keys.settings(), next),
-    onError: (error) => notifications.show({ color: 'red', message: errorMessage(error) }),
+    onError: notifyError,
   })
   const create = useMutation({
     mutationFn: () => api.backups.create(),
     onSuccess: () => notifications.show({ message: 'Бэкап сохранён' }),
-    onError: (error) => notifications.show({ color: 'red', message: errorMessage(error) }),
+    onError: notifyError,
   })
   const delaySeconds = CHANGE_BACKUP_DELAY_MS / MS_PER_SECOND
 
@@ -136,7 +137,7 @@ function confirmRestore(backup: BackupInfo): void {
       try {
         await api.backups.restore(backup.file)
       } catch (error) {
-        notifications.show({ color: 'red', message: errorMessage(error) })
+        notifyError(error)
       }
     },
   })

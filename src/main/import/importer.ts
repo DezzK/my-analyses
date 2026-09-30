@@ -34,6 +34,11 @@ export function emptyStats(): SyncStats {
   }
 }
 
+/** Adds the counters of `more` into `total`. */
+export function addStats(total: SyncStats, more: SyncStats): void {
+  for (const key of Object.keys(total) as (keyof SyncStats)[]) total[key] += more[key]
+}
+
 /** The value and the unit spelling of a result as printed; the reference may name the unit instead. */
 function readResult(raw: RawResult): { rawValue: string; unitText: string | null } | null {
   const printed = raw.printed.trim()
@@ -52,6 +57,11 @@ function valueKindOf(rawValue: string): ValueKind {
 
 function sha256(text: string): string {
   return createHash('sha256').update(text).digest('hex')
+}
+
+/** Whether a stored order holds exactly this report of the lab's. */
+function sameReport(stored: { rawHash: string | null }, rawPayload: string): boolean {
+  return stored.rawHash === sha256(rawPayload)
 }
 
 /**
@@ -78,16 +88,38 @@ export class ImportService {
     return stats
   }
 
-  private importOrder(target: ImportTarget, raw: RawOrder, stats: SyncStats): void {
-    const { db } = this.deps
-    const rawHash = sha256(raw.rawPayload)
-    const existing = db
+  /** External keys of the orders already imported from a lab. */
+  importedKeys(labId: number): Set<string> {
+    const rows = this.deps.db
+      .select({ key: labOrder.externalKey })
+      .from(labOrder)
+      .where(eq(labOrder.labId, labId))
+      .all()
+    return new Set(rows.flatMap((row) => (row.key === null ? [] : [row.key])))
+  }
+
+  /**
+   * Whether the lab's original form is worth fetching along with this report: the order is new,
+   * has no form yet, or its report changed since the form was stored.
+   */
+  needsForm(labId: number, report: Pick<RawOrder, 'externalKey' | 'rawPayload'>): boolean {
+    const existing = this.find(labId, report.externalKey)
+    return !existing?.pdfFile || !sameReport(existing, report.rawPayload)
+  }
+
+  private find(labId: number, externalKey: string) {
+    return this.deps.db
       .select()
       .from(labOrder)
-      .where(and(eq(labOrder.labId, target.labId), eq(labOrder.externalKey, raw.externalKey)))
+      .where(and(eq(labOrder.labId, labId), eq(labOrder.externalKey, externalKey)))
       .get()
+  }
+
+  private importOrder(target: ImportTarget, raw: RawOrder, stats: SyncStats): void {
+    const { db } = this.deps
+    const existing = this.find(target.labId, raw.externalKey)
     const pdfFile = raw.pdf ? this.deps.attachments.store(raw.pdf) : (existing?.pdfFile ?? null)
-    if (existing && existing.rawHash === rawHash && existing.pdfFile === pdfFile) {
+    if (existing && sameReport(existing, raw.rawPayload) && existing.pdfFile === pdfFile) {
       stats.ordersUnchanged += 1
       return
     }
@@ -97,7 +129,7 @@ export class ImportService {
       collectedOn: raw.collectedOn,
       connectorVersion: target.connectorVersion,
       rawPayload: raw.rawPayload,
-      rawHash,
+      rawHash: sha256(raw.rawPayload),
       pdfFile,
       updatedAt: new Date().toISOString(),
     }

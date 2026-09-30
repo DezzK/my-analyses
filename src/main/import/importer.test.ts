@@ -79,7 +79,7 @@ describe('ImportService', () => {
     const events = silentEvents()
     const units = new UnitService(db, events)
     units.ensureBuiltins()
-    const labs = new LabService(db)
+    const labs = new LabService(db, events)
     labs.ensureBuiltins()
     const patient = new PatientService(db, events, () => '2026-09-30').create({
       title: 'Анна',

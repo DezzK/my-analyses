@@ -1,9 +1,19 @@
+import { randomUUID } from 'node:crypto'
 import { asc, count, eq } from 'drizzle-orm'
+import type { Lab } from '@shared/api'
 import type { MarkerShape } from '@shared/domain/enums'
+import { UserError } from '@shared/errors'
 import type { Db } from '../db/client'
-import { lab } from '../db/schema'
+import { lab, labAccount } from '../db/schema'
+import { dataChanged, type EventSink } from '../events'
+import { connectorFor } from '../lab/connectors'
+import type { LabAccountInfo, LabConnector } from '../lab/types'
 
 export type LabRow = typeof lab.$inferSelect
+export type LabAccountRow = typeof labAccount.$inferSelect
+
+/** Electron keeps a partition named `persist:…` on disk; each account gets one of its own. */
+const SESSION_PARTITION_PREFIX = 'persist:lab-'
 
 /**
  * Colors and shapes that tell labs apart on charts: the Okabe–Ito palette stays distinguishable
@@ -27,9 +37,14 @@ export const BUILTIN_LABS: readonly { name: string; connectorId: string | null }
   { name: 'Другая лаборатория', connectorId: null },
 ]
 
-/** Owner of the list of labs and of their chart markers. */
+/** Owner of labs, their chart markers and the accounts connected to their personal pages. */
 export class LabService {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly events: EventSink,
+    /** The connector registry; tests put fakes in it. */
+    private readonly connectors: typeof connectorFor = connectorFor,
+  ) {}
 
   /** Adds the built-in labs that are missing; never touches labs the person already has. */
   ensureBuiltins(): void {
@@ -48,12 +63,88 @@ export class LabService {
     }
   }
 
-  list(): LabRow[] {
-    return this.db.select().from(lab).orderBy(asc(lab.id)).all()
+  list(): Lab[] {
+    return this.db
+      .select()
+      .from(lab)
+      .orderBy(asc(lab.id))
+      .all()
+      .map(({ id, name, markerColor, markerShape, connectorId }) => ({
+        id,
+        name,
+        markerColor,
+        markerShape,
+        connectable: this.connectors(connectorId) !== null,
+      }))
   }
 
   get(id: number): LabRow | undefined {
     return this.db.select().from(lab).where(eq(lab.id, id)).get()
+  }
+
+  /** The lab and the connector that imports its personal accounts. */
+  connector(labId: number): { lab: LabRow; connector: LabConnector } {
+    const row = this.get(labId)
+    if (!row) throw new UserError('Лаборатория не найдена')
+    const connector = this.connectors(row.connectorId)
+    if (!connector) {
+      throw new UserError(`Подключать кабинет лаборатории «${row.name}» приложение пока не умеет`)
+    }
+    return { lab: row, connector }
+  }
+
+  listAccounts(): LabAccountRow[] {
+    return this.db.select().from(labAccount).orderBy(asc(labAccount.id)).all()
+  }
+
+  getAccount(id: number): LabAccountRow {
+    const row = this.db.select().from(labAccount).where(eq(labAccount.id, id)).get()
+    if (!row) throw new UserError('Кабинет не найден')
+    return row
+  }
+
+  /** A new account of a lab the app has a connector for, with a session nobody else shares. */
+  createAccount(labId: number, patientId: number): LabAccountRow {
+    const { lab: labRow } = this.connector(labId)
+    const row = this.db
+      .insert(labAccount)
+      .values({
+        labId,
+        label: labRow.name,
+        defaultPatientId: patientId,
+        sessionPartition: `${SESSION_PARTITION_PREFIX}${randomUUID()}`,
+      })
+      .returning()
+      .get()
+    dataChanged(this.events, 'labs')
+    return row
+  }
+
+  setAccountPatient(id: number, patientId: number): void {
+    this.getAccount(id)
+    this.db.update(labAccount).set({ defaultPatientId: patientId }).where(eq(labAccount.id, id)).run()
+    dataChanged(this.events, 'labs')
+  }
+
+  /** Takes the account's name and id from the lab's own pages, once someone is logged in. */
+  recordIdentity(id: number, info: LabAccountInfo): void {
+    this.db
+      .update(labAccount)
+      .set({ label: info.label, externalAccountId: info.externalId })
+      .where(eq(labAccount.id, id))
+      .run()
+  }
+
+  markSynced(id: number, at: string): void {
+    this.db.update(labAccount).set({ lastSyncAt: at }).where(eq(labAccount.id, id)).run()
+  }
+
+  /** Removes the account; its orders stay. Returns it so the caller can forget its session. */
+  removeAccount(id: number): LabAccountRow {
+    const row = this.getAccount(id)
+    this.db.delete(labAccount).where(eq(labAccount.id, id)).run()
+    dataChanged(this.events, 'labs')
+    return row
   }
 
   /** Markers go round the palette in order of creation. */

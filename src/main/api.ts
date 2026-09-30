@@ -2,7 +2,9 @@ import { app, dialog, shell, type BrowserWindow, type OpenDialogOptions } from '
 import { basename, join } from 'node:path'
 import type { Api, AppSettings } from '@shared/api'
 import { requestRestore, type BackupService } from './backup'
+import type { SyncService } from './import/sync'
 import { dataPaths } from './paths'
+import type { LabService } from './services/labs'
 import type { PatientService } from './services/patients'
 import type { SettingsStore } from './settings'
 
@@ -11,6 +13,8 @@ interface Services {
   settings: SettingsStore
   backups: BackupService
   patients: PatientService
+  labs: LabService
+  sync: SyncService
 }
 
 /** The one implementation of the UI-facing API; every method delegates to the owning service. */
@@ -70,6 +74,20 @@ export function createApi(s: Services): Api {
       addPeriod: async (patientId, input) => s.patients.addPeriod(patientId, input),
       updatePeriod: async (id, input) => s.patients.updatePeriod(id, input),
       removePeriod: async (id) => s.patients.removePeriod(id),
+    },
+    labs: {
+      list: async () => s.labs.list(),
+      accounts: async () => s.sync.accounts(),
+      connect: (labId, patientId) => s.sync.connect(labId, patientId),
+      login: (accountId) => s.sync.login(accountId),
+      setPatient: async (accountId, patientId) => s.labs.setAccountPatient(accountId, patientId),
+      disconnect: (accountId) => s.sync.disconnect(accountId),
+    },
+    sync: {
+      account: (accountId) => s.sync.syncAccount(accountId),
+      all: () => s.sync.syncAll(),
+      history: async (accountId) => s.sync.history(accountId),
+      progress: async () => s.sync.currentProgress(),
     },
   }
 }
