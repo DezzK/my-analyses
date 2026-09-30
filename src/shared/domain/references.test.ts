@@ -17,7 +17,19 @@ describe('parseReference', () => {
     ['<5 (не обнаружено)', { kind: 'range', low: null, high: 5, unitText: null }],
     ['отрицательно', { kind: 'qualitative', expected: 'negative' }],
   ])('reads %s', (raw, expected) => {
-    expect(parseReference(raw)).toEqual(expected)
+    const ref = parseReference(raw)
+    const values =
+      ref?.kind === 'range' ? { ...ref, low: ref.low?.value ?? null, high: ref.high?.value ?? null } : ref
+    expect(values).toEqual(expected)
+  })
+
+  it('keeps the precision the lab printed each bound with', () => {
+    expect(parseReference('0.40-4.0 мкМЕ/мл')).toEqual({
+      kind: 'range',
+      low: { value: 0.4, decimals: 2, sigDigits: 2 },
+      high: { value: 4, decimals: 1, sigDigits: 2 },
+      unitText: 'мкМЕ/мл',
+    })
   })
 
   it.each([null, '', 'см. результат в pdf заказа', '5 - 3', 'фолликулярная фаза: 3,5–12,5'])(

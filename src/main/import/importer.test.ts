@@ -1,18 +1,12 @@
-import { existsSync, mkdtempSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { existsSync } from 'node:fs'
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { AttachmentStore } from '../attachments'
+import type { AttachmentStore } from '../attachments'
 import type { Db } from '../db/client'
-import { analyte, lab, labOrder, result, unit } from '../db/schema'
+import { analyte, labOrder, result, unit } from '../db/schema'
 import type { RawOrder, RawResult } from '../lab/types'
-import { AnalyteService } from '../services/analytes'
-import { LabService } from '../services/labs'
-import { PatientService } from '../services/patients'
-import { UnitService } from '../services/units'
-import { createTestDb, silentEvents } from '../test-support'
-import { ImportService, type ImportTarget } from './importer'
+import { createTestServices } from '../test-support'
+import type { ImportService, ImportTarget } from './importer'
 
 const GLUCOSE: RawResult = {
   labCode: '1.1.A1.1',
@@ -71,33 +65,13 @@ function order(results: RawResult[], externalKey = '5:1001'): RawOrder {
 describe('ImportService', () => {
   let db: Db
   let importer: ImportService
+  let attachments: AttachmentStore
   let target: ImportTarget
-  let attachmentsDir: string
 
   beforeEach(() => {
-    db = createTestDb()
-    const events = silentEvents()
-    const units = new UnitService(db, events)
-    units.ensureBuiltins()
-    const labs = new LabService(db, events)
-    labs.ensureBuiltins()
-    const patient = new PatientService(db, events, () => '2026-09-30').create({
-      title: 'Анна',
-      sex: 'female',
-      birthDate: '1990-05-14',
-      note: null,
-    })
-    attachmentsDir = mkdtempSync(join(tmpdir(), 'attachments-'))
-    importer = new ImportService({
-      db,
-      units,
-      analytes: new AnalyteService(db),
-      attachments: new AttachmentStore(attachmentsDir),
-      events,
-    })
-    const kdl = db.select().from(lab).where(eq(lab.name, 'KDL')).get()
-    if (!kdl) throw new Error('KDL is a built-in lab')
-    target = { labId: kdl.id, labAccountId: null, patientId: patient.id, connectorVersion: 'test' }
+    const app = createTestServices()
+    ;({ db, importer, attachments } = app)
+    target = { labId: app.kdlId, labAccountId: null, patientId: app.anna.id, connectorVersion: 'test' }
   })
 
   it('stores a new order, its results and a new analyte per test code', () => {
@@ -178,7 +152,7 @@ describe('ImportService', () => {
     importer.importOrders(target, [{ ...order(RESULTS), pdf }])
     const stored = db.select().from(labOrder).get()
     expect(stored?.pdfFile).toMatch(/^[0-9a-f]{64}$/)
-    expect(existsSync(join(attachmentsDir, `${stored?.pdfFile}.pdf`))).toBe(true)
+    expect(existsSync(attachments.path(stored?.pdfFile ?? ''))).toBe(true)
   })
 
   it('indexes new analytes for search by name and lab code', () => {

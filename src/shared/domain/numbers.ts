@@ -25,6 +25,18 @@ export function parseDecimal(text: string): ParsedNumber | null {
   return { value, decimals: fraction.length, sigDigits: Math.max(1, digits.length) }
 }
 
+/** Enough significant digits to spell any stored double without its binary noise (0.1 + 0.2 → 0.3). */
+const STORED_PRECISION = 15
+const storedSpelling = new Intl.NumberFormat('en-US', {
+  useGrouping: false,
+  maximumSignificantDigits: STORED_PRECISION,
+})
+
+/** A number read back from storage, with the precision its shortest spelling shows: 4.0 → "4". */
+export function numberFromStored(value: number): ParsedNumber {
+  return parseDecimal(storedSpelling.format(value)) ?? { value, decimals: 0, sigDigits: STORED_PRECISION }
+}
+
 export function roundSignificant(value: number, sigDigits: number): number {
   if (value === 0 || !Number.isFinite(value)) return value
   const magnitude = Math.floor(Math.log10(Math.abs(value)))

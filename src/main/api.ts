@@ -4,8 +4,12 @@ import type { Api, AppSettings } from '@shared/api'
 import { requestRestore, type BackupService } from './backup'
 import type { SyncService } from './import/sync'
 import { dataPaths } from './paths'
+import type { AnalyteService } from './services/analytes'
 import type { LabService } from './services/labs'
+import type { OrderService } from './services/orders'
 import type { PatientService } from './services/patients'
+import type { ResultReader } from './services/results'
+import type { UnitService } from './services/units'
 import type { SettingsStore } from './settings'
 
 interface Services {
@@ -13,6 +17,10 @@ interface Services {
   settings: SettingsStore
   backups: BackupService
   patients: PatientService
+  units: UnitService
+  analytes: AnalyteService
+  results: ResultReader
+  orders: OrderService
   labs: LabService
   sync: SyncService
 }
@@ -74,6 +82,22 @@ export function createApi(s: Services): Api {
       addPeriod: async (patientId, input) => s.patients.addPeriod(patientId, input),
       updatePeriod: async (id, input) => s.patients.updatePeriod(id, input),
       removePeriod: async (id) => s.patients.removePeriod(id),
+    },
+    catalog: {
+      units: async () => s.units.list(),
+    },
+    analytes: {
+      search: async (query, patientId) => s.analytes.search(query, patientId),
+      results: async (analyteId, patientId) => s.results.forAnalyte(analyteId, patientId),
+      setDisplayUnit: async (analyteId, unitId) => s.analytes.setDisplayUnit(analyteId, unitId),
+    },
+    orders: {
+      list: async (patientId) => s.orders.list(patientId),
+      get: async (orderId) => s.orders.get(orderId),
+      openForm: async (orderId) => {
+        const failure = await shell.openPath(s.orders.formPath(orderId))
+        if (failure) throw new Error(failure)
+      },
     },
     labs: {
       list: async () => s.labs.list(),

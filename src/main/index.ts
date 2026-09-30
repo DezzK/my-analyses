@@ -18,7 +18,9 @@ import { LabBrowser } from './lab/browser'
 import { configureDataDir, dataPaths } from './paths'
 import { AnalyteService } from './services/analytes'
 import { LabService } from './services/labs'
+import { OrderService } from './services/orders'
 import { PatientService } from './services/patients'
+import { ResultReader } from './services/results'
 import { UnitService } from './services/units'
 import { SettingsStore } from './settings'
 
@@ -85,13 +87,11 @@ async function start(): Promise<void> {
   units.ensureBuiltins()
   const labs = new LabService(db, events)
   labs.ensureBuiltins()
-  const importer = new ImportService({
-    db,
-    units,
-    analytes: new AnalyteService(db),
-    attachments: new AttachmentStore(dataPaths.attachments()),
-    events,
-  })
+  const analytes = new AnalyteService(db, events)
+  const attachments = new AttachmentStore(dataPaths.attachments())
+  const importer = new ImportService({ db, units, analytes, attachments, events })
+  const results = new ResultReader({ db, units, analytes, patients })
+  const orders = new OrderService({ db, reader: results, attachments })
   const sync = new SyncService({ db, labs, importer, sessions: new LabBrowser(() => mainWindow), events })
   sync.recoverInterrupted()
 
@@ -104,7 +104,18 @@ async function start(): Promise<void> {
   })
   windowEvents.attach(window.webContents)
   registerApi(
-    createApi({ window: () => mainWindow, settings, backups, patients, labs, sync }),
+    createApi({
+      window: () => mainWindow,
+      settings,
+      backups,
+      patients,
+      units,
+      analytes,
+      results,
+      orders,
+      labs,
+      sync,
+    }),
     (event) => event.sender === window.webContents,
   )
   loadRenderer(window)

@@ -8,7 +8,8 @@ commits are English.
 ## Commands
 
 - `npm run dev` — app with hot reload; `npm run build` — bundles into `out/`.
-- `npm run typecheck`, `npm test` (Vitest).
+- `npm run typecheck`, `npm test` (Vitest). Main-process tests build their services with
+  `createTestServices` (`src/main/test-support.ts`), wired as the app wires them.
 - `npx playwright test` — end-to-end against the built app (`npm run build` first); set
   `SCREENSHOT_DIR` to save screenshots of each step. `withDatabase` (`e2e/app.ts`) prepares a state
   the UI cannot reach alone, such as a connected lab account, while the app is closed.
@@ -31,20 +32,27 @@ commits are English.
   implemented once in `src/main/api.ts`.
 - Backup retention, delay and file naming: `src/shared/backup-policy.ts`.
 - Civil-date arithmetic: `src/shared/domain/dates.ts`; age: `src/shared/domain/age.ts`.
-- Reading lab strings: numbers and their precision (`numbers.ts`, `DECIMAL_PATTERN`), values,
+- Reading lab strings: numbers and their precision (`numbers.ts`, `DECIMAL_PATTERN`; stored numbers
+  through `numberFromStored`), values,
   bounds and qualitative words (`values.ts`), reference ranges (`references.ts`) — all under
   `src/shared/domain`.
 - Units: the built-in dictionary, spelling normalization and conversion (`src/shared/domain/units.ts`);
   a unit's scale relates it to its dimension, molar mass bridges molar and mass concentrations.
-- Which reference applies and whether a value deviates: `chooseRule` and `evaluate` in
+- Which reference applies and whether a value deviates: `chooseRule`, `evaluate` and `isDeviation` in
   `src/shared/domain/references.ts`; trimesters and other conditions: `src/shared/domain/conditions.ts`.
+- How a stored result is shown: its value in the chosen unit, the reference that applies (the lab's,
+  then the lab's rule, then the general rule), the verdict and whether the lab agrees: `interpret`
+  (`src/shared/domain/interpret.ts`). The main process reads results only through `ResultReader`
+  (`src/main/services/results.ts`), so tables, charts, orders and reports never disagree.
 - Russian names of the closed sets: `src/renderer/src/labels.ts`.
 - Rules about patients and periods: `PatientService` (`src/main/services/patients.ts`). The UI never
   validates on a service's behalf; it shows the `UserError` the service throws.
 - Which spelling means which unit, and the built-in units in the database: `UnitService`.
 - Labs, their chart markers (`LAB_MARKERS`), the built-in labs and which connector serves a lab
   (`LabService.connector`): `LabService`.
-- Analytes, their lab codes and the FTS index (`normalizeSearchText`): `AnalyteService`.
+- Analytes, their lab codes, the unit each is shown in, search and the FTS index
+  (`normalizeSearchText`): `AnalyteService`.
+- Orders, their summaries and original forms: `OrderService` (`src/main/services/orders.ts`).
 - Turning a lab's report into orders and results (dedup, protecting hand edits, new analytes for
   unknown codes): `ImportService` (`src/main/import/importer.ts`). Connectors only return
   `RawOrder`s (`src/main/lab/types.ts`); original forms go to `AttachmentStore`.

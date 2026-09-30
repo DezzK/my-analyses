@@ -1,7 +1,8 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm'
-import type { lab, patient, patientPeriod } from '@main/db/schema'
+import type { lab, patient, patientPeriod, unit } from '@main/db/schema'
 import type { BackupReason } from './backup-policy'
-import type { SyncStage, SyncStatus } from './domain/enums'
+import type { LabFlag, OrderSource, Specimen, SyncStage, SyncStatus, ValueKind } from './domain/enums'
+import type { Interpretation } from './domain/interpret'
 
 export type { BackupReason }
 
@@ -58,6 +59,79 @@ export interface SyncProgress {
   total: number
 }
 
+export type Unit = Pick<InferSelectModel<typeof unit>, 'id' | 'code' | 'display' | 'reviewed'>
+
+/** An analyte found by search, with how much of it the patient has. */
+export interface AnalyteHit {
+  id: number
+  name: string
+  specimen: Specimen | null
+  /** The synonym or lab code that matched, when it was not the name. */
+  matched: string | null
+  resultCount: number
+  lastCollectedOn: string | null
+}
+
+export interface AnalyteSummary {
+  id: number
+  name: string
+  specimen: Specimen | null
+  description: string | null
+  valueKind: ValueKind
+  reviewed: boolean
+  aliases: { alias: string; labId: number | null; labCode: string | null }[]
+}
+
+/** A unit the analyte's results can be shown in; `convertible` when every result converts into it. */
+export interface UnitOption {
+  id: number
+  convertible: boolean
+}
+
+/** A stored result read for display: as reported, plus how the app interprets it. */
+export interface ResultRow {
+  id: number
+  orderId: number
+  analyteId: number
+  analyteName: string
+  labId: number
+  collectedOn: string
+  collectedTime: string | null
+  rawValue: string
+  reportedUnitId: number | null
+  refRaw: string | null
+  labFlag: LabFlag | null
+  userEdited: boolean
+  note: string | null
+  read: Interpretation
+}
+
+export interface AnalyteResults {
+  analyte: AnalyteSummary
+  /** The unit results are shown in: the one the person chose, else the analyte's canonical unit. */
+  unitId: number | null
+  units: UnitOption[]
+  /** Newest first. */
+  rows: ResultRow[]
+}
+
+export interface OrderSummary {
+  id: number
+  labId: number
+  collectedOn: string
+  collectedTime: string | null
+  source: OrderSource
+  note: string | null
+  hasForm: boolean
+  resultCount: number
+  /** Results outside their reference. */
+  deviationCount: number
+}
+
+export interface OrderDetails extends OrderSummary {
+  results: ResultRow[]
+}
+
 export interface BackupInfo {
   file: string
   createdAt: string
@@ -104,6 +178,23 @@ export interface Api {
     addPeriod(patientId: number, input: PatientPeriodInput): Promise<PatientPeriod>
     updatePeriod(id: number, input: PatientPeriodInput): Promise<PatientPeriod>
     removePeriod(id: number): Promise<void>
+  }
+  catalog: {
+    units(): Promise<Unit[]>
+  }
+  analytes: {
+    /** By name, synonym or lab code, ignoring case and ё; the patient's own analytes first. */
+    search(query: string, patientId: number | null): Promise<AnalyteHit[]>
+    results(analyteId: number, patientId: number): Promise<AnalyteResults>
+    /** The unit the analyte is shown in everywhere; null returns to its canonical unit. */
+    setDisplayUnit(analyteId: number, unitId: number | null): Promise<void>
+  }
+  orders: {
+    /** Newest first. */
+    list(patientId: number): Promise<OrderSummary[]>
+    get(orderId: number): Promise<OrderDetails>
+    /** Opens the original lab form in the system's PDF viewer. */
+    openForm(orderId: number): Promise<void>
   }
   labs: {
     list(): Promise<Lab[]>

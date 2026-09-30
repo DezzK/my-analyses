@@ -1,12 +1,8 @@
-import { mkdtempSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppEvent, SyncProgress } from '@shared/api'
 import { epochDay, isoFromEpochDay } from '@shared/domain/dates'
 import { UserError } from '@shared/errors'
-import { AttachmentStore } from '../attachments'
 import type { Db } from '../db/client'
 import { labAccount, labOrder, syncRun } from '../db/schema'
 import type { LabSessions, LoginOutcome } from '../lab/browser'
@@ -19,18 +15,12 @@ import {
   type OrderRef,
   type RawResult,
 } from '../lab/types'
-import { AnalyteService } from '../services/analytes'
-import { LabService } from '../services/labs'
-import { PatientService } from '../services/patients'
-import { UnitService } from '../services/units'
-import { createTestDb, silentEvents } from '../test-support'
-import { ImportService } from './importer'
+import type { LabService } from '../services/labs'
+import { createTestServices, TEST_TODAY } from '../test-support'
 import { RECHECK_DAYS, SyncService } from './sync'
 
-const TODAY = '2026-09-30'
-
 function daysAgo(days: number): string {
-  return isoFromEpochDay((epochDay(TODAY) ?? 0) - days)
+  return isoFromEpochDay((epochDay(TEST_TODAY) ?? 0) - days)
 }
 
 const GLUCOSE: RawResult = {
@@ -130,7 +120,7 @@ class FakeSessions implements LabSessions {
 
 describe('SyncService', () => {
   let db: Db
-  let events: ReturnType<typeof silentEvents>
+  let events: ReturnType<typeof createTestServices>['events']
   let connector: FakeConnector
   let sessions: FakeSessions
   let labs: LabService
@@ -139,31 +129,12 @@ describe('SyncService', () => {
   let patientId: number
 
   beforeEach(() => {
-    db = createTestDb()
-    events = silentEvents()
-    const units = new UnitService(db, events)
-    units.ensureBuiltins()
     connector = new FakeConnector()
-    labs = new LabService(db, events, (id) => (id === connector.id ? connector : null))
-    labs.ensureBuiltins()
-    patientId = new PatientService(db, events, () => TODAY).create({
-      title: 'Анна',
-      sex: 'female',
-      birthDate: '1990-05-14',
-      note: null,
-    }).id
-    const importer = new ImportService({
-      db,
-      units,
-      analytes: new AnalyteService(db),
-      attachments: new AttachmentStore(mkdtempSync(join(tmpdir(), 'attachments-'))),
-      events,
-    })
+    const app = createTestServices({ connectors: (id) => (id === connector.id ? connector : null) })
+    ;({ db, events, labs, kdlId } = app)
+    patientId = app.anna.id
     sessions = new FakeSessions()
-    sync = new SyncService({ db, labs, importer, sessions, events, today: () => TODAY })
-    const kdl = labs.list().find((row) => row.connectable)
-    if (!kdl) throw new Error('KDL has a connector')
-    kdlId = kdl.id
+    sync = new SyncService({ db, labs, importer: app.importer, sessions, events, today: () => TEST_TODAY })
   })
 
   function progressEvents(): SyncProgress[][] {

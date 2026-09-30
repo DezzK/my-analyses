@@ -1,5 +1,6 @@
 import type { ReferenceCondition, Sex } from './enums'
-import { DECIMAL_PATTERN, parseDecimal } from './numbers'
+import { DECIMAL_PATTERN, parseDecimal, type ParsedNumber } from './numbers'
+import { foldCase } from './text'
 import {
   isUpperBound,
   normalizeWords,
@@ -10,23 +11,30 @@ import {
   type QualitativeCode,
 } from './values'
 
-/** A reference range as a lab printed it, read into bounds; the unit is left as text. */
+/** A reference range as a lab printed it, read into bounds with their precision; the unit is left as text. */
 export type ParsedReference =
-  | { kind: 'range'; low: number | null; high: number | null; unitText: string | null }
+  | { kind: 'range'; low: ParsedNumber | null; high: ParsedNumber | null; unitText: string | null }
   | { kind: 'qualitative'; expected: QualitativeCode }
 
 const DASHES = /[‐‑‒–—−]/g
 const RANGE = new RegExp(`^(?:от\\s*)?(${DECIMAL_PATTERN})\\s*(?:-|до)\\s*(${DECIMAL_PATTERN})\\s*(.*)$`)
 const LEADING_NUMBER = new RegExp(`^(${DECIMAL_PATTERN})\\s*(.*)$`)
 
-/** What follows the bounds is a unit only if it does not open a comment: "(не обнаружено)". */
-function unitOf(rest: string | undefined): string | null {
-  const text = (rest ?? '').trim()
-  return text && !/^[()]/.test(text) ? text : null
+/** The stretch of `raw` that normalizes to `piece`, in the letter case the lab printed it in. */
+function asPrinted(piece: string, raw: string): string {
+  const pattern = new RegExp(piece.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replaceAll(' ', '\\s+'))
+  const match = pattern.exec(foldCase(raw))
+  return match ? raw.slice(match.index, match.index + match[0].length) : piece
 }
 
-function num(text: string | undefined): number | null {
-  return parseDecimal(text ?? '')?.value ?? null
+/** What follows the bounds is a unit only if it does not open a comment: "(не обнаружено)". */
+function unitOf(rest: string | undefined, raw: string): string | null {
+  const text = (rest ?? '').trim()
+  return text && !/^[()]/.test(text) ? asPrinted(text, raw) : null
+}
+
+function num(text: string | undefined): ParsedNumber | null {
+  return parseDecimal(text ?? '')
 }
 
 /**
@@ -39,15 +47,15 @@ export function parseReference(raw: string | null | undefined): ParsedReference 
   const range = RANGE.exec(text)
   if (range) {
     const [low, high] = [num(range[1]), num(range[2])]
-    if (low !== null && high !== null && low <= high) {
-      return { kind: 'range', low, high, unitText: unitOf(range[3]) }
+    if (low !== null && high !== null && low.value <= high.value) {
+      return { kind: 'range', low, high, unitText: unitOf(range[3], raw) }
     }
   }
   const bound = readBound(text)
   const edge = bound && LEADING_NUMBER.exec(bound.rest)
   const limit = num(edge?.[1])
   if (bound && edge && limit !== null) {
-    const unitText = unitOf(edge[2])
+    const unitText = unitOf(edge[2], raw)
     return isUpperBound(bound.comparator)
       ? { kind: 'range', low: null, high: limit, unitText }
       : { kind: 'range', low: limit, high: null, unitText }
@@ -65,6 +73,11 @@ export interface ReferenceBounds {
 }
 
 export type Deviation = 'high' | 'low' | 'normal' | 'abnormal'
+
+/** Whether a verdict puts the result outside its norm. */
+export function isDeviation(deviation: Deviation | null): boolean {
+  return deviation !== null && deviation !== 'normal'
+}
 
 /**
  * Bounds belong to the norm. A value reported as a bound ("<0,1") is judged by what it proves:
