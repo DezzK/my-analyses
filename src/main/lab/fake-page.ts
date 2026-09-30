@@ -74,6 +74,11 @@ export function answerBytes(fragment: string, bytes: Uint8Array): Route {
   return (url) => (url.includes(fragment) ? { status: HTTP_OK, url, bytes } : null)
 }
 
+/** A route that ends a request for URLs containing `fragment` at `to`, with `text`: a redirect. */
+export function redirect(fragment: string, to: string, text = ''): Route {
+  return (url) => (url.includes(fragment) ? { status: HTTP_OK, url: to, text } : null)
+}
+
 /** A route answering `status` with no body for URLs containing `fragment`. */
 export function refuse(fragment: string, status: number): Route {
   return (url) => (url.includes(fragment) ? { status, url } : null)

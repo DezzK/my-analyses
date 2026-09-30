@@ -48,3 +48,13 @@ export function formatDateRu(iso: string): string {
   const m = ISO_DATE.exec(iso)
   return m ? `${m[3]}.${m[2]}.${m[1]}` : iso
 }
+
+const DATE_RU = /^(\d{2})\.(\d{2})\.(\d{4})(?!\d)/
+
+/** The ISO date of one written as `formatDateRu` writes it, a time after it or not; null if none. */
+export function isoFromDateRu(text: string): string | null {
+  const m = DATE_RU.exec(text.trim())
+  if (!m) return null
+  const iso = `${m[3]}-${m[2]}-${m[1]}`
+  return isIsoDate(iso) ? iso : null
+}

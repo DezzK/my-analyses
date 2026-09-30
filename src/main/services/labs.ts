@@ -20,18 +20,33 @@ const MAX_LAB_NAME_LENGTH = 60
 /** Electron keeps a partition named `persist:…` on disk; each account gets one of its own. */
 const SESSION_PARTITION_PREFIX = 'persist:lab-'
 
+/** The Okabe–Ito colors, which stay distinguishable for color-blind readers. */
+const MARKER_COLORS = ['#0072B2', '#D55E00', '#009E73', '#CC79A7', '#E69F00', '#56B4E9'] as const
+/** Shapes, which still tell labs apart on a black-and-white printout; the first round's order. */
+const MARKER_SHAPE_ORDER: readonly MarkerShape[] = [
+  'circle',
+  'triangle',
+  'diamond',
+  'rect',
+  'roundRect',
+  'pin',
+]
+
 /**
- * Colors and shapes that tell labs apart on charts: the Okabe–Ito palette stays distinguishable
- * for color-blind readers, and the shapes still do the job on a black-and-white printout.
+ * Chart markers in the order labs receive them: each color with a shape of its own, then each
+ * color again with the shape half the list away, so no pair of color and shape repeats before
+ * every pair here is taken. Stored with each lab, so the order may only ever grow.
  */
 export const LAB_MARKERS: readonly { color: string; shape: MarkerShape }[] = [
-  { color: '#0072B2', shape: 'circle' },
-  { color: '#D55E00', shape: 'triangle' },
-  { color: '#009E73', shape: 'diamond' },
-  { color: '#CC79A7', shape: 'rect' },
-  { color: '#E69F00', shape: 'roundRect' },
-  { color: '#56B4E9', shape: 'pin' },
-]
+  0,
+  MARKER_SHAPE_ORDER.length / 2,
+].flatMap((shift) =>
+  MARKER_COLORS.map((color, i) => {
+    const shape = MARKER_SHAPE_ORDER[(i + shift) % MARKER_SHAPE_ORDER.length]
+    if (!shape) throw new Error('MARKER_SHAPE_ORDER is empty')
+    return { color, shape }
+  }),
+)
 
 /** Labs every install starts with; `connectorId` names a connector in `src/main/lab/connectors`. */
 export const BUILTIN_LABS: readonly { name: string; connectorId: string | null }[] = [
@@ -39,6 +54,7 @@ export const BUILTIN_LABS: readonly { name: string; connectorId: string | null }
   { name: 'Хеликс', connectorId: 'helix' },
   { name: 'Гемотест', connectorId: 'gemotest' },
   { name: 'Инвитро', connectorId: 'invitro' },
+  { name: 'ДНКОМ', connectorId: 'dnkom' },
   { name: 'Другая лаборатория', connectorId: null },
 ]
 

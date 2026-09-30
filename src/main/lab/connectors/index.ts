@@ -1,4 +1,5 @@
 import type { LabConnector } from '../types'
+import { dnkomConnector } from './dnkom'
 import { gemotestConnector } from './gemotest'
 import { helixConnector } from './helix'
 import { invitroConnector } from './invitro'
@@ -10,6 +11,7 @@ export const CONNECTORS: Readonly<Record<string, LabConnector>> = {
   [helixConnector.id]: helixConnector,
   [gemotestConnector.id]: gemotestConnector,
   [invitroConnector.id]: invitroConnector,
+  [dnkomConnector.id]: dnkomConnector,
 }
 
 export function connectorFor(connectorId: string | null): LabConnector | null {

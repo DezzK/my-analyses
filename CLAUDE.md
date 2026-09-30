@@ -121,7 +121,8 @@ and commits are English.
   (`src/main/lab/paging.ts`); Unix times, whether a token is still good to use (`tokenUsable`) and
   the Moscow dates labs file samples under, in `src/main/lab/time.ts`. A site that keeps its session
   in localStorage is read and written through `LabPage.readStorage`/`writeStorage`, whose scripts
-  live in `src/main/lab/page-scripts.ts`.
+  live in `src/main/lab/page-scripts.ts`; a site with no API, only pages rendered on the server
+  (DNKOM), is read in the main process with `node-html-parser`.
 - Connected lab accounts: connecting, logging in again, syncing, the run history and which orders a
   sync fetches again (`RECHECK_DAYS`): `SyncService` (`src/main/import/sync.ts`).
 - The embedded browser: a persistent session partition per account, pages kept on the lab's hosts,
