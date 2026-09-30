@@ -1,9 +1,9 @@
 # My Analyses («Мои анализы»)
 
-Electron desktop app for macOS and Windows that keeps a family's lab results: imports them from lab
-personal accounts through an embedded browser, shows tables and charts, prints reports. The spec
-(in Russian) is the Claude Doc «ТЗ v2 — «Мои анализы»». UI text is Russian; code, comments and
-commits are English.
+Electron desktop app for macOS, Windows and Linux that keeps a family's lab results: imports them
+from lab personal accounts through an embedded browser, shows tables and charts, prints reports. The
+spec (in Russian) is the Claude Doc «ТЗ v2 — «Мои анализы»». The UI, the release notes and the README
+are Russian, as the owner wants them; code, comments, CLAUDE.md and commits are English.
 
 ## Commands
 
