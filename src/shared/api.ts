@@ -70,8 +70,21 @@ export interface Api {
   }
 }
 
+/** What an import did, counted for the person and kept with each sync run. */
+export interface SyncStats {
+  ordersAdded: number
+  ordersUpdated: number
+  ordersUnchanged: number
+  resultsAdded: number
+  resultsUpdated: number
+  /** Results the person corrected by hand; the lab's newer version was not applied over them. */
+  resultsKeptEdited: number
+  analytesCreated: number
+  unknownUnits: number
+}
+
 /** Groups of data a change can touch; the UI refetches whatever depends on them. */
-export type DataScope = 'patients' | 'periods'
+export type DataScope = 'patients' | 'periods' | 'labs' | 'orders' | 'catalog' | 'sync'
 
 export type AppEvent =
   { type: 'data-changed'; scopes: DataScope[] } | { type: 'backup-created'; backup: BackupInfo }

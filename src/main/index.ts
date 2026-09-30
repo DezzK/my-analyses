@@ -12,7 +12,9 @@ import { checkIntegrity, DatabaseCorruptError, openDatabase, runMigrations } fro
 import { fanOut, WindowEvents } from './events'
 import { registerApi } from './ipc'
 import { configureDataDir, dataPaths } from './paths'
+import { LabService } from './services/labs'
 import { PatientService } from './services/patients'
+import { UnitService } from './services/units'
 import { SettingsStore } from './settings'
 
 const APP_TITLE = 'Мои анализы'
@@ -74,6 +76,8 @@ async function start(): Promise<void> {
   const events = fanOut(windowEvents, backupOnDataChange(backups))
   const patients = new PatientService(db, events)
   patients.purgeRemoved()
+  new UnitService(db, events).ensureBuiltins()
+  new LabService(db).ensureBuiltins()
 
   const window = createMainWindow()
   mainWindow = window

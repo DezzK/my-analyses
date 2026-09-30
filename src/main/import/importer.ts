@@ -1,0 +1,178 @@
+import { createHash } from 'node:crypto'
+import { and, eq } from 'drizzle-orm'
+import type { SyncStats } from '@shared/api'
+import type { ValueKind } from '@shared/domain/enums'
+import { parseReference } from '@shared/domain/references'
+import { parseValue, splitValueAndUnit } from '@shared/domain/values'
+import type { AttachmentStore } from '../attachments'
+import type { Db } from '../db/client'
+import { labOrder, result } from '../db/schema'
+import { inTransaction } from '../db/transaction'
+import { dataChanged, type EventSink } from '../events'
+import type { RawOrder, RawResult } from '../lab/types'
+import type { AnalyteService } from '../services/analytes'
+import type { UnitService } from '../services/units'
+
+/** Where imported orders go: the lab, the account they came from and the patient they belong to. */
+export interface ImportTarget {
+  labId: number
+  labAccountId: number | null
+  patientId: number
+  connectorVersion: string | null
+}
+
+export function emptyStats(): SyncStats {
+  return {
+    ordersAdded: 0,
+    ordersUpdated: 0,
+    ordersUnchanged: 0,
+    resultsAdded: 0,
+    resultsUpdated: 0,
+    resultsKeptEdited: 0,
+    analytesCreated: 0,
+    unknownUnits: 0,
+  }
+}
+
+/** The value and the unit spelling of a result as printed; the reference may name the unit instead. */
+function readResult(raw: RawResult): { rawValue: string; unitText: string | null } | null {
+  const printed = raw.printed.trim()
+  if (!printed) return raw.value ? { rawValue: raw.value, unitText: null } : null
+  const split = splitValueAndUnit(printed)
+  if (parseValue(split.valueText).kind !== 'numeric') return { rawValue: printed, unitText: null }
+  const reference = parseReference(raw.reference)
+  const refUnit = reference?.kind === 'range' ? reference.unitText : null
+  return { rawValue: split.valueText, unitText: split.unitText ?? refUnit }
+}
+
+/** Compiles only while every kind `parseValue` returns is one of VALUE_KINDS. */
+function valueKindOf(rawValue: string): ValueKind {
+  return parseValue(rawValue).kind
+}
+
+function sha256(text: string): string {
+  return createHash('sha256').update(text).digest('hex')
+}
+
+/**
+ * Turns orders as a lab reports them into stored orders and results. A repeated import changes
+ * nothing that did not change at the lab, never duplicates an order, and never overwrites a
+ * result the person corrected. Test codes it meets for the first time become new analytes that
+ * wait in the review queue.
+ */
+export class ImportService {
+  constructor(
+    private readonly deps: {
+      db: Db
+      units: UnitService
+      analytes: AnalyteService
+      attachments: AttachmentStore
+      events: EventSink
+    },
+  ) {}
+
+  importOrders(target: ImportTarget, orders: readonly RawOrder[]): SyncStats {
+    const stats = emptyStats()
+    for (const order of orders) inTransaction(this.deps.db, () => this.importOrder(target, order, stats))
+    if (stats.ordersAdded + stats.ordersUpdated > 0) dataChanged(this.deps.events, 'orders', 'catalog')
+    return stats
+  }
+
+  private importOrder(target: ImportTarget, raw: RawOrder, stats: SyncStats): void {
+    const { db } = this.deps
+    const rawHash = sha256(raw.rawPayload)
+    const existing = db
+      .select()
+      .from(labOrder)
+      .where(and(eq(labOrder.labId, target.labId), eq(labOrder.externalKey, raw.externalKey)))
+      .get()
+    const pdfFile = raw.pdf ? this.deps.attachments.store(raw.pdf) : (existing?.pdfFile ?? null)
+    if (existing && existing.rawHash === rawHash && existing.pdfFile === pdfFile) {
+      stats.ordersUnchanged += 1
+      return
+    }
+
+    const fields = {
+      labAccountId: target.labAccountId,
+      collectedOn: raw.collectedOn,
+      connectorVersion: target.connectorVersion,
+      rawPayload: raw.rawPayload,
+      rawHash,
+      pdfFile,
+      updatedAt: new Date().toISOString(),
+    }
+    const orderId = existing
+      ? (db.update(labOrder).set(fields).where(eq(labOrder.id, existing.id)).run(), existing.id)
+      : db
+          .insert(labOrder)
+          .values({
+            ...fields,
+            patientId: target.patientId,
+            labId: target.labId,
+            externalKey: raw.externalKey,
+            source: 'import',
+          })
+          .returning({ id: labOrder.id })
+          .get().id
+    stats[existing ? 'ordersUpdated' : 'ordersAdded'] += 1
+
+    for (const item of raw.results) this.importResult(target, orderId, item, stats)
+  }
+
+  private importResult(target: ImportTarget, orderId: number, raw: RawResult, stats: SyncStats): void {
+    const { db, units, analytes } = this.deps
+    const read = readResult(raw)
+    if (!read) return
+
+    let unitId: number | null = null
+    if (read.unitText) {
+      const resolved = units.resolveOrCreate(read.unitText)
+      unitId = resolved.unit.id
+      if (resolved.created) stats.unknownUnits += 1
+    }
+
+    let analyteRow = analytes.findByLabCode(target.labId, raw.labCode)
+    if (!analyteRow) {
+      analyteRow = analytes.createFromLab({
+        labId: target.labId,
+        labCode: raw.labCode,
+        name: raw.labName,
+        valueKind: valueKindOf(read.rawValue),
+        unitId,
+      })
+      stats.analytesCreated += 1
+    } else if (unitId !== null) {
+      analytes.allowUnit(analyteRow.id, unitId)
+    }
+
+    const values = {
+      analyteId: analyteRow.id,
+      rawValue: read.rawValue,
+      unitId,
+      refRaw: raw.reference?.trim() || null,
+      labFlag: raw.flag,
+    }
+    const current = db
+      .select()
+      .from(result)
+      .where(and(eq(result.orderId, orderId), eq(result.externalKey, raw.labCode)))
+      .get()
+    if (!current) {
+      db.insert(result)
+        .values({ ...values, orderId, externalKey: raw.labCode })
+        .run()
+      stats.resultsAdded += 1
+      return
+    }
+    const changed = (Object.keys(values) as (keyof typeof values)[]).some(
+      (key) => current[key] !== values[key],
+    )
+    if (!changed) return
+    if (current.userEdited) {
+      stats.resultsKeptEdited += 1
+      return
+    }
+    db.update(result).set(values).where(eq(result.id, current.id)).run()
+    stats.resultsUpdated += 1
+  }
+}

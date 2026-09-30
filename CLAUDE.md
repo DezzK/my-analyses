@@ -40,6 +40,13 @@ commits are English.
 - Russian names of the closed sets: `src/renderer/src/labels.ts`.
 - Rules about patients and periods: `PatientService` (`src/main/services/patients.ts`). The UI never
   validates on a service's behalf; it shows the `UserError` the service throws.
+- Which spelling means which unit, and the built-in units in the database: `UnitService`.
+- Labs, their chart markers (`LAB_MARKERS`) and the built-in labs: `LabService`.
+- Analytes, their lab codes and the FTS index (`normalizeSearchText`): `AnalyteService`.
+- Turning a lab's report into orders and results (dedup, protecting hand edits, new analytes for
+  unknown codes): `ImportService` (`src/main/import/importer.ts`). Connectors only return
+  `RawOrder`s (`src/main/lab/types.ts`); original forms go to `AttachmentStore`.
+- Folding case and ё for every word comparison: `foldCase` (`src/shared/domain/text.ts`).
 
 ## Conventions
 

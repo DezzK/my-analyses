@@ -1,0 +1,191 @@
+import { existsSync, mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { eq } from 'drizzle-orm'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { AttachmentStore } from '../attachments'
+import type { Db } from '../db/client'
+import { analyte, lab, labOrder, result, unit } from '../db/schema'
+import type { RawOrder, RawResult } from '../lab/types'
+import { AnalyteService } from '../services/analytes'
+import { LabService } from '../services/labs'
+import { PatientService } from '../services/patients'
+import { UnitService } from '../services/units'
+import { createTestDb, silentEvents } from '../test-support'
+import { ImportService, type ImportTarget } from './importer'
+
+const GLUCOSE: RawResult = {
+  labCode: '1.1.A1.1',
+  labName: 'Глюкоза',
+  value: '5.40',
+  printed: '5.40 ммоль/л',
+  reference: '3.9-5.5 ммоль/л',
+  flag: 'normal',
+}
+const RESULTS: RawResult[] = [
+  GLUCOSE,
+  {
+    labCode: '1.1.A1.2',
+    labName: 'Гемоглобин',
+    value: '142',
+    printed: '142 г/л',
+    reference: '120-140',
+    flag: 'high',
+  },
+  {
+    labCode: '1.1.A1.3',
+    labName: 'ТТГ',
+    value: '2.1',
+    printed: '2.1',
+    reference: '0.4-4.0 мкМЕ/мл',
+    flag: 'normal',
+  },
+  {
+    labCode: '2.1.B1.1',
+    labName: 'Белок в моче',
+    value: null,
+    printed: 'не обнаружено',
+    reference: null,
+    flag: null,
+  },
+  {
+    labCode: '9.9.C1.1',
+    labName: 'Антитела',
+    value: '12',
+    printed: '12 Ед.акт/мл',
+    reference: null,
+    flag: null,
+  },
+]
+
+function order(results: RawResult[], externalKey = '5:1001'): RawOrder {
+  return {
+    externalKey,
+    collectedOn: '2026-08-08',
+    results,
+    rawPayload: JSON.stringify(results),
+    pdf: null,
+  }
+}
+
+describe('ImportService', () => {
+  let db: Db
+  let importer: ImportService
+  let target: ImportTarget
+  let attachmentsDir: string
+
+  beforeEach(() => {
+    db = createTestDb()
+    const events = silentEvents()
+    const units = new UnitService(db, events)
+    units.ensureBuiltins()
+    const labs = new LabService(db)
+    labs.ensureBuiltins()
+    const patient = new PatientService(db, events, () => '2026-09-30').create({
+      title: 'Анна',
+      sex: 'female',
+      birthDate: '1990-05-14',
+      note: null,
+    })
+    attachmentsDir = mkdtempSync(join(tmpdir(), 'attachments-'))
+    importer = new ImportService({
+      db,
+      units,
+      analytes: new AnalyteService(db),
+      attachments: new AttachmentStore(attachmentsDir),
+      events,
+    })
+    const kdl = db.select().from(lab).where(eq(lab.name, 'KDL')).get()
+    if (!kdl) throw new Error('KDL is a built-in lab')
+    target = { labId: kdl.id, labAccountId: null, patientId: patient.id, connectorVersion: 'test' }
+  })
+
+  it('stores a new order, its results and a new analyte per test code', () => {
+    const stats = importer.importOrders(target, [order(RESULTS)])
+    expect(stats).toMatchObject({ ordersAdded: 1, resultsAdded: 5, analytesCreated: 5, unknownUnits: 1 })
+
+    const rows = db.select().from(result).all()
+    const glucose = rows.find((r) => r.externalKey === GLUCOSE.labCode)
+    expect(glucose).toMatchObject({ rawValue: '5.40', refRaw: '3.9-5.5 ммоль/л', labFlag: 'normal' })
+    const glucoseUnit = db
+      .select()
+      .from(unit)
+      .where(eq(unit.id, glucose?.unitId ?? -1))
+      .get()
+    expect(glucoseUnit?.code).toBe('mmol/L')
+
+    // The unit came from the reference when the printed value had none.
+    const tsh = rows.find((r) => r.externalKey === '1.1.A1.3')
+    expect(
+      db
+        .select()
+        .from(unit)
+        .where(eq(unit.id, tsh?.unitId ?? -1))
+        .get()?.code,
+    ).toBe('uIU/mL')
+
+    const protein = db.select().from(analyte).where(eq(analyte.name, 'Белок в моче')).get()
+    expect(protein).toMatchObject({ specimen: 'urine', valueKind: 'qualitative', reviewed: false })
+    expect(rows.find((r) => r.externalKey === '2.1.B1.1')?.rawValue).toBe('не обнаружено')
+  })
+
+  it('changes nothing when the lab reports the same order again', () => {
+    importer.importOrders(target, [order(RESULTS)])
+    const stats = importer.importOrders(target, [order(RESULTS)])
+    expect(stats).toMatchObject({ ordersUnchanged: 1, ordersAdded: 0, resultsAdded: 0, analytesCreated: 0 })
+    expect(db.select().from(labOrder).all()).toHaveLength(1)
+  })
+
+  it("applies the lab's correction but keeps a result the person edited", () => {
+    importer.importOrders(target, [order(RESULTS)])
+    const corrected = [{ ...GLUCOSE, value: '5.60', printed: '5.60 ммоль/л' }, ...RESULTS.slice(1)]
+    expect(importer.importOrders(target, [order(corrected)])).toMatchObject({
+      ordersUpdated: 1,
+      resultsUpdated: 1,
+    })
+
+    db.update(result)
+      .set({ rawValue: '5.5', userEdited: true })
+      .where(eq(result.externalKey, GLUCOSE.labCode))
+      .run()
+    const again = [{ ...GLUCOSE, value: '5.70', printed: '5.70 ммоль/л' }, ...RESULTS.slice(1)]
+    expect(importer.importOrders(target, [order(again)])).toMatchObject({
+      resultsKeptEdited: 1,
+      resultsUpdated: 0,
+    })
+    expect(db.select().from(result).where(eq(result.externalKey, GLUCOSE.labCode)).get()?.rawValue).toBe(
+      '5.5',
+    )
+  })
+
+  it('maps a known test code of a later order onto the same analyte', () => {
+    importer.importOrders(target, [order(RESULTS)])
+    const stats = importer.importOrders(target, [order([GLUCOSE], '5:1002')])
+    expect(stats).toMatchObject({ ordersAdded: 1, analytesCreated: 0 })
+    expect(
+      new Set(
+        db
+          .select()
+          .from(result)
+          .all()
+          .map((r) => r.analyteId),
+      ).size,
+    ).toBe(5)
+  })
+
+  it('keeps the original form next to the order', () => {
+    const pdf = new TextEncoder().encode('%PDF-1.7 fake')
+    importer.importOrders(target, [{ ...order(RESULTS), pdf }])
+    const stored = db.select().from(labOrder).get()
+    expect(stored?.pdfFile).toMatch(/^[0-9a-f]{64}$/)
+    expect(existsSync(join(attachmentsDir, `${stored?.pdfFile}.pdf`))).toBe(true)
+  })
+
+  it('indexes new analytes for search by name and lab code', () => {
+    importer.importOrders(target, [order(RESULTS)])
+    const find = (q: string) =>
+      db.$client.prepare('SELECT analyte_id FROM analyte_search WHERE analyte_search MATCH ?').all(q)
+    expect(find('глюкоз')).toHaveLength(1)
+    expect(find('"1.1.A1.2"')).toHaveLength(1)
+  })
+})
