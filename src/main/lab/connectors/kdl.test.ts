@@ -6,6 +6,8 @@ import { kdlConnector } from './kdl'
 
 const MIDNIGHT_JUL_15 = 1784062800 // 15.07.2026 00:00 Moscow
 const MIDNIGHT_FEB_19 = 1771448400 // 19.02.2026 00:00 Moscow
+/** A made-up order number: tests never carry a real one. */
+const ORDER_ID = 41000007
 
 function rscPage(orders: object[], person: object | null): string {
   return [
@@ -18,7 +20,7 @@ function rscPage(orders: object[], person: object | null): string {
 const DETAILS = JSON.stringify({
   status: 'success',
   data: {
-    id: 41000007,
+    id: ORDER_ID,
     analyses: [
       {
         id: '1.1.A1.1',
@@ -77,26 +79,26 @@ describe('kdlConnector', () => {
     }))
     const page = new FakeLabPage([
       answer('?orderPage=1&', rscPage(firstPage, null)),
-      answer('?orderPage=2&', rscPage([{ orderId: 41000007, createAt: MIDNIGHT_JUL_15, regionDb: 2 }], null)),
+      answer('?orderPage=2&', rscPage([{ orderId: ORDER_ID, createAt: MIDNIGHT_JUL_15, regionDb: 2 }], null)),
     ])
     const refs = await kdlConnector.listOrders(page)
     expect(refs).toHaveLength(101)
     expect(refs.at(-1)).toEqual({
-      externalKey: '2:41000007',
+      externalKey: `2:${ORDER_ID}`,
       collectedOn: '2026-07-15',
-      data: { orderId: 41000007, createAt: MIDNIGHT_JUL_15, regionDb: 2 },
+      data: { orderId: ORDER_ID, createAt: MIDNIGHT_JUL_15, regionDb: 2 },
     })
     expect(page.requests.every((r) => r.init?.headers?.['RSC'] === '1')).toBe(true)
   })
 
   it('reads an order as the lab reports it', async () => {
     const ref = {
-      externalKey: '2:41000007',
+      externalKey: `2:${ORDER_ID}`,
       collectedOn: '2026-07-15',
-      data: { orderId: 41000007, createAt: MIDNIGHT_JUL_15, regionDb: 2 },
+      data: { orderId: ORDER_ID, createAt: MIDNIGHT_JUL_15, regionDb: 2 },
     }
     const page = new FakeLabPage([
-      answer('/api/next/account/orders/41000007/details?createAt=1784062800&regionDb=2', DETAILS),
+      answer(`/api/next/account/orders/${ORDER_ID}/details?createAt=${MIDNIGHT_JUL_15}&regionDb=2`, DETAILS),
     ])
     const order = await kdlConnector.fetchOrder(page, ref)
     expect(order.rawPayload).toBe(DETAILS)
