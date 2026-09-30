@@ -41,7 +41,8 @@ test('a report is built from analytes, kept as a template and saved as a PDF', a
       })) as unknown as typeof dialog.showSaveDialog
     }, target)
 
-    await window.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
+    // The button, unlike the shortcut, waits until the app has drawn itself.
+    await window.getByRole('button', { name: 'Поиск показателя' }).click()
     await window.getByPlaceholder('Показатель, синоним или код теста').fill('глюк')
     await window.getByRole('button', { name: /Глюкоза/ }).click()
     await window.getByRole('button', { name: 'В отчёт' }).click()
