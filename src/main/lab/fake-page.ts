@@ -44,8 +44,11 @@ export class FakeLabPage implements LabPage {
     >
   }
 
-  async writeStorage(entries: Readonly<Record<string, string>>): Promise<void> {
-    for (const [key, value] of Object.entries(entries)) this.storage.set(key, value)
+  async writeStorage(entries: Readonly<Record<string, string | null>>): Promise<void> {
+    for (const [key, value] of Object.entries(entries)) {
+      if (value === null) this.storage.delete(key)
+      else this.storage.set(key, value)
+    }
   }
 
   private route(url: string, init: FetchInit | undefined): Answer {

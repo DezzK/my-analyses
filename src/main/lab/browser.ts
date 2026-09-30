@@ -72,7 +72,7 @@ class WebContentsLabPage implements LabPage {
     return this.evaluate(readStorageScript(keys))
   }
 
-  async writeStorage(entries: Readonly<Record<string, string>>): Promise<void> {
+  async writeStorage(entries: Readonly<Record<string, string | null>>): Promise<void> {
     await this.evaluate(writeStorageScript(entries))
   }
 

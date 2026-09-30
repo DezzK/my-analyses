@@ -88,12 +88,17 @@ export interface LabPage {
   fetchBytes(url: string, init?: FetchInit): Promise<FetchedBytes>
   /** The page's localStorage entries under `keys`; a missing one reads as null. */
   readStorage<K extends string>(keys: readonly K[]): Promise<Record<K, string | null>>
-  /** Stores entries in the page's localStorage, where the lab's own site looks for them. */
-  writeStorage(entries: Readonly<Record<string, string>>): Promise<void>
+  /** Stores entries in the page's localStorage, where the lab's own site looks for them; null removes one. */
+  writeStorage(entries: Readonly<Record<string, string | null>>): Promise<void>
 }
 
-const FIRST_ERROR_STATUS = 400
-const HTTP_UNAUTHORIZED = 401
+/** The error statuses connectors tell apart; each lab says what they mean for it. */
+export const HTTP_BAD_REQUEST = 400
+export const HTTP_UNAUTHORIZED = 401
+export const HTTP_FORBIDDEN = 403
+export const HTTP_NOT_FOUND = 404
+/** Every status from Bad Request up is the lab refusing or failing the request. */
+const FIRST_ERROR_STATUS = HTTP_BAD_REQUEST
 
 /** Whether the lab refused or failed the request. */
 export function isErrorStatus(status: number): boolean {

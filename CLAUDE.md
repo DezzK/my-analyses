@@ -118,9 +118,10 @@ and commits are English.
   syncs and a `detectLogin` for the login window. What several labs' pages share — the VPN refusal
   (`detectVpnBlock`), telling a PDF from an error page served in its place (`isPdf`) — lives in
   `src/main/lab/pages.ts`; reading a list served page by page, in `collectPages`
-  (`src/main/lab/paging.ts`); Unix times and the Moscow dates labs file samples under, in
-  `src/main/lab/time.ts`. A site that keeps its session in localStorage is read and written through
-  `LabPage.readStorage`/`writeStorage`, whose scripts live in `src/main/lab/page-scripts.ts`.
+  (`src/main/lab/paging.ts`); Unix times, whether a token is still good to use (`tokenUsable`) and
+  the Moscow dates labs file samples under, in `src/main/lab/time.ts`. A site that keeps its session
+  in localStorage is read and written through `LabPage.readStorage`/`writeStorage`, whose scripts
+  live in `src/main/lab/page-scripts.ts`.
 - Connected lab accounts: connecting, logging in again, syncing, the run history and which orders a
   sync fetches again (`RECHECK_DAYS`): `SyncService` (`src/main/import/sync.ts`).
 - The embedded browser: a persistent session partition per account, pages kept on the lab's hosts,

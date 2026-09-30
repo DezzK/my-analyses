@@ -1,9 +1,10 @@
 import type { LabFlag } from '@shared/domain/enums'
 import { detectVpnBlock } from '../pages'
 import { collectPages } from '../paging'
-import { unixSeconds } from '../time'
+import { tokenUsable, unixSeconds } from '../time'
 import {
   fetchOk,
+  HTTP_NOT_FOUND,
   isErrorStatus,
   LabHttpError,
   type FetchedText,
@@ -31,13 +32,10 @@ const REFRESH_TOKEN = 'lk_refresh_token'
 const EXPIRES_AT = 'lk_expires_in'
 const DEVICE_ID = 'lk_device_id'
 const SESSION_KEYS = [ACCESS_TOKEN, REFRESH_TOKEN, EXPIRES_AT, DEVICE_ID] as const
-/** A token about to run out is refreshed before use, so it cannot expire halfway through a sync. */
-const TOKEN_MARGIN_SECONDS = 60
 
 const ORDERS_PER_PAGE = 50
 /** A service whose results are out; one still in the works may have none to show. */
 const SERVICE_DONE = 'Выполнен'
-const NOT_FOUND_STATUS = 404
 
 /** A reference that sends the reader to the comments, which spell out the ranges. */
 const SEE_COMMENTS = /^смотри текст$/i
@@ -85,9 +83,9 @@ interface GemotestTest {
   comment?: string[] | null
 }
 
-/** How long the stored access token has left to live, in seconds. */
-function secondsLeft(session: Session): number {
-  return Number(session[EXPIRES_AT]) - unixSeconds()
+/** When the stored access token runs out, a Unix time. */
+function expiresAt(session: Session): number {
+  return Number(session[EXPIRES_AT])
 }
 
 /**
@@ -100,7 +98,7 @@ async function accessToken(page: LabPage): Promise<string | null> {
   const refreshToken = session[REFRESH_TOKEN]
   if (!refreshToken) return null
   const stored = session[ACCESS_TOKEN]
-  if (stored && secondsLeft(session) > TOKEN_MARGIN_SECONDS) return stored
+  if (stored && tokenUsable(expiresAt(session))) return stored
   const device = session[DEVICE_ID]
   const response = await page.fetchText(`${API}/lk/v1/auth/refresh`, {
     method: 'POST',
@@ -186,7 +184,7 @@ export const gemotestConnector: LabConnector = {
   async detectLogin(page) {
     const session = await page.readStorage(SESSION_KEYS)
     // A session the app has given up on keeps its tokens until someone logs in again.
-    return Boolean(session[ACCESS_TOKEN]) && secondsLeft(session) > 0
+    return Boolean(session[ACCESS_TOKEN]) && expiresAt(session) > unixSeconds()
   },
 
   async detectAccount(page) {
@@ -229,7 +227,7 @@ export const gemotestConnector: LabConnector = {
       try {
         report = await api(page, `customer/v3/order/${encodeURIComponent(orderNumber)}/service/${service.id}`)
       } catch (error) {
-        if (LabHttpError.isStatus(error, NOT_FOUND_STATUS) && service.status !== SERVICE_DONE) continue
+        if (LabHttpError.isStatus(error, HTTP_NOT_FOUND) && service.status !== SERVICE_DONE) continue
         throw error
       }
       reports.push(report.text)

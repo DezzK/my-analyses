@@ -3,6 +3,7 @@ import { moscowDate, unixSeconds } from '../time'
 import {
   fetchBytesOk,
   fetchOk,
+  HTTP_FORBIDDEN,
   LabHttpError,
   type LabConnector,
   type LabPage,
@@ -20,7 +21,7 @@ import {
 const ORIGIN = 'https://my.helix.ru'
 const JSON_HEADERS = { headers: { Accept: 'application/json' } }
 /** How Helix answers a request that carries no session. */
-const NO_SESSION_STATUS = 403
+const NO_SESSION_STATUS = HTTP_FORBIDDEN
 
 interface HelixProfile {
   id: string

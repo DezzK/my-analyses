@@ -5,7 +5,10 @@ export function readStorageScript(keys: readonly string[]): string {
   return `Object.fromEntries(${JSON.stringify(keys)}.map((k) => [k, localStorage.getItem(k)]))`
 }
 
-/** Stores `entries` in the page's localStorage. */
-export function writeStorageScript(entries: Readonly<Record<string, string>>): string {
-  return `Object.entries(${JSON.stringify(entries)}).forEach(([k, v]) => localStorage.setItem(k, v))`
+/** Stores `entries` in the page's localStorage; a null one is removed. */
+export function writeStorageScript(entries: Readonly<Record<string, string | null>>): string {
+  return (
+    `Object.entries(${JSON.stringify(entries)})` +
+    '.forEach(([k, v]) => (v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v)))'
+  )
 }
