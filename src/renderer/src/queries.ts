@@ -41,6 +41,8 @@ export const keys = {
   syncHistory: (accountId: number) => ['sync', accountId] as const satisfies readonly [DataScope, number],
   /** Not data: kept current by `sync-progress` events instead of being refetched. */
   syncProgress: () => ['sync-progress'] as const,
+  /** Not data either: kept current by `update-status` events. */
+  updateStatus: () => ['update-status'] as const,
   backups: () => ['backups'] as const,
   settings: () => ['settings'] as const,
   appInfo: () => ['app-info'] as const,
@@ -57,6 +59,8 @@ export function subscribeToAppEvents(): () => void {
       void queryClient.invalidateQueries({ queryKey: keys.backups() })
     } else if (event.type === 'sync-progress') {
       queryClient.setQueryData(keys.syncProgress(), event.progress)
+    } else if (event.type === 'update-status') {
+      queryClient.setQueryData(keys.updateStatus(), event.status)
     }
   })
 }
@@ -211,6 +215,10 @@ export function useBackups() {
 
 export function useSettings() {
   return useQuery({ queryKey: keys.settings(), queryFn: () => api.settings.get() })
+}
+
+export function useUpdateStatus() {
+  return useQuery({ queryKey: keys.updateStatus(), queryFn: () => api.updates.status() })
 }
 
 export function useAppInfo() {

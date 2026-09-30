@@ -10,6 +10,7 @@
     "noImplicitOverride": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "noEmit": true,
@@ -26,6 +27,8 @@
     "playwright.config.ts",
     "electron.vite.config.ts",
     "drizzle.config.ts",
+    "electron-builder.ts",
+    "scripts/**/*",
     "vitest.config.ts"
   ]
 }

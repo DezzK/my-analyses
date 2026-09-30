@@ -24,6 +24,9 @@ test('first run creates a patient and lands on the overview', async () => {
     await window.getByRole('link', { name: 'Настройки' }).click()
     await expect(window.getByRole('heading', { name: 'Бэкапы' })).toBeVisible()
     await expect(window.getByText('При запуске').first()).toBeVisible()
+    // A development build is never replaced by a release.
+    await expect(window.getByText('Обновления приходят только в установленное приложение.')).toBeVisible()
+    await expect(window.getByRole('button', { name: 'Проверить обновления' })).toBeHidden()
     await snapshot(window, '04-settings')
   } finally {
     await app.close()

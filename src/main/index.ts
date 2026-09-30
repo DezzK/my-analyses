@@ -18,6 +18,8 @@ import { appWindowPreferences, loadRenderer, lockNavigation } from './renderer-w
 import { ReportPrinter } from './report-printer'
 import { createServices } from './services'
 import { SettingsStore } from './settings'
+import { createUpdater } from './updates'
+import { UpdateService } from './updates/update-service'
 import { TrustedWindows } from './windows'
 
 const APP_TITLE = 'Мои анализы'
@@ -85,6 +87,8 @@ async function start(): Promise<void> {
   const sync = new SyncService({ db, labs, importer, sessions: new LabBrowser(() => mainWindow), events })
   sync.recoverInterrupted()
 
+  const updates = new UpdateService({ updater: createUpdater(), events: windowEvents })
+
   const windows = new TrustedWindows()
   const printer = new ReportPrinter({ windows, parent: () => mainWindow })
   const window = createMainWindow()
@@ -97,13 +101,14 @@ async function start(): Promise<void> {
   })
   windowEvents.attach(window.webContents)
   registerApi(
-    createApi({ ...services, window: () => mainWindow, settings, backups, sync, printer }),
+    createApi({ ...services, window: () => mainWindow, settings, backups, sync, printer, updates }),
     (event) => windows.isTrusted(event),
   )
   void loadRenderer(window)
 
   backups.create('startup')
   app.on('before-quit', () => backups.flush())
+  updates.schedule()
 }
 
 async function offerRestoreFromLatest(backups: BackupService): Promise<void> {

@@ -314,6 +314,19 @@ export interface AppSettings {
   backupDirIsDefault: boolean
 }
 
+/** Where the app's own update stands. */
+export type UpdateStatus =
+  /** A development build, or a system the app has no updater for: nothing is ever checked. */
+  | { state: 'disabled' }
+  /** Nothing newer; `checkedAt` is when the server was last asked, null before the first time. */
+  | { state: 'current'; checkedAt: string | null }
+  | { state: 'checking' }
+  /** `share` of the download done, 0 to 1. */
+  | { state: 'downloading'; version: string; share: number }
+  /** Downloaded and checked: it installs when the app quits, or at once with a restart. */
+  | { state: 'ready'; version: string }
+  | { state: 'failed'; message: string; checkedAt: string }
+
 export interface AppInfo {
   version: string
   dataDir: string
@@ -323,6 +336,13 @@ export interface AppInfo {
 export interface Api {
   app: {
     info(): Promise<AppInfo>
+  }
+  updates: {
+    status(): Promise<UpdateStatus>
+    /** Asks the server now rather than at the next scheduled check. */
+    check(): Promise<UpdateStatus>
+    /** Quits and opens the downloaded version. */
+    restart(): Promise<void>
   }
   settings: {
     get(): Promise<AppSettings>
@@ -481,3 +501,4 @@ export type AppEvent =
   | { type: 'backup-created'; backup: BackupInfo }
   /** Every sync running right now; an empty list once the last one has finished. */
   | { type: 'sync-progress'; progress: SyncProgress[] }
+  | { type: 'update-status'; status: UpdateStatus }

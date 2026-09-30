@@ -10,6 +10,7 @@ import { dataPaths } from './paths'
 import type { ReportPrinter } from './report-printer'
 import type { Services as DataServices } from './services'
 import type { SettingsStore } from './settings'
+import type { UpdateService } from './updates/update-service'
 
 interface Services extends DataServices {
   window: () => BrowserWindow | null
@@ -17,6 +18,7 @@ interface Services extends DataServices {
   backups: BackupService
   sync: SyncService
   printer: ReportPrinter
+  updates: UpdateService
 }
 
 /** The one implementation of the UI-facing API; every method delegates to the owning service. */
@@ -33,6 +35,11 @@ export function createApi(s: Services): Api {
         dataDir: dataPaths.dataDir(),
         isPackaged: app.isPackaged,
       }),
+    },
+    updates: {
+      status: async () => s.updates.status(),
+      check: () => s.updates.check(),
+      restart: async () => s.updates.restart(),
     },
     settings: {
       get: async () => settingsView(),

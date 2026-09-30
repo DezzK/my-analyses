@@ -72,8 +72,11 @@ test('a report is built from analytes, kept as a template and saved as a PDF', a
     await window.getByRole('button', { name: 'Сохранить новый' }).click()
     await expect(window.getByPlaceholder('Выберите шаблон')).toHaveValue('Для эндокринолога')
 
-    await window.getByRole('button', { name: 'Сохранить PDF…' }).click()
+    const save = window.getByRole('button', { name: 'Сохранить PDF…' })
+    await save.click()
     await expect.poll(() => existsSync(target), { timeout: 30_000 }).toBe(true)
+    // The file appears as soon as writing starts; the button is busy until it ends.
+    await expect(save).toBeEnabled()
     const pdf = readFileSync(target)
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-')
     expect(pageCount(pdf)).toBeGreaterThanOrEqual(1)

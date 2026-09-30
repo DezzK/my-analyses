@@ -1,7 +1,7 @@
 import { Alert, Button, Card, Code, Group, Stack, Table, Text, Title } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
-import { IconCloudUpload, IconFolderOpen, IconHistory } from '@tabler/icons-react'
+import { IconCloudUpload, IconFolderOpen, IconHistory, IconRefresh } from '@tabler/icons-react'
 import { useMutation } from '@tanstack/react-query'
 import type { BackupInfo } from '@shared/api'
 import { CHANGE_BACKUP_DELAY_MS, KEEP_RECENT } from '@shared/backup-policy'
@@ -10,8 +10,9 @@ import { PageHeader } from '../components/PageHeader'
 import { formatBytes, formatDateTime, plural } from '../format'
 import { BACKUP_REASON_LABELS } from '../labels'
 import { notifyError } from '../notify'
-import { keys, queryClient, useAppInfo, useBackups, useSettings } from '../queries'
+import { keys, queryClient, useAppInfo, useBackups, useSettings, useUpdateStatus } from '../queries'
 import { ICON_SIZE } from '../theme'
+import { restartToUpdate, updateStatusText } from '../updates'
 
 const MS_PER_SECOND = 1000
 
@@ -146,15 +147,41 @@ function confirmRestore(backup: BackupInfo): void {
 
 function AboutCard() {
   const { data: info } = useAppInfo()
+  const { data: status } = useUpdateStatus()
+  const check = useMutation({ mutationFn: () => api.updates.check(), onError: notifyError })
+  const text = status ? updateStatusText(status) : null
   return (
     <Card>
       <Title order={4} mb="xs">
         О приложении
       </Title>
       <Text size="sm">Версия {info?.version}</Text>
+      {text && (
+        <Text size="sm" c={status?.state === 'failed' ? 'red' : undefined}>
+          {text}
+        </Text>
+      )}
       <Text size="sm" c="dimmed">
         Данные: <Code>{info?.dataDir}</Code>
       </Text>
+      {status && status.state !== 'disabled' && (
+        <Group mt="sm">
+          {status.state === 'ready' ? (
+            <Button leftSection={<IconRefresh size={ICON_SIZE.button} />} onClick={restartToUpdate}>
+              Перезапустить и обновить
+            </Button>
+          ) : (
+            <Button
+              variant="default"
+              leftSection={<IconRefresh size={ICON_SIZE.button} />}
+              loading={status.state === 'checking' || status.state === 'downloading' || check.isPending}
+              onClick={() => check.mutate()}
+            >
+              Проверить обновления
+            </Button>
+          )}
+        </Group>
+      )}
     </Card>
   )
 }

@@ -18,6 +18,7 @@ import { IS_MAC } from '../platform'
 import { useMappingQueue } from '../queries'
 import { AnalyteSearch, SearchButton } from '../search/AnalyteSearch'
 import { ICON_SIZE, TITLE_WEIGHT } from '../theme'
+import { useUpdateReadyNotice } from '../updates'
 
 /** Room for the macOS traffic lights, which sit over the header instead of a title bar. */
 const MAC_TRAFFIC_LIGHTS_INSET = 88
@@ -77,6 +78,7 @@ export function AppLayout() {
   const { patient } = useCurrentPatient()
   const { data: queue } = useMappingQueue(patient?.id ?? null)
   const counts: Partial<Record<Section['to'], number>> = { '/mapping': pendingCount(queue) }
+  useUpdateReadyNotice()
   return (
     <AppShell header={{ height: 56 }} navbar={{ width: 232, breakpoint: 0 }} padding="xl">
       <AppShell.Header className="drag-region" pl={IS_MAC ? MAC_TRAFFIC_LIGHTS_INSET : 'md'} pr="md">
