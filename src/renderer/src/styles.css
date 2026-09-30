@@ -1,0 +1,24 @@
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+/* Columns of numbers line up: every digit takes the same width. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The window has no native title bar on macOS; the header moves it. */
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
