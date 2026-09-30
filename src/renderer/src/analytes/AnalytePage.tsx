@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   Badge,
+  Button,
   Card,
   Center,
   Chip,
@@ -12,8 +13,8 @@ import {
   Text,
 } from '@mantine/core'
 import { useLocalStorage } from '@mantine/hooks'
-import { IconChartLine, IconTable } from '@tabler/icons-react'
-import { useParams } from '@tanstack/react-router'
+import { IconChartLine, IconFileText, IconTable } from '@tabler/icons-react'
+import { useNavigate, useParams } from '@tanstack/react-router'
 import type { AnalyteResults, Lab, Unit } from '@shared/api'
 import { api } from '../api'
 import { EmptyState } from '../components/EmptyState'
@@ -26,8 +27,9 @@ import { useAnalyteResults, useLabMap, useUnits } from '../queries'
 import { unitText } from '../results/format'
 import { ResultsChart } from '../results/ResultsChart'
 import { ResultsTable } from '../results/ResultsTable'
-import { PERIOD_LABELS, periodStart, PERIODS, type Period } from './periods'
+import { useReportDraft, withAnalyte } from '../reports/draft'
 import { ICON_SIZE } from '../theme'
+import { PERIOD_LABELS, periodStart, PERIODS, type Period } from './periods'
 
 type View = 'table' | 'chart'
 const VIEW_KEY = 'my-analyses:analyte-view'
@@ -65,6 +67,8 @@ function AnalyteView({
   const [period, setPeriod] = useLocalStorage<Period>({ key: PERIOD_KEY, defaultValue: 'all' })
   const presentLabs = useMemo(() => [...new Set(data.rows.map((row) => row.labId))], [data.rows])
   const [hiddenLabs, setHiddenLabs] = useState<number[]>([])
+  const [, setDraft] = useReportDraft()
+  const navigate = useNavigate()
 
   const start = periodStart(period)
   const rows = data.rows.filter(
@@ -93,7 +97,21 @@ function AnalyteView({
           </Group>
         }
         subtitle={<AliasLine data={data} labs={labs} />}
-        actions={<UnitSwitch data={data} units={units} />}
+        actions={
+          <>
+            <UnitSwitch data={data} units={units} />
+            <Button
+              variant="default"
+              leftSection={<IconFileText size={ICON_SIZE.button} />}
+              onClick={() => {
+                setDraft((current) => withAnalyte(current, analyte.id))
+                void navigate({ to: '/reports' })
+              }}
+            >
+              В отчёт
+            </Button>
+          </>
+        }
       />
       {data.rows.length === 0 ? (
         <EmptyState

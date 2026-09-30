@@ -27,3 +27,12 @@ body {
 .nowrap {
   white-space: nowrap;
 }
+
+/* On paper a chart stays whole and a block's title stays with what follows it; tables may break. */
+.report-chart {
+  break-inside: avoid;
+}
+
+.report-block > :first-child {
+  break-after: avoid;
+}

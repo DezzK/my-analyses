@@ -9,11 +9,13 @@ import { lab, labAccount } from '../db/schema'
 import { dataChanged, type EventSink } from '../events'
 import { connectorFor } from '../lab/connectors'
 import type { LabAccountInfo, LabConnector } from '../lab/types'
+import { typedName } from './validation'
 
 export type LabRow = typeof lab.$inferSelect
 export type LabAccountRow = typeof labAccount.$inferSelect
 
-const MAX_NAME_LENGTH = 60
+/** A lab's name stands in chart legends and next to every result. */
+const MAX_LAB_NAME_LENGTH = 60
 
 /** Electron keeps a partition named `persist:…` on disk; each account gets one of its own. */
 const SESSION_PARTITION_PREFIX = 'persist:lab-'
@@ -68,9 +70,7 @@ export class LabService {
 
   /** A lab the app has no connector for: its forms are entered by hand. */
   create(name: string): Lab {
-    const title = name.trim()
-    if (!title) throw new UserError('Введите название лаборатории')
-    if (title.length > MAX_NAME_LENGTH) throw new UserError(`Название длиннее ${MAX_NAME_LENGTH} символов`)
+    const title = typedName(name, 'Введите название лаборатории', { maxLength: MAX_LAB_NAME_LENGTH })
     const taken = this.list().some((existing) => foldCase(existing.name) === foldCase(title))
     if (taken) throw new UserError('Такая лаборатория уже есть')
     const row = this.db

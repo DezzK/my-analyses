@@ -11,10 +11,15 @@ export function ResultsChart({
   rows,
   labs,
   unitLabel,
+  height = CHART_HEIGHT,
+  interactive = true,
 }: {
   rows: ResultRow[]
   labs: ReadonlyMap<number, Lab>
   unitLabel: string
+  height?: number
+  /** Off for paper: no zoom, no toolbox, no tooltips. */
+  interactive?: boolean
 }) {
   const theme = useMantineTheme()
   const scheme = useComputedColorScheme('light')
@@ -26,14 +31,14 @@ export function ResultsChart({
     [scheme, theme],
   )
   const option = useMemo(
-    () => buildChartOption({ rows, labs, unitLabel, palette }),
-    [rows, labs, unitLabel, palette],
+    () => buildChartOption({ rows, labs, unitLabel, palette, interactive }),
+    [rows, labs, unitLabel, palette, interactive],
   )
   const left = rows.filter((row) => row.read.value.number && !row.read.value.inTarget).length
 
   return (
     <>
-      <EChart option={option} height={CHART_HEIGHT} />
+      <EChart option={option} height={height} />
       {left > 0 && (
         <Alert color="yellow" variant="light" mt="sm">
           {left} {plural(left, ['значение', 'значения', 'значений'])} в другой единице не{' '}

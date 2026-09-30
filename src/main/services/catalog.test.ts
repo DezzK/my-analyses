@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { AnalyteInput, RuleInput } from '@shared/api'
 import { ageToDays } from '@shared/domain/age'
-import { analyte, result, unit } from '../db/schema'
+import { analyte, analyteMerge, result, unit } from '../db/schema'
 import type { RawResult } from '../lab/types'
 import { createTestServices } from '../test-support'
 
@@ -178,6 +178,71 @@ describe('merging analytes', () => {
     expect(app.panels.list()[0]?.analyteIds).toEqual([ids.kdlTsh])
     app.merges.unmerge(mergeId)
     expect(app.panels.list()[0]?.analyteIds).toEqual([ids.kdlTsh, ids.helixTsh])
+  })
+
+  it('moves report blocks like panel places, each shown as it was', () => {
+    const layout = { chartsPerRow: 1 } as const
+    const both = app.reports.saveTemplate(
+      null,
+      'ТТГ дважды',
+      [
+        { analyteId: ids.kdlTsh, view: 'table', breakAfter: false },
+        { analyteId: ids.helixTsh, view: 'chart', breakAfter: true },
+      ],
+      layout,
+    )
+    const helix = app.reports.saveTemplate(
+      null,
+      'Хеликс',
+      [{ analyteId: ids.helixTsh, view: 'chart', breakAfter: true }],
+      layout,
+    )
+    const blocksOf = (id: number) => app.reports.templates().find((t) => t.id === id)?.blocks
+
+    const mergeId = app.merges.merge(ids.helixTsh, ids.kdlTsh)
+    expect(blocksOf(both.id)).toEqual([{ analyteId: ids.kdlTsh, view: 'table', breakAfter: false }])
+    expect(blocksOf(helix.id)).toEqual([{ analyteId: ids.kdlTsh, view: 'chart', breakAfter: true }])
+
+    app.merges.unmerge(mergeId)
+    expect(blocksOf(both.id)).toEqual(both.blocks)
+    expect(blocksOf(helix.id)).toEqual(helix.blocks)
+  })
+
+  it('undoes a merge whose panel or template is gone since', () => {
+    const panel = app.panels.save(null, 'ТТГ дважды', [ids.kdlTsh, ids.helixTsh])
+    const template = app.reports.saveTemplate(
+      null,
+      'ТТГ дважды',
+      [
+        { analyteId: ids.kdlTsh, view: 'both', breakAfter: false },
+        { analyteId: ids.helixTsh, view: 'both', breakAfter: false },
+      ],
+      { chartsPerRow: 1 },
+    )
+    const mergeId = app.merges.merge(ids.helixTsh, ids.kdlTsh)
+    app.panels.remove(panel.id)
+    app.reports.removeTemplate(template.id)
+
+    app.merges.unmerge(mergeId)
+    expect(app.analytes.get(ids.helixTsh)?.name).toBe('Тиреотропный гормон')
+    expect(app.panels.list()).toEqual([])
+    expect(app.reports.templates()).toEqual([])
+  })
+
+  it('undoes a merge recorded before report templates kept their blocks as rows', () => {
+    const mergeId = app.merges.merge(ids.helixTsh, ids.kdlTsh)
+    const merge = eq(analyteMerge.id, mergeId)
+    const { reportBlocks: _, ...older } = JSON.parse(
+      app.db.select().from(analyteMerge).where(merge).get()?.record ?? '{}',
+    ) as Record<string, unknown>
+    app.db
+      .update(analyteMerge)
+      .set({ record: JSON.stringify(older) })
+      .where(merge)
+      .run()
+
+    app.merges.unmerge(mergeId)
+    expect(app.analytes.get(ids.helixTsh)?.name).toBe('Тиреотропный гормон')
   })
 
   it('refuses to merge an analyte into itself', () => {

@@ -7,8 +7,7 @@ import { analyte, panel, panelItem } from '../db/schema'
 import { inTransaction } from '../db/transaction'
 import { dataChanged, type EventSink } from '../events'
 import { normalizeSearchText } from './analytes'
-
-const MAX_NAME_LENGTH = 80
+import { typedName } from './validation'
 
 /** Owner of panels: named sets of analytes entered and searched together. */
 export class PanelService {
@@ -36,9 +35,7 @@ export class PanelService {
 
   /** Creates a panel (`panelId` null) or replaces a panel's name and analytes, in the given order. */
   save(panelId: number | null, name: string, analyteIds: number[]): Panel {
-    const title = name.trim()
-    if (!title) throw new UserError('Введите название набора')
-    if (title.length > MAX_NAME_LENGTH) throw new UserError(`Название длиннее ${MAX_NAME_LENGTH} символов`)
+    const title = typedName(name, 'Введите название набора')
     const ids = [...new Set(analyteIds)]
     if (ids.length === 0) throw new UserError('Добавьте в набор хотя бы один показатель')
     const found = this.db.select({ id: analyte.id }).from(analyte).where(inArray(analyte.id, ids)).all()

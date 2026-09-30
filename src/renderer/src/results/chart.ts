@@ -36,6 +36,8 @@ const ARROW_SIZE: [number, number] = [7, 8]
 /** How far a censored value's arrow sits from its marker, in pixels. */
 const ARROW_OFFSET = 11
 const ARROW_DOWN_DEGREES = 180
+/** Room right of the plot: for the last date's label, or for labs' names ending their reference lines. */
+const GRID_RIGHT = { plain: 40, labeled: 96 }
 
 /** A point the chart can place: a numeric value in the unit the chart is drawn in. */
 function plotted(row: ResultRow): number | null {
@@ -139,8 +141,10 @@ export function buildChartOption(input: {
   labs: ReadonlyMap<number, Lab>
   unitLabel: string
   palette: ChartPalette
+  /** A chart on paper has no zoom, no toolbox and no tooltips. */
+  interactive?: boolean
 }): ChartOption {
-  const { labs, unitLabel, palette } = input
+  const { labs, unitLabel, palette, interactive = true } = input
   const rows = input.rows
     .filter((row) => plotted(row) !== null)
     .sort((a, b) => a.collectedOn.localeCompare(b.collectedOn))
@@ -194,6 +198,9 @@ export function buildChartOption(input: {
     },
   )
 
+  const references = referenceSeries(rows, labs, palette, lastDate)
+  const labeled = references.some((series) => series.endLabel?.show === true)
+
   const trend: LineSeriesOption = {
     type: 'line',
     silent: true,
@@ -206,13 +213,14 @@ export function buildChartOption(input: {
   return {
     animation: false,
     textStyle: { color: palette.text },
-    grid: { left: 56, right: 96, top: 40, bottom: 56 },
+    grid: { left: 56, right: labeled ? GRID_RIGHT.labeled : GRID_RIGHT.plain, top: 40, bottom: 56 },
     legend: {
       bottom: 0,
       textStyle: { color: palette.text },
       data: [...new Set(rows.map((row) => labs.get(row.labId)?.name ?? ''))],
     },
     tooltip: {
+      show: interactive,
       trigger: 'item',
       formatter: (params) => {
         const item = Array.isArray(params) ? params[0] : params
@@ -242,6 +250,7 @@ export function buildChartOption(input: {
       splitLine: { lineStyle: { color: palette.grid } },
     },
     toolbox: {
+      show: interactive,
       right: 8,
       iconStyle: { borderColor: palette.text },
       feature: {
@@ -249,7 +258,7 @@ export function buildChartOption(input: {
         restore: { title: 'Сбросить' },
       },
     },
-    dataZoom: [{ type: 'inside', filterMode: 'none' }],
-    series: [trend, ...points, ...referenceSeries(rows, labs, palette, lastDate)],
+    dataZoom: interactive ? [{ type: 'inside', filterMode: 'none' }] : [],
+    series: [trend, ...points, ...references],
   }
 }

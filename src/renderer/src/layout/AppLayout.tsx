@@ -26,7 +26,6 @@ interface Section {
   to: '/' | '/orders' | '/labs' | '/mapping' | '/catalog' | '/reports' | '/settings'
   label: string
   icon: ReactNode
-  soon?: boolean
 }
 
 const SECTIONS: Section[] = [
@@ -35,7 +34,7 @@ const SECTIONS: Section[] = [
   { to: '/labs', label: 'Лаборатории', icon: <IconBuildingHospital size={ICON_SIZE.shell} /> },
   { to: '/mapping', label: 'Сопоставление', icon: <IconArrowsShuffle size={ICON_SIZE.shell} /> },
   { to: '/catalog', label: 'Справочник', icon: <IconBook2 size={ICON_SIZE.shell} /> },
-  { to: '/reports', label: 'Отчёты', icon: <IconFileText size={ICON_SIZE.shell} />, soon: true },
+  { to: '/reports', label: 'Отчёты', icon: <IconFileText size={ICON_SIZE.shell} /> },
 ]
 
 const SETTINGS: Section = {
@@ -62,11 +61,7 @@ function SectionLink({
       leftSection={section.icon}
       active={active}
       rightSection={
-        section.soon ? (
-          <Badge size="xs" variant="light" color="gray">
-            скоро
-          </Badge>
-        ) : count > 0 ? (
+        count > 0 ? (
           <Badge size="sm" variant="filled" aria-label={`Ждут проверки: ${count}`}>
             {count}
           </Badge>

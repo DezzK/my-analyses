@@ -7,6 +7,7 @@ import { FORM_EXTENSIONS, formExtensionOf } from './attachments'
 import { requestRestore, type BackupService } from './backup'
 import type { SyncService } from './import/sync'
 import { dataPaths } from './paths'
+import type { ReportPrinter } from './report-printer'
 import type { Services as DataServices } from './services'
 import type { SettingsStore } from './settings'
 
@@ -15,6 +16,7 @@ interface Services extends DataServices {
   settings: SettingsStore
   backups: BackupService
   sync: SyncService
+  printer: ReportPrinter
 }
 
 /** The one implementation of the UI-facing API; every method delegates to the owning service. */
@@ -107,6 +109,20 @@ export function createApi(s: Services): Api {
       update: async (ruleId, input) => s.rules.update(ruleId, input),
       remove: async (ruleId) => s.rules.remove(ruleId),
       labReferences: async (analyteId) => s.rules.labReferences(analyteId),
+    },
+    reports: {
+      templates: async () => s.reports.templates(),
+      saveTemplate: async (templateId, title, blocks, layout) =>
+        s.reports.saveTemplate(templateId, title, blocks, layout),
+      removeTemplate: async (templateId) => s.reports.removeTemplate(templateId),
+      preview: async (spec) => {
+        s.reports.checkSpec(spec)
+        await s.printer.preview(spec)
+      },
+      savePdf: async (spec, fileName) => {
+        s.reports.checkSpec(spec)
+        return s.printer.save(spec, fileName)
+      },
     },
     panels: {
       list: async () => s.panels.list(),

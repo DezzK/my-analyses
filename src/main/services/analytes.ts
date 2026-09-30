@@ -7,13 +7,15 @@ import { UserError } from '@shared/errors'
 import type { Db } from '../db/client'
 import { analyte, analyteAlias, analyteUnit, result, unit } from '../db/schema'
 import { dataChanged, type EventSink } from '../events'
+import { typedName } from './validation'
 
 export type AnalyteRow = typeof analyte.$inferSelect
 export type AnalyteAliasRow = typeof analyteAlias.$inferSelect
 
 /** Enough hits to scroll through, few enough to show at once. */
 const SEARCH_LIMIT = 50
-const MAX_NAME_LENGTH = 120
+/** Labs name their tests at length: «Антитела к тиреоидной пероксидазе (анти-ТПО), IgG». */
+const MAX_ANALYTE_NAME_LENGTH = 120
 
 /** The text the search index holds for an analyte, and the text a query is compared with. */
 export function normalizeSearchText(text: string): string {
@@ -230,9 +232,7 @@ export class AnalyteService {
   }
 
   private validate(input: AnalyteInput, id: number | null): AnalyteInput {
-    const name = input.name.trim()
-    if (!name) throw new UserError('Введите название показателя')
-    if (name.length > MAX_NAME_LENGTH) throw new UserError(`Название длиннее ${MAX_NAME_LENGTH} символов`)
+    const name = typedName(input.name, 'Введите название показателя', { maxLength: MAX_ANALYTE_NAME_LENGTH })
     if (input.specimen !== null && !SPECIMENS.includes(input.specimen))
       throw new UserError('Неизвестный биоматериал')
     if (!VALUE_KINDS.includes(input.valueKind)) throw new UserError('Неизвестный тип значения')

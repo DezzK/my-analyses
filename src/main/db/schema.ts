@@ -17,6 +17,7 @@ import {
   ORDER_SOURCES,
   PERIOD_KINDS,
   REFERENCE_CONDITIONS,
+  REPORT_VIEWS,
   SEXES,
   SPECIMENS,
   SYNC_STATUSES,
@@ -319,14 +320,33 @@ export const analyteMerge = sqliteTable(
 
 export const reportTemplate = sqliteTable('report_template', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  title: text('title').notNull(),
-  /** JSON: the blocks of the report, see `ReportBlock` in `src/shared/api.ts`. */
-  blocks: text('blocks').notNull().default('[]'),
+  title: text('title').notNull().unique(),
   /** JSON: page layout options, see `ReportLayout` in `src/shared/api.ts`. */
   layout: text('layout').notNull().default('{}'),
   createdAt: createdAt(),
   updatedAt: text('updated_at').notNull().default(isoNow),
 })
+
+/** A template's analytes in order, each shown as a table, a chart or both. */
+export const reportBlock = sqliteTable(
+  'report_block',
+  {
+    templateId: integer('template_id')
+      .notNull()
+      .references(() => reportTemplate.id, { onDelete: 'cascade' }),
+    analyteId: integer('analyte_id')
+      .notNull()
+      .references(() => analyte.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    view: text('view', { enum: REPORT_VIEWS }).notNull(),
+    /** A new page starts after this block. */
+    breakAfter: integer('break_after', { mode: 'boolean' }).notNull().default(false),
+  },
+  (t) => [
+    primaryKey({ columns: [t.templateId, t.analyteId] }),
+    check('report_block_view', oneOf(t.view, REPORT_VIEWS)),
+  ],
+)
 
 export const syncRun = sqliteTable(
   'sync_run',

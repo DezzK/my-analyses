@@ -60,7 +60,12 @@ export function AnalytePicker({
       value={value ? String(value.id) : null}
       onChange={(id, option) => {
         if (id === CREATE) onCreate?.(typed)
-        else onChange(id ? { id: Number(id), name: option.label } : null)
+        else {
+          // A picker that adds keeps no value and is ready for the next name; one that holds a
+          // value shows its name, which the select puts back itself.
+          setSearch('')
+          onChange(id ? { id: Number(id), name: option.label } : null)
+        }
       }}
     />
   )

@@ -26,6 +26,7 @@ export const keys = {
   rules: (analyteId: number) => ['catalog', 'rules', analyteId] as const,
   merges: (analyteId: number) => ['catalog', 'merges', analyteId] as const,
   panels: () => ['catalog', 'panels'] as const satisfies readonly [DataScope, string],
+  reportTemplates: () => ['reports', 'templates'] as const satisfies readonly [DataScope, string],
   labReferences: (analyteId: number) => [DERIVED, 'lab-references', analyteId] as const,
   mapping: (patientId: number) => [DERIVED, 'mapping', patientId] as const,
   orderCheck: (order: string) => [DERIVED, 'order-check', order] as const,
@@ -143,16 +144,24 @@ export function useOrderCheck(order: ManualOrder | null) {
   })
 }
 
+export function useReportTemplates() {
+  return useQuery({ queryKey: keys.reportTemplates(), queryFn: () => api.reports.templates() })
+}
+
 export function usePanels() {
   return useQuery({ queryKey: keys.panels(), queryFn: () => api.panels.list() })
 }
 
+/** One analyte's results for a patient, for `useQuery` and `useQueries` alike. */
+export function analyteResultsQuery(analyteId: number, patientId: number) {
+  return {
+    queryKey: keys.analyteResults(analyteId, patientId),
+    queryFn: () => api.analytes.results(analyteId, patientId),
+  }
+}
+
 export function useAnalyteResults(analyteId: number, patientId: number | null) {
-  return useQuery({
-    queryKey: keys.analyteResults(analyteId, patientId ?? 0),
-    queryFn: () => api.analytes.results(analyteId, patientId ?? 0),
-    enabled: patientId !== null,
-  })
+  return useQuery({ ...analyteResultsQuery(analyteId, patientId ?? 0), enabled: patientId !== null })
 }
 
 export function useAnalyteSearch(query: string, patientId: number | null) {

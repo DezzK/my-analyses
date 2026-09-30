@@ -49,3 +49,11 @@ export type SyncStage = (typeof SYNC_STAGES)[number]
 /** Marker shapes a lab can take on charts; names match ECharts symbol names. */
 export const MARKER_SHAPES = ['circle', 'rect', 'triangle', 'diamond', 'roundRect', 'pin'] as const
 export type MarkerShape = (typeof MARKER_SHAPES)[number]
+
+/** How a report shows an analyte: its results as a table, a chart or both. */
+export const REPORT_VIEWS = ['table', 'chart', 'both'] as const
+export type ReportView = (typeof REPORT_VIEWS)[number]
+
+/** How many charts of consecutive chart blocks a report puts side by side. */
+export const REPORT_CHARTS_PER_ROW = [1, 2] as const
+export type ReportChartsPerRow = (typeof REPORT_CHARTS_PER_ROW)[number]

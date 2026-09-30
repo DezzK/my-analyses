@@ -7,13 +7,96 @@ import {
   analyteAlias,
   analyteMerge,
   analyteUnit,
+  panel,
   panelItem,
   referenceRule,
+  reportBlock,
+  reportTemplate,
   result,
 } from '../db/schema'
 import { inTransaction } from '../db/transaction'
 import { dataChanged, type EventSink } from '../events'
 import type { AnalyteRow, AnalyteService } from './analytes'
+
+/**
+ * An analyte's places in named lists: panels, report templates. A merge moves the source's places
+ * to the target, or drops them from lists the target is in already; undoing it puts them back.
+ */
+interface Places<Row extends { analyteId: number }> {
+  of(analyteId: number): Row[]
+  list(place: Omit<Row, 'analyteId'>): number
+  /** Gives the place of `fromId` in the list to `toId`. */
+  move(list: number, fromId: number, toId: number): void
+  drop(list: number, analyteId: number): void
+  /** Puts a dropped place back, unless its list is gone by now. */
+  restore(row: Row): void
+}
+
+/** A place of the source as the merge left it: `moved` to the target, or dropped. */
+type KeptPlace<Row> = Omit<Row, 'analyteId'> & { moved: boolean }
+
+function movePlaces<Row extends { analyteId: number }>(
+  places: Places<Row>,
+  sourceId: number,
+  targetId: number,
+): KeptPlace<Row>[] {
+  const targetLists = new Set(places.of(targetId).map((row) => places.list(row)))
+  return places.of(sourceId).map(({ analyteId: _source, ...place }) => {
+    const list = places.list(place)
+    const moved = !targetLists.has(list)
+    if (moved) places.move(list, sourceId, targetId)
+    else places.drop(list, sourceId)
+    return { ...place, moved }
+  })
+}
+
+function restorePlaces<Row extends { analyteId: number }>(
+  places: Places<Row>,
+  kept: readonly KeptPlace<Row>[],
+  sourceId: number,
+  targetId: number,
+): void {
+  for (const { moved, ...place } of kept) {
+    const row = { ...place, analyteId: sourceId } as unknown as Row
+    if (moved) places.move(places.list(row), targetId, sourceId)
+    else places.restore(row)
+  }
+}
+
+function panelPlaces(db: Db): Places<typeof panelItem.$inferSelect> {
+  const at = (list: number, analyteId: number) =>
+    and(eq(panelItem.panelId, list), eq(panelItem.analyteId, analyteId))
+  return {
+    of: (analyteId) => db.select().from(panelItem).where(eq(panelItem.analyteId, analyteId)).all(),
+    list: (place) => place.panelId,
+    move: (list, fromId, toId) => db.update(panelItem).set({ analyteId: toId }).where(at(list, fromId)).run(),
+    drop: (list, analyteId) => db.delete(panelItem).where(at(list, analyteId)).run(),
+    restore: (row) => {
+      const exists = db.select({ id: panel.id }).from(panel).where(eq(panel.id, row.panelId)).get()
+      if (exists) db.insert(panelItem).values(row).run()
+    },
+  }
+}
+
+function reportBlockPlaces(db: Db): Places<typeof reportBlock.$inferSelect> {
+  const at = (list: number, analyteId: number) =>
+    and(eq(reportBlock.templateId, list), eq(reportBlock.analyteId, analyteId))
+  return {
+    of: (analyteId) => db.select().from(reportBlock).where(eq(reportBlock.analyteId, analyteId)).all(),
+    list: (place) => place.templateId,
+    move: (list, fromId, toId) =>
+      db.update(reportBlock).set({ analyteId: toId }).where(at(list, fromId)).run(),
+    drop: (list, analyteId) => db.delete(reportBlock).where(at(list, analyteId)).run(),
+    restore: (row) => {
+      const exists = db
+        .select({ id: reportTemplate.id })
+        .from(reportTemplate)
+        .where(eq(reportTemplate.id, row.templateId))
+        .get()
+      if (exists) db.insert(reportBlock).values(row).run()
+    },
+  }
+}
 
 /** What a merge moved, kept so that it can be put back. */
 interface MergeRecord {
@@ -24,8 +107,9 @@ interface MergeRecord {
   rules: number[]
   /** The source's units: `added` when the target did not have the unit before. */
   units: { unitId: number; factor: number | null; added: boolean }[]
-  /** The source's panel places: `moved` to the target, or dropped where the target already was. */
-  panelItems: { panelId: number; position: number; moved: boolean }[]
+  panelItems: KeptPlace<typeof panelItem.$inferSelect>[]
+  /** Absent from merges recorded before report templates kept their blocks as rows. */
+  reportBlocks?: KeptPlace<typeof reportBlock.$inferSelect>[]
 }
 
 /**
@@ -93,21 +177,8 @@ export class MergeService {
         }
       }
 
-      const targetPanels = new Set(
-        db
-          .select()
-          .from(panelItem)
-          .where(eq(panelItem.analyteId, targetId))
-          .all()
-          .map((i) => i.panelId),
-      )
-      for (const item of db.select().from(panelItem).where(eq(panelItem.analyteId, sourceId)).all()) {
-        const moved = !targetPanels.has(item.panelId)
-        record.panelItems.push({ panelId: item.panelId, position: item.position, moved })
-        const place = and(eq(panelItem.panelId, item.panelId), eq(panelItem.analyteId, sourceId))
-        if (moved) db.update(panelItem).set({ analyteId: targetId }).where(place).run()
-        else db.delete(panelItem).where(place).run()
-      }
+      record.panelItems = movePlaces(panelPlaces(db), sourceId, targetId)
+      record.reportBlocks = movePlaces(reportBlockPlaces(db), sourceId, targetId)
 
       db.delete(analyte).where(eq(analyte.id, sourceId)).run()
       return db
@@ -118,7 +189,7 @@ export class MergeService {
     })
     analytes.reindex(sourceId)
     analytes.reindex(targetId)
-    dataChanged(this.deps.events, 'catalog', 'orders')
+    dataChanged(this.deps.events, 'catalog', 'orders', 'reports')
     return mergeId
   }
 
@@ -148,23 +219,13 @@ export class MergeService {
             .run()
         }
       }
-      for (const item of record.panelItems) {
-        if (item.moved) {
-          db.update(panelItem)
-            .set(back)
-            .where(and(eq(panelItem.panelId, item.panelId), eq(panelItem.analyteId, row.targetId)))
-            .run()
-        } else {
-          db.insert(panelItem)
-            .values({ panelId: item.panelId, analyteId: source.id, position: item.position })
-            .run()
-        }
-      }
+      restorePlaces(panelPlaces(db), record.panelItems, source.id, row.targetId)
+      restorePlaces(reportBlockPlaces(db), record.reportBlocks ?? [], source.id, row.targetId)
       db.delete(analyteMerge).where(eq(analyteMerge.id, mergeId)).run()
     })
     analytes.reindex(source.id)
     analytes.reindex(row.targetId)
-    dataChanged(this.deps.events, 'catalog', 'orders')
+    dataChanged(this.deps.events, 'catalog', 'orders', 'reports')
   }
 
   /** Merges into the analyte, newest first. */

@@ -11,6 +11,7 @@ import { MergeService } from './merges'
 import { OrderService } from './orders'
 import { PanelService } from './panels'
 import { PatientService } from './patients'
+import { ReportService } from './reports'
 import { ResultReader } from './results'
 import { RuleService } from './rules'
 import { UnitService } from './units'
@@ -52,6 +53,7 @@ export function createServices(deps: {
     today,
   })
   const mapping = new MappingService({ db, analytes, units, orders, results, patients })
+  const reports = new ReportService({ db, analytes, patients, events })
   return {
     units,
     labs,
@@ -65,5 +67,6 @@ export function createServices(deps: {
     results,
     orders,
     mapping,
+    reports,
   }
 }

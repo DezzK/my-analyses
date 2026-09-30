@@ -6,9 +6,7 @@ import { UserError } from '@shared/errors'
 import type { Db } from '../db/client'
 import { labOrder, patient, patientPeriod } from '../db/schema'
 import { dataChanged, type EventSink } from '../events'
-import { assertPastDate } from './validation'
-
-const MAX_TITLE_LENGTH = 80
+import { assertPastDate, typedName } from './validation'
 const EARLIEST_BIRTH_DATE = '1900-01-01'
 /** Stands in for the end of a period that is still going on; sorts after any real date. */
 const OPEN_END = '9999-12-31'
@@ -118,9 +116,7 @@ export class PatientService {
   }
 
   private validate(input: PatientInput): PatientInput {
-    const title = input.title.trim()
-    if (!title) throw new UserError('Укажите имя пациента')
-    if (title.length > MAX_TITLE_LENGTH) throw new UserError(`Имя длиннее ${MAX_TITLE_LENGTH} символов`)
+    const title = typedName(input.title, 'Укажите имя пациента', { noun: 'Имя' })
     if (!SEXES.includes(input.sex)) throw new UserError('Укажите пол пациента')
     this.assertPastDate(input.birthDate, 'дата рождения')
     if (input.birthDate < EARLIEST_BIRTH_DATE) throw new UserError('Проверьте дату рождения')

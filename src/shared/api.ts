@@ -5,6 +5,8 @@ import type {
   CyclePhase,
   LabFlag,
   OrderSource,
+  ReportChartsPerRow,
+  ReportView,
   Specimen,
   SyncStage,
   SyncStatus,
@@ -177,6 +179,36 @@ export interface MatchSuggestion {
   id: number
   name: string
   unitId: number | null
+}
+
+export interface ReportBlock {
+  analyteId: number
+  view: ReportView
+  /** A new page starts after this block. */
+  breakAfter: boolean
+}
+
+export interface ReportLayout {
+  /** Charts of consecutive chart blocks stand this many to a row. */
+  chartsPerRow: ReportChartsPerRow
+}
+
+/** Blocks and layout saved under a name, to build the same report for any patient. */
+export interface ReportTemplate {
+  id: number
+  title: string
+  blocks: ReportBlock[]
+  layout: ReportLayout
+}
+
+/** Everything a report is built from. */
+export interface ReportSpec {
+  patientId: number
+  /** Collection dates the report covers; null leaves that side open. */
+  from: string | null
+  to: string | null
+  blocks: ReportBlock[]
+  layout: ReportLayout
 }
 
 /** A named set of analytes, entered and searched together: «Общий анализ крови». */
@@ -359,6 +391,20 @@ export interface Api {
     remove(ruleId: number): Promise<void>
     labReferences(analyteId: number): Promise<LabReference[]>
   }
+  reports: {
+    templates(): Promise<ReportTemplate[]>
+    saveTemplate(
+      templateId: number | null,
+      title: string,
+      blocks: ReportBlock[],
+      layout: ReportLayout,
+    ): Promise<ReportTemplate>
+    removeTemplate(templateId: number): Promise<void>
+    /** Renders the report to PDF and shows it page by page, ready to print. */
+    preview(spec: ReportSpec): Promise<void>
+    /** Renders the report to PDF and saves it where the person says; false when they cancel. */
+    savePdf(spec: ReportSpec, fileName: string): Promise<boolean>
+  }
   panels: {
     list(): Promise<Panel[]>
     save(panelId: number | null, name: string, analyteIds: number[]): Promise<Panel>
@@ -428,7 +474,7 @@ export interface SyncStats {
 }
 
 /** Groups of data a change can touch; the UI refetches whatever depends on them. */
-export type DataScope = 'patients' | 'periods' | 'labs' | 'orders' | 'catalog' | 'sync'
+export type DataScope = 'patients' | 'periods' | 'labs' | 'orders' | 'catalog' | 'sync' | 'reports'
 
 export type AppEvent =
   | { type: 'data-changed'; scopes: DataScope[] }

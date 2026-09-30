@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Lab, ResultRow } from '@shared/api'
 import type { Comparator } from '@shared/domain/values'
-import { buildChartOption, type ChartPalette } from './chart'
+import { buildChartOption, type ChartOption, type ChartPalette } from './chart'
 
 const PALETTE: ChartPalette = { text: '#333', grid: '#eee', neutral: '#999' }
 const MMOL = 1
@@ -90,6 +90,16 @@ describe('buildChartOption', () => {
       ['2025-07-01', 5.9],
       ['2026-01-10', 5.9],
     ])
+  })
+
+  it("keeps room on the right for labs' names only when reference lines carry them", () => {
+    const right = (option: ChartOption) => (option.grid as { right: number }).right
+    const plain = build([row('2025-01-10', 5.1), row('2026-01-10', 5.6)]).option
+    const labeled = build([
+      row('2025-01-10', 5.1),
+      row('2025-07-01', 5.7, { lab: HELIX, low: 4.1, high: 5.9 }),
+    ]).option
+    expect(right(labeled)).toBeGreaterThan(right(plain))
   })
 
   it('draws a value reported as a bound hollow, with an arrow toward where it lies', () => {

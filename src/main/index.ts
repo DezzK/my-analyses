@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, nativeTheme, shell } from 'electron'
+import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
 import { join } from 'node:path'
 import { createApi } from './api'
 import {
@@ -14,8 +14,11 @@ import { SyncService } from './import/sync'
 import { registerApi } from './ipc'
 import { LabBrowser } from './lab/browser'
 import { configureDataDir, dataPaths } from './paths'
+import { appWindowPreferences, loadRenderer, lockNavigation } from './renderer-window'
+import { ReportPrinter } from './report-printer'
 import { createServices } from './services'
 import { SettingsStore } from './settings'
+import { TrustedWindows } from './windows'
 
 const APP_TITLE = 'Мои анализы'
 /** Mantine's page background in each scheme, so the window never flashes the wrong color. */
@@ -82,8 +85,11 @@ async function start(): Promise<void> {
   const sync = new SyncService({ db, labs, importer, sessions: new LabBrowser(() => mainWindow), events })
   sync.recoverInterrupted()
 
+  const windows = new TrustedWindows()
+  const printer = new ReportPrinter({ windows, parent: () => mainWindow })
   const window = createMainWindow()
   mainWindow = window
+  windows.trust(window.webContents)
   // Login and sync windows of the embedded browser must not keep the app running on their own.
   window.on('closed', () => {
     mainWindow = null
@@ -91,10 +97,10 @@ async function start(): Promise<void> {
   })
   windowEvents.attach(window.webContents)
   registerApi(
-    createApi({ ...services, window: () => mainWindow, settings, backups, sync }),
-    (event) => event.sender === window.webContents,
+    createApi({ ...services, window: () => mainWindow, settings, backups, sync, printer }),
+    (event) => windows.isTrusted(event),
   )
-  loadRenderer(window)
+  void loadRenderer(window)
 
   backups.create('startup')
   app.on('before-quit', () => backups.flush())
@@ -133,25 +139,9 @@ function createMainWindow(): BrowserWindow {
     show: false,
     backgroundColor: nativeTheme.shouldUseDarkColors ? WINDOW_BACKGROUND.dark : WINDOW_BACKGROUND.light,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-      spellcheck: false,
-    },
+    webPreferences: appWindowPreferences(),
   })
   window.once('ready-to-show', () => window.show())
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//.test(url)) void shell.openExternal(url)
-    return { action: 'deny' }
-  })
-  window.webContents.on('will-navigate', (event) => event.preventDefault())
+  lockNavigation(window)
   return window
-}
-
-function loadRenderer(window: BrowserWindow): void {
-  const devServer = process.env['ELECTRON_RENDERER_URL']
-  if (!app.isPackaged && devServer) void window.loadURL(devServer)
-  else void window.loadFile(join(__dirname, '../renderer/index.html'))
 }

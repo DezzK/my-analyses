@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { Center, Loader } from '@mantine/core'
-import { createHashHistory, createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
+import {
+  createHashHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  useRouterState,
+} from '@tanstack/react-router'
+import { REPORT_PRINT_ROUTE } from '@shared/report'
 import { AnalytePage } from './analytes/AnalytePage'
 import { AnalyteCardPage } from './catalog/AnalyteCardPage'
 import { CatalogPage } from './catalog/CatalogPage'
@@ -10,12 +18,19 @@ import { MappingPage } from './mapping/MappingPage'
 import { Welcome, type WelcomeStep } from './onboarding/Welcome'
 import { NewOrderPage } from './orders/NewOrderPage'
 import { OrdersPage } from './orders/OrdersPage'
-import { ComingSoonPage } from './pages/ComingSoonPage'
 import { OverviewPage } from './pages/OverviewPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { useCurrentPatient } from './patients/current'
+import { PrintReportPage } from './reports/PrintReportPage'
+import { ReportsPage } from './reports/ReportsPage'
 
 function Root() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  if (pathname === REPORT_PRINT_ROUTE) return <Outlet />
+  return <Shell />
+}
+
+function Shell() {
   const { patients, isLoading, select } = useCurrentPatient()
   // Stays on 'backups' after the first patient exists, until the person finishes the wizard.
   const [welcome, setWelcome] = useState<WelcomeStep | null>(null)
@@ -56,12 +71,8 @@ const routeTree = rootRoute.addChildren([
   page('/mapping', MappingPage),
   page('/catalog', CatalogPage),
   page('/catalog/$analyteId', AnalyteCardPage),
-  page('/reports', () => (
-    <ComingSoonPage
-      title="Отчёты"
-      description="Таблицы и графики по выбранным показателям, шаблоны отчётов, печать и PDF."
-    />
-  )),
+  page('/reports', ReportsPage),
+  page(REPORT_PRINT_ROUTE, PrintReportPage),
   page('/settings', SettingsPage),
 ])
 

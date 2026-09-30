@@ -65,10 +65,24 @@ commits are English.
   a typed order must satisfy, the ten-times warning, undoing a delete): `OrderService`
   (`src/main/services/orders.ts`). Original forms are PDFs or photos stored as `<sha256>.<ext>` by
   `AttachmentStore` (`FORM_EXTENSIONS`, `src/main/attachments.ts`).
-- A typed date that must be real and not in the future: `assertPastDate`
-  (`src/main/services/validation.ts`). The unit an analyte is shown in: `shownUnitId`.
-- Merging one analyte into another and undoing it: `MergeService`; reference rules and their
-  consistency (one rule per lab, sex, condition and age): `RuleService`; panels: `PanelService`.
+- A typed date that must be real and not in the future: `assertPastDate`; a typed name, trimmed and
+  neither empty nor too long: `typedName` (both in `src/main/services/validation.ts`). The unit an
+  analyte is shown in: `shownUnitId`.
+- Merging one analyte into another and undoing it: `MergeService`; an analyte's places in named
+  lists (panel items, report blocks) move and come back by one rule, `movePlaces` and
+  `restorePlaces` over a `Places` table. Reference rules and their consistency (one rule per lab,
+  sex, condition and age): `RuleService`; panels: `PanelService`.
+- Report templates (blocks as `report_block` rows, layout as JSON) and what a report must satisfy
+  to be built (`checkSpec`): `ReportService` (`src/main/services/reports.ts`). The paper, the width
+  a report is laid out at, the default layout and the print route with the spec in its address
+  (`reportPrintPath`, read back by `reportSpecFrom`): `src/shared/report.ts`. Turning a report into
+  a PDF — a hidden window on that route, drawn without the shell and always light, that says when it
+  is ready, then `printToPDF` — and the preview and save: `ReportPrinter`
+  (`src/main/report-printer.ts`). Which blocks share a row: `rowsOf`
+  (`src/renderer/src/reports/rows.ts`); the report being built is kept by `useReportDraft`.
+- Which windows may call the API: `TrustedWindows` (`src/main/windows.ts`); how a window loads the
+  UI, with which web preferences, and that nothing navigates it away: `loadRenderer`,
+  `appWindowPreferences`, `lockNavigation` (`src/main/renderer-window.ts`).
 - Services are wired once, by `createServices` (`src/main/services/index.ts`), for the app and
   for the tests alike.
 - Age limits of rules stated in years, months or days, and back: `ageToDays`, `daysToAge`
