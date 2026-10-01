@@ -131,13 +131,20 @@ export class SyncService {
     return run
   }
 
-  /** Syncs every account that has a patient, one after another. */
+  /**
+   * Syncs every account that has a patient: the labs side by side, the accounts of one lab one after
+   * another, so that its site sees one sync at a time and the connector's pace holds.
+   */
   async syncAll(): Promise<SyncRun[]> {
-    const runs: SyncRun[] = []
-    for (const account of this.deps.labs.listAccounts().filter(hasPatient)) {
-      runs.push(await this.syncAccount(account.id))
-    }
-    return runs
+    const byLab = Map.groupBy(this.deps.labs.listAccounts().filter(hasPatient), (account) => account.labId)
+    const runs = await Promise.all(
+      [...byLab.values()].map(async (accounts) => {
+        const done: SyncRun[] = []
+        for (const account of accounts) done.push(await this.syncAccount(account.id))
+        return done
+      }),
+    )
+    return runs.flat()
   }
 
   history(accountId: number): SyncRun[] {

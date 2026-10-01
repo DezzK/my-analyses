@@ -129,7 +129,8 @@ and commits are English.
   `node-html-parser`.
 - Connected lab accounts: connecting, logging in again, syncing, the run history and which orders a
   sync fetches again — recent ones (`RECHECK_DAYS`) and every one an older `LabConnector.version`
-  read, so a connector fixed to fetch more (forms, say) brings it for orders already imported:
+  read, so a connector fixed to fetch more (forms, say) brings it for orders already imported;
+  syncing all accounts at once, the labs side by side and one lab's accounts one after another:
   `SyncService` (`src/main/import/sync.ts`).
 - Whose each imported order is: `LabPeople` (`src/main/services/lab-people.ts`). A connector names
   the person an order is of (`OrderRef.person`) when its lab says; the person using the app chooses

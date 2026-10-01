@@ -46,7 +46,6 @@ const HEMOGLOBIN: RawResult = {
 
 /** A lab whose account holds `orders`; it records which orders and forms were asked for. */
 class FakeConnector implements LabConnector {
-  readonly id = 'kdl'
   version = 'test'
   readonly homeUrl = 'https://lab.example/account'
   readonly hosts = ['lab.example']
@@ -59,6 +58,8 @@ class FakeConnector implements LabConnector {
   formsBroken = false
   fetched: string[] = []
   forms: string[] = []
+
+  constructor(readonly id = 'kdl') {}
 
   async detectBlock() {
     return this.blocked ? ('vpn_or_region' as const) : null
@@ -371,6 +372,30 @@ describe('SyncService', () => {
     release()
     expect(await firstSync).toMatchObject({ status: 'ok', stats: { ordersAdded: 1 } })
     expect(db.select().from(syncRun).all()).toHaveLength(1)
+  })
+
+  it('syncs the labs side by side, and the accounts of one lab one after another', async () => {
+    const helix = new FakeConnector('helix')
+    const app = createTestServices({
+      connectors: (id) => (id === connector.id ? connector : id === helix.id ? helix : null),
+    })
+    const helixId = app.labs.list().find((lab) => lab.name === 'Хеликс')?.id ?? -1
+    const both = new SyncService({ ...app, sessions, today: () => TEST_TODAY })
+    const first = app.labs.createAccount(app.kdlId, app.anna.id)
+    const second = app.labs.createAccount(app.kdlId, app.anna.id)
+    const other = app.labs.createAccount(helixId, app.anna.id)
+
+    const release = sessions.hold()
+    const all = both.syncAll()
+    // Both labs are under way; KDL's second account waits for its first.
+    expect(both.currentProgress().map((p) => p.accountId)).toEqual([first.id, other.id])
+    release()
+    const runs = await all
+    expect(runs.map((run) => [run.accountId, run.status])).toEqual([
+      [first.id, 'ok'],
+      [second.id, 'ok'],
+      [other.id, 'ok'],
+    ])
   })
 
   it('syncs every account that has a patient', async () => {
