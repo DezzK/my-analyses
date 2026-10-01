@@ -1,6 +1,6 @@
 import { BrowserWindow, session, shell, type Event, type WebContents } from 'electron'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { readStorageScript, writeStorageScript } from './page-scripts'
+import { fetchScript, readStorageScript, writeStorageScript, type ResponseReading } from './page-scripts'
 import type { FetchedBytes, FetchInit, FetchedText, LabConnector, LabPage } from './types'
 
 /** Chromium's error for a navigation that was canceled, here by the host guard below. */
@@ -39,9 +39,6 @@ const labPagePreferences = (partition: string) => ({
   nodeIntegration: false,
 })
 
-/** Bytes per `String.fromCharCode` call when a page turns a file into base64. */
-const BASE64_SLICE = 0x8000
-
 /** Requests made from inside the lab's page, so they carry its session; spaced by the connector. */
 class WebContentsLabPage implements LabPage {
   private nextRequestAt = 0
@@ -65,7 +62,7 @@ class WebContentsLabPage implements LabPage {
   }
 
   fetchText(url: string, init?: FetchInit): Promise<FetchedText> {
-    return this.request(url, init, '({ status: r.status, url: r.url, text: await r.text() })')
+    return this.request(url, init, 'text')
   }
 
   readStorage<K extends string>(keys: readonly K[]): Promise<Record<K, string | null>> {
@@ -77,19 +74,17 @@ class WebContentsLabPage implements LabPage {
   }
 
   async fetchBytes(url: string, init?: FetchInit): Promise<FetchedBytes> {
-    // Bytes cross into the main process as base64, built in slices: one huge argument list overflows.
+    // Bytes cross into the main process as base64.
     const { base64, ...response } = await this.request<{ status: number; url: string; base64: string }>(
       url,
       init,
-      `(() => { const b = new Uint8Array(await r.arrayBuffer()); let s = ""; ` +
-        `for (let i = 0; i < b.length; i += ${BASE64_SLICE}) s += String.fromCharCode.apply(null, b.subarray(i, i + ${BASE64_SLICE})); ` +
-        'return { status: r.status, url: r.url, base64: btoa(s) }; })()',
+      'base64',
     )
     return { ...response, bytes: new Uint8Array(Buffer.from(base64, 'base64')) }
   }
 
-  /** One request from inside the page, after the connector's pause; `read` turns the response `r` into T. */
-  private async request<T>(url: string, init: FetchInit | undefined, read: string): Promise<T> {
+  /** One request from inside the page, after the connector's pause, its response read as `read` says. */
+  private async request<T>(url: string, init: FetchInit | undefined, read: ResponseReading): Promise<T> {
     const wait = this.nextRequestAt - Date.now()
     if (wait > 0) await sleep(wait)
     const options = {
@@ -99,9 +94,7 @@ class WebContentsLabPage implements LabPage {
       credentials: init?.credentials ?? 'include',
     }
     try {
-      return await this.evaluate<T>(
-        `fetch(${JSON.stringify(url)}, ${JSON.stringify(options)}).then(async (r) => ${read})`,
-      )
+      return await this.evaluate<T>(fetchScript(url, options, read))
     } finally {
       this.nextRequestAt = Date.now() + this.intervalMs
     }

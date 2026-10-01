@@ -1,6 +1,7 @@
 import type { FetchedBytes, FetchInit, FetchedText, LabPage } from './types'
 
-const HTTP_OK = 200
+/** How a fake lab answers a request it knows. */
+export const HTTP_OK = 200
 
 /** What a route answers: text, or the bytes of a file. */
 type Answer = { status: number; url: string; text?: string; bytes?: Uint8Array }

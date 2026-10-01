@@ -121,10 +121,12 @@ and commits are English.
   (`detectVpnBlock`), telling a PDF from an error page served in its place (`isPdf`) — lives in
   `src/main/lab/pages.ts`; reading a list served page by page, in `collectPages`
   (`src/main/lab/paging.ts`); Unix times, whether a token is still good to use (`tokenUsable`) and
-  the Moscow dates labs file samples under, in `src/main/lab/time.ts`. A site that keeps its session
-  in localStorage is read and written through `LabPage.readStorage`/`writeStorage`, whose scripts
-  live in `src/main/lab/page-scripts.ts`; a site with no API, only pages rendered on the server
-  (DNKOM), is read in the main process with `node-html-parser`.
+  the Moscow dates labs file samples under, in `src/main/lab/time.ts`. Every script the embedded
+  browser runs in a lab's page — a request and how its response is read, the page's localStorage
+  (`LabPage.readStorage`/`writeStorage`) — lives in `src/main/lab/page-scripts.ts`, where tests run
+  it; a request is one async function, since a site may patch promises (Helix's zone.js does). A
+  site with no API, only pages rendered on the server (DNKOM), is read in the main process with
+  `node-html-parser`.
 - Connected lab accounts: connecting, logging in again, syncing, the run history and which orders a
   sync fetches again (`RECHECK_DAYS`): `SyncService` (`src/main/import/sync.ts`).
 - Whose each imported order is: `LabPeople` (`src/main/services/lab-people.ts`). A connector names
