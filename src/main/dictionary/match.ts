@@ -92,17 +92,21 @@ export function nameKey(text: string): string {
 /** Words that make a part of a name another analyte: «Т4 (свободный)» is not «Т4». */
 const QUALIFIERS = wordSet([
   'свободный свободная свободное свободного своб св общий общая общее общего общ прямой непрямой связанный',
-  'ионизированный ионизир IgG IgM IgA IgE суммарные суммарный авидность индекс не высокочувствительный',
+  'ионизированный ионизир IgG IgM IgA IgE авидность индекс не высокочувствительный',
   'ультрачувствительный hs клиренс экскреция суточная суточной суточный соотношение отношение фракция изофермент',
 ])
 
 const BRACKETED = /\(([^()]*)\)|\[([^[\]]*)\]/g
 
-/** The parts of a name: what stands in brackets, and what commas or spaced dashes set apart. */
+/**
+ * The parts of a name: the name without what stands in brackets, what stands in each pair of
+ * brackets, and what commas, semicolons or spaced dashes set apart in either.
+ */
 function parts(name: string): string[] {
   const inside = [...name.matchAll(BRACKETED)].map((match) => match[1] ?? match[2] ?? '')
-  const outside = name.replace(BRACKETED, ',').split(/[,;]|\s[-–—]\s/)
-  return [...outside, ...inside].filter((part) => nameKey(part) !== '')
+  const outside = name.replace(BRACKETED, ' ')
+  const pieces = [outside, ...inside].flatMap((text) => [text, ...text.split(/[,;]|\s[-–—]\s/)])
+  return [...new Set(pieces)].filter((part) => nameKey(part) !== '')
 }
 
 const BY_NAME: ReadonlyMap<string, readonly DictionaryEntry[]> = (() => {
@@ -144,23 +148,21 @@ function fitting(text: string, analyte: AnalyteTraits): readonly DictionaryEntry
 
 /**
  * The entry a name names: the whole of it, or else its parts — «Тиреотропный гормон (ТТГ), 3-е
- * поколение» is TSH by its first two. A part counts only while no other part changes what it
- * names («Т4 (свободный)» is not the entry of «Т4»), and never when the parts disagree.
+ * поколение» is TSH by its first two — when they agree. A word that changes what a name means
+ * («свободный», «IgG») must belong to a part that names the entry: «Т4 (свободный)» is not the
+ * entry of «Т4», «Билирубин общий (TBIL)» is that of «Билирубин общий».
  */
 function entryOf(name: string, analyte: AnalyteTraits): DictionaryEntry | null {
   const whole = fitting(name, analyte)
   if (whole.length > 0) return single(whole)
-  const pieces = parts(name).map((part) => ({
-    entries: fitting(part, analyte),
-    qualifies: words(part).some((word) => QUALIFIERS.has(word)),
-  }))
-  if (pieces.length < 2) return null
-  const named = pieces.flatMap((piece, i) =>
-    piece.entries.filter((entry) =>
-      pieces.every((other, j) => j === i || !other.qualifies || other.entries.includes(entry)),
+  const pieces = parts(name).map((part) => ({ entries: fitting(part, analyte), words: new Set(words(part)) }))
+  const qualifiers = words(name).filter((word) => QUALIFIERS.has(word))
+  const named = [...new Set(pieces.flatMap((piece) => piece.entries))].filter((entry) =>
+    qualifiers.every((word) =>
+      pieces.some((piece) => piece.entries.includes(entry) && piece.words.has(word)),
     ),
   )
-  return single([...new Set(named)])
+  return single(named)
 }
 
 /** The one entry of the dictionary the analyte is, by its names, specimen, results and unit. */

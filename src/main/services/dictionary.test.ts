@@ -107,6 +107,37 @@ describe('the analyte dictionary', () => {
     expect(app.dictionary.apply()).toEqual({ linked: 0, merged: 0, apart: 0 })
   })
 
+  it("merges the entry's analyte into one the person looked at with more results", () => {
+    // KDL's HDL went by a name the dictionary did not know, and the person accepted it as is.
+    app.importer.importOrders(into(app.kdlId), [
+      order('k1', '2026-06-01', [raw('HDL', 'HDL-холестерол', '1.4 ммоль/л')]),
+      order('k2', '2026-07-01', [raw('HDL', 'HDL-холестерол', '1.5 ммоль/л')]),
+    ])
+    const kdl = analyteOf(app.kdlId, 'HDL')
+    if (!kdl) throw new Error('fixture')
+    app.analytes.setReviewed([kdl.id], true)
+    app.importer.importOrders(into(helixId), [
+      order('h1', '2026-08-01', [raw('H-HDL', 'Холестерин ЛПВП', '1.3 ммоль/л')]),
+    ])
+    expect(analyteOf(helixId, 'H-HDL')?.id).not.toBe(kdl.id)
+
+    // Renamed, KDL's is the entry's too; Helix's, linked first, joins it.
+    const { specimen, valueKind, canonicalUnitId, molarMass } = kdl
+    app.analytes.update(kdl.id, {
+      name: 'Холестерин-ЛПВП',
+      specimen,
+      description: null,
+      valueKind,
+      canonicalUnitId,
+      molarMass,
+      reviewed: true,
+    })
+    expect(app.dictionary.apply()).toEqual({ linked: 0, merged: 1, apart: 0 })
+    expect(analyteOf(helixId, 'H-HDL')?.id).toBe(kdl.id)
+    const link = app.db.select().from(dictionaryLink).where(eq(dictionaryLink.entryKey, 'hdl')).get()
+    expect(link?.analyteId).toBe(kdl.id)
+  })
+
   it('moves an entry with the analyte merged by hand, and gives it back when that is undone', () => {
     app.importer.importOrders(into(app.kdlId), [
       order('k1', '2026-08-08', [raw('FER', 'Ферритин', '40 нг/мл')]),

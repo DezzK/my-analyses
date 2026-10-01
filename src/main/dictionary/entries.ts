@@ -131,7 +131,9 @@ function fraction(key: string, names: readonly string[]): DictionaryEntry[] {
   return [blood(`${key}_share`, names, PERCENT), blood(`${key}_mass`, names, GRAMS)]
 }
 
-type AntibodyClass = 'IgG' | 'IgM' | 'IgA'
+/** A class of antibodies, with the end of the key its entries take; «суммарные» are all classes at once. */
+const ANTIBODY_CLASSES = { IgG: 'igg', IgM: 'igm', IgA: 'iga', суммарные: 'total' } as const
+type AntibodyClass = keyof typeof ANTIBODY_CLASSES
 
 /**
  * Antibodies of each class to an infection, named the ways labs put it: «ЦМВ IgG», «Антитела к
@@ -150,13 +152,12 @@ function antibodies(
 ): DictionaryEntry[] {
   return classes.map((cls) =>
     blood(
-      `${key}_${cls.toLowerCase()}`,
+      `${key}_${ANTIBODY_CLASSES[cls]}`,
       [
         ...infection.names.map((name) => `${name} ${cls}`),
         ...infection.to.flatMap((name) => [
           `Антитела к ${name} ${cls}`,
-          `Антитела класса ${cls} к ${name}`,
-          `${cls} к ${name}`,
+          ...(cls === 'суммарные' ? [] : [`Антитела класса ${cls} к ${name}`, `${cls} к ${name}`]),
         ]),
       ],
       units,
@@ -240,6 +241,7 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
   ),
   ...distributionWidth('rdw', 'RDW', [
     'Ширина распределения эритроцитов',
+    'Отн. ширина распред. эритр. по объему',
     'Ширина распределения эритроцитов по объему',
     'Распределение эритроцитов по объему',
     'Распределение эритроцитов по величине',
@@ -256,6 +258,7 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
     'Ширина распределения тромбоцитов',
     'Ширина распределения тромбоцитов по объему',
     'Относительная ширина распределения тромбоцитов по объему',
+    'Относит. ширина распред. тромбоцитов по объему',
     'Platelet distribution width',
   ]),
   blood('plateletcrit', ['Тромбокрит', 'PCT', 'Plateletcrit'], PERCENT),
@@ -272,7 +275,15 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
     PERCENT,
   ),
   blood('leukocytes', ['Лейкоциты', 'WBC', 'White blood cells'], BILLIONS_PER_LITER),
-  ...shareAndCount('neutrophils', ['Нейтрофилы', 'Нейтрофилы общие', 'NE', 'NEU', 'NEUT', 'Neutrophils']),
+  ...shareAndCount('neutrophils', [
+    'Нейтрофилы',
+    'Нейтрофилы общие',
+    'Нейтрофилы (общ. число)',
+    'NE',
+    'NEU',
+    'NEUT',
+    'Neutrophils',
+  ]),
   ...shareAndCount('band_neutrophils', [
     'Палочкоядерные нейтрофилы',
     'Нейтрофилы палочкоядерные',
@@ -353,6 +364,7 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
     ],
     NO_UNIT,
   ),
+  blood('caro_index', ['Индекс Caro', 'Индекс Каро', 'Caro'], NO_UNIT),
   blood('lactate', ['Лактат', 'Молочная кислота', 'Lactate'], ['mmol/L', 'mg/dL'], {
     molarMass: MOLAR_MASS.lactate,
   }),
@@ -396,15 +408,35 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
     ['Альфа-1-антитрипсин', 'α1-антитрипсин', 'Alpha-1 antitrypsin'],
     ['g/L', 'mg/dL'],
   ),
-  blood('ceruloplasmin', ['Церулоплазмин', 'Ceruloplasmin'], ['g/L', 'mg/dL']),
+  blood('ceruloplasmin', ['Церулоплазмин', 'Ceruloplasmin'], ['g/L', 'mg/dL', 'mg/L']),
   // In grams, an electrophoresis's albumin is the albumin above.
   blood('albumin_share', ['Альбумин', 'Альбумины', 'Альбуминовая фракция'], PERCENT),
-  ...fraction('alpha1_globulins', ['Альфа-1-глобулины', 'α1-глобулины', 'Альфа-1-глобулиновая фракция']),
-  ...fraction('alpha2_globulins', ['Альфа-2-глобулины', 'α2-глобулины', 'Альфа-2-глобулиновая фракция']),
-  ...fraction('beta_globulins', ['Бета-глобулины', 'β-глобулины', 'Бета-глобулиновая фракция']),
-  ...fraction('beta1_globulins', ['Бета-1-глобулины', 'β1-глобулины']),
-  ...fraction('beta2_globulins', ['Бета-2-глобулины', 'β2-глобулины']),
-  ...fraction('gamma_globulins', ['Гамма-глобулины', 'γ-глобулины', 'Гамма-глобулиновая фракция']),
+  ...fraction('alpha1_globulins', [
+    'Альфа-1-глобулины',
+    'Альфа-1-глобулин',
+    'α1-глобулины',
+    'Альфа-1-глобулиновая фракция',
+  ]),
+  ...fraction('alpha2_globulins', [
+    'Альфа-2-глобулины',
+    'Альфа-2-глобулин',
+    'α2-глобулины',
+    'Альфа-2-глобулиновая фракция',
+  ]),
+  ...fraction('beta_globulins', [
+    'Бета-глобулины',
+    'Бета-глобулин',
+    'β-глобулины',
+    'Бета-глобулиновая фракция',
+  ]),
+  ...fraction('beta1_globulins', ['Бета-1-глобулины', 'Бета-1-глобулин', 'β1-глобулины']),
+  ...fraction('beta2_globulins', ['Бета-2-глобулины', 'Бета-2-глобулин', 'β2-глобулины']),
+  ...fraction('gamma_globulins', [
+    'Гамма-глобулины',
+    'Гамма-глобулин',
+    'γ-глобулины',
+    'Гамма-глобулиновая фракция',
+  ]),
   blood(
     'albumin_globulin_ratio',
     ['А/Г коэффициент', 'Альбумин-глобулиновый коэффициент', 'Альбумин/глобулиновый коэффициент', 'A/G'],
@@ -529,7 +561,9 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
       'ХС-ЛПВП',
       'ЛПВП-холестерин',
       'Холестерин липопротеинов высокой плотности',
+      'Холестерин липопротеидов высокой плотности',
       'Липопротеины высокой плотности',
+      'Липопротеиды высокой плотности',
       'Альфа-холестерин',
       'HDL',
       'HDL-C',
@@ -546,7 +580,9 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
       'ХС-ЛПНП',
       'ЛПНП-холестерин',
       'Холестерин липопротеинов низкой плотности',
+      'Холестерин липопротеидов низкой плотности',
       'Липопротеины низкой плотности',
+      'Липопротеиды низкой плотности',
       'Холестерин ЛПНП прямой',
       'Холестерин ЛПНП расчетный',
       'Бета-холестерин',
@@ -564,7 +600,9 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
       'ЛПОНП',
       'ХС-ЛПОНП',
       'Холестерин липопротеинов очень низкой плотности',
+      'Холестерин липопротеидов очень низкой плотности',
       'Липопротеины очень низкой плотности',
+      'Липопротеиды очень низкой плотности',
       'VLDL',
       'VLDL-C',
     ],
@@ -894,7 +932,7 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
   blood(
     'free_testosterone',
     ['Тестостерон свободный', 'Свободный тестостерон', 'Free testosterone'],
-    ['pg/mL', 'pmol/L'],
+    ['pg/mL', 'pmol/L', 'nmol/L'],
     { molarMass: MOLAR_MASS.testosterone },
   ),
   blood(
@@ -1076,7 +1114,9 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
       'Витамин D',
       'Витамин Д',
       'Витамин D общий',
+      'Витамин D суммарный',
       '25-OH витамин D',
+      '25-OH витамин D суммарный',
       '25-ОН витамин Д',
       'Витамин D 25-OH',
       'Витамин D 25-гидрокси',
@@ -1191,6 +1231,7 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
     PICOGRAMS,
   ),
   blood('myoglobin', ['Миоглобин', 'Myoglobin'], NANOGRAMS),
+  blood('eosinophil_cationic_protein', ['Эозинофильный катионный белок', 'ECP'], NANOGRAMS),
 
   // Immunity and autoimmunity.
   blood(
@@ -1200,17 +1241,17 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
   ),
   blood(
     'iga',
-    ['Иммуноглобулин A', 'Иммуноглобулин A общий', 'IgA', 'IgA общий', 'Immunoglobulin A'],
+    ['Иммуноглобулин A', 'Иммуноглобулин A общий', 'IgA', 'Ig A', 'IgA общий', 'Immunoglobulin A'],
     ['g/L', 'mg/dL'],
   ),
   blood(
     'igm',
-    ['Иммуноглобулин M', 'Иммуноглобулин M общий', 'IgM', 'IgM общий', 'Immunoglobulin M'],
+    ['Иммуноглобулин M', 'Иммуноглобулин M общий', 'IgM', 'Ig M', 'IgM общий', 'Immunoglobulin M'],
     ['g/L', 'mg/dL'],
   ),
   blood(
     'igg',
-    ['Иммуноглобулин G', 'Иммуноглобулин G общий', 'IgG', 'IgG общий', 'Immunoglobulin G'],
+    ['Иммуноглобулин G', 'Иммуноглобулин G общий', 'IgG', 'Ig G', 'IgG общий', 'Immunoglobulin G'],
     ['g/L', 'mg/dL'],
   ),
   blood('igg4', ['IgG4', 'Иммуноглобулин G4', 'Подкласс IgG4'], ['g/L', 'mg/dL']),
@@ -1403,10 +1444,29 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
       'Антитела к HBcAg суммарные',
       'Антитела к HBc-антигену суммарные',
       'Антитела к ядерному антигену вируса гепатита B',
+      'Anti-HBcor',
     ],
     SEROLOGY,
     { words: true },
   ),
+  blood('hbeag', ['HBeAg', 'HBe-антиген', 'Антиген HBe', 'Антиген HBe вируса гепатита B'], SEROLOGY, {
+    words: true,
+  }),
+  blood(
+    'anti_hbe',
+    [
+      'Anti-HBe',
+      'Анти-HBe',
+      'Антитела к HBeAg',
+      'Антитела к HBe-антигену',
+      'Антитела к HBe-антигену вируса гепатита B',
+    ],
+    SEROLOGY,
+    { words: true },
+  ),
+  blood('anti_hdv', ['Anti-HDV', 'Анти-HDV', 'Антитела к вирусу гепатита D', 'Антитела к HDV'], SEROLOGY, {
+    words: true,
+  }),
   blood(
     'anti_hcv',
     [
@@ -1476,7 +1536,7 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
     'toxoplasma',
     {
       names: ['Токсоплазма', 'Токсоплазмоз', 'Toxoplasma', 'Toxoplasma gondii'],
-      to: ['токсоплазме', 'токсоплазмам', 'Toxoplasma gondii'],
+      to: ['токсоплазме', 'токсоплазмам', 'Toxoplasma gondii', 'токсоплазме (Toxoplasma gondii)'],
     },
     ['IgG', 'IgM'],
   ),
@@ -1529,10 +1589,11 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
     },
     ['IgG', 'IgM'],
   ),
-  ...antibodies('hepatitis_a', { names: ['Гепатит A', 'HAV'], to: ['вирусу гепатита A', 'HAV'] }, [
-    'IgG',
-    'IgM',
-  ]),
+  ...antibodies(
+    'hepatitis_a',
+    { names: ['Гепатит A', 'HAV', 'Anti-HAV'], to: ['вирусу гепатита A', 'HAV'] },
+    ['IgG', 'IgM'],
+  ),
   ...antibodies(
     'h_pylori',
     {
@@ -1545,35 +1606,78 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
     'chlamydia_trachomatis',
     {
       names: ['Chlamydia trachomatis', 'Хламидия трахоматис'],
-      to: ['Chlamydia trachomatis', 'хламидии трахоматис'],
+      to: ['Chlamydia trachomatis', 'хламидии трахоматис', 'хламидии (Chlamydia trachomatis)'],
     },
     ['IgG', 'IgA', 'IgM'],
   ),
   ...antibodies(
     'mycoplasma_pneumoniae',
-    { names: ['Mycoplasma pneumoniae'], to: ['Mycoplasma pneumoniae', 'микоплазме пневмонии'] },
+    {
+      names: ['Mycoplasma pneumoniae'],
+      to: ['Mycoplasma pneumoniae', 'микоплазме пневмонии', 'микоплазме (Mycoplasma pneumoniae)'],
+    },
+    ['IgG', 'IgA', 'IgM'],
+  ),
+  ...antibodies(
+    'mycoplasma_hominis',
+    { names: ['Mycoplasma hominis'], to: ['Mycoplasma hominis', 'микоплазме (Mycoplasma hominis)'] },
+    ['IgG', 'IgA', 'IgM'],
+  ),
+  ...antibodies(
+    'chlamydophila_pneumoniae',
+    {
+      names: ['Chlamydia pneumoniae', 'Chlamydophila pneumoniae'],
+      to: ['Chlamydia pneumoniae', 'Chlamydophila pneumoniae', 'хламидофиле (Chlamydophila pneumoniae)'],
+    },
+    ['IgG', 'IgA', 'IgM'],
+  ),
+  ...antibodies(
+    'coxsackie',
+    {
+      names: ['Coxsackievirus', 'Вирус Коксаки', 'Коксаки'],
+      to: ['Coxsackievirus', 'вирусу Коксаки', 'вирусу Коксаки (Coxsackievirus)'],
+    },
     ['IgG', 'IgM'],
   ),
   ...antibodies(
     'opisthorchis',
     {
       names: ['Описторхи', 'Описторхоз', 'Opisthorchis felineus'],
-      to: ['описторхам', 'Opisthorchis felineus'],
+      to: ['описторхам', 'Opisthorchis felineus', 'описторхам (Opisthorchis felineus)'],
     },
     ['IgG', 'IgM'],
   ),
   ...antibodies(
     'toxocara',
-    { names: ['Токсокары', 'Токсокароз', 'Toxocara canis'], to: ['токсокарам', 'Toxocara canis'] },
+    {
+      names: ['Токсокары', 'Токсокароз', 'Toxocara canis'],
+      to: ['токсокарам', 'Toxocara canis', 'токсокарам (Toxocara canis)'],
+    },
     ['IgG'],
   ),
   ...antibodies(
     'echinococcus',
     {
       names: ['Эхинококк', 'Эхинококкоз', 'Echinococcus granulosus'],
-      to: ['эхинококку', 'Echinococcus granulosus'],
+      to: ['эхинококку', 'эхинококкам', 'Echinococcus granulosus', 'эхинококкам (Echinococcus granulosus)'],
     },
     ['IgG'],
+  ),
+  ...antibodies(
+    'ascaris',
+    {
+      names: ['Аскариды', 'Аскаридоз', 'Ascaris lumbricoides'],
+      to: ['аскаридам', 'Ascaris lumbricoides', 'аскаридам (Ascaris lumbricoides)'],
+    },
+    ['IgG'],
+  ),
+  ...antibodies(
+    'lamblia',
+    {
+      names: ['Лямблии', 'Лямблиоз', 'Giardia lamblia', 'Lamblia intestinalis'],
+      to: ['лямблиям', 'Giardia lamblia', 'лямблиям (Lamblia intestinalis)'],
+    },
+    ['суммарные'],
   ),
   ...antibodies(
     'sars_cov_2',

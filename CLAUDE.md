@@ -58,10 +58,10 @@ and commits are English.
 - The built-in analyte dictionary: its entries — names, units, specimen, molar mass — in
   `src/main/dictionary/entries.ts`; which entry an analyte is, by its names read word by word
   (`nameKey`) and by its unit, specimen and kind of values (`findEntry`, `src/main/dictionary/match.ts`);
-  applying it — the first analyte of an entry is linked to it, later ones are merged into that one for
-  the person to confirm, never two with results in one order nor one the person split out
-  (`separated`) — `AnalyteDictionary` (`src/main/services/dictionary.ts`), after each imported order
-  and at every start.
+  applying it — an entry's analytes are merged, for the person to confirm, into the one the person
+  looked at or with the most results, which is linked to the entry; never two with results in one
+  order nor one the person split out (`separated`) — `AnalyteDictionary`
+  (`src/main/services/dictionary.ts`), after each imported order and at every start.
 - Which reference applies and whether a value deviates: `chooseRule`, `evaluate` and `isDeviation` in
   `src/shared/domain/references.ts`; trimesters and other conditions: `src/shared/domain/conditions.ts`.
 - How a stored result is shown: its value in the chosen unit, the reference that applies (the lab's,

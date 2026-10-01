@@ -87,6 +87,20 @@ describe('findEntry', () => {
     expect(entryOf('Кетоновые тела', null)).toBeNull()
   })
 
+  it('reads a name without what stands in brackets, and lists in brackets item by item', () => {
+    expect(entryOf('Простат-специфический антиген (ПСА) общий', 'ng/mL')).toBe('psa_total')
+    expect(entryOf('Глобулин, связывающий половые гормоны (SHBG, ГСПГ)', 'nmol/L')).toBe('shbg')
+  })
+
+  it('knows antibodies named in Russian with the Latin name in brackets, or in Latin alone', () => {
+    expect(entryOf('Антитела к микоплазме (Mycoplasma pneumoniae), IgA', 'KP')).toBe(
+      'mycoplasma_pneumoniae_iga',
+    )
+    expect(entryOf('Chlamydia pneumoniae, IgM', null, { valueKind: 'qualitative' })).toBe(
+      'chlamydophila_pneumoniae_igm',
+    )
+  })
+
   it('does not let one part of a name stand for it when another part changes what it is', () => {
     expect(entryOf('Холестерин (метод CHOD-PAP)', 'mmol/L')).toBe('cholesterol')
     expect(entryOf('Холестерин (свободный)', 'mmol/L')).toBeNull()
