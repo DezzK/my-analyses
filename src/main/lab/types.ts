@@ -169,6 +169,10 @@ function refuseErrors<T extends { status: number; url: string }>(response: T): T
  */
 export interface LabConnector {
   id: string
+  /**
+   * Raised when the connector changes what it reads from the lab: the next sync fetches once more
+   * every order an older version imported, forms included.
+   */
   version: string
   /** Where the person logs in, and where a sync starts unless `syncUrl` says otherwise. */
   homeUrl: string

@@ -91,14 +91,14 @@ export class ImportService {
     return stats
   }
 
-  /** External keys of the orders already imported from a lab. */
-  importedKeys(labId: number): Set<string> {
+  /** The orders already imported from a lab, by external key, with the connector version that last read each. */
+  importedVersions(labId: number): Map<string, string | null> {
     const rows = this.deps.db
-      .select({ key: labOrder.externalKey })
+      .select({ key: labOrder.externalKey, version: labOrder.connectorVersion })
       .from(labOrder)
       .where(eq(labOrder.labId, labId))
       .all()
-    return new Set(rows.flatMap((row) => (row.key === null ? [] : [row.key])))
+    return new Map(rows.flatMap((row) => (row.key === null ? [] : [[row.key, row.version] as const])))
   }
 
   /**
@@ -128,6 +128,13 @@ export class ImportService {
     const forms = fetched.length > 0 ? fetched : storedForms
     const sameForms = forms.length === storedForms.length && forms.every((file, i) => file === storedForms[i])
     if (existing && sameReport(existing, raw.rawPayload) && sameForms) {
+      // Read again by this version of the connector, it need not be fetched again for that.
+      if (existing.connectorVersion !== target.connectorVersion) {
+        db.update(labOrder)
+          .set({ connectorVersion: target.connectorVersion })
+          .where(eq(labOrder.id, existing.id))
+          .run()
+      }
       stats.ordersUnchanged += 1
       return
     }

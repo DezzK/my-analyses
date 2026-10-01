@@ -220,7 +220,7 @@ export class SyncService {
     const refs = await connector.listOrders(page)
     people.record(account.id, refs)
     const route = people.router(account)
-    const due = this.dueOrders(account.labId, refs).flatMap((ref) => {
+    const due = this.dueOrders(account.labId, connector.version, refs).flatMap((ref) => {
       const destination = route(ref)
       if (destination.kind === 'waiting') stats.ordersWaiting += 1
       return destination.kind === 'patient' ? [{ ref, destination }] : []
@@ -241,12 +241,18 @@ export class SyncService {
     return 'ok'
   }
 
-  /** Orders never imported, and orders recent enough that the lab may still add results; newest first. */
-  private dueOrders(labId: number, refs: readonly OrderRef[]): OrderRef[] {
-    const imported = this.deps.importer.importedKeys(labId)
+  /**
+   * Orders never imported, orders an older version of the connector read, and orders recent enough
+   * that the lab may still add results; newest first.
+   */
+  private dueOrders(labId: number, version: string, refs: readonly OrderRef[]): OrderRef[] {
+    const imported = this.deps.importer.importedVersions(labId)
     const today = this.today()
     return refs
-      .filter((ref) => !imported.has(ref.externalKey) || daysBetween(ref.collectedOn, today) <= RECHECK_DAYS)
+      .filter(
+        (ref) =>
+          imported.get(ref.externalKey) !== version || daysBetween(ref.collectedOn, today) <= RECHECK_DAYS,
+      )
       .sort((a, b) => b.collectedOn.localeCompare(a.collectedOn))
   }
 

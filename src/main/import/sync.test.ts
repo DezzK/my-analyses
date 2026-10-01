@@ -47,7 +47,7 @@ const HEMOGLOBIN: RawResult = {
 /** A lab whose account holds `orders`; it records which orders and forms were asked for. */
 class FakeConnector implements LabConnector {
   readonly id = 'kdl'
-  readonly version = 'test'
+  version = 'test'
   readonly homeUrl = 'https://lab.example/account'
   readonly hosts = ['lab.example']
   readonly requestIntervalMs = 0
@@ -55,6 +55,8 @@ class FakeConnector implements LabConnector {
   account: LabAccountInfo | null = { externalId: null, label: 'Иванова Анна' }
   readonly orders = new Map<string, { collectedOn: string; results: RawResult[]; person?: LabPerson }>()
   failure: { externalKey: string; error: Error } | null = null
+  /** Its forms fail to download, as they did in 0.2.0. */
+  formsBroken = false
   fetched: string[] = []
   forms: string[] = []
 
@@ -86,6 +88,7 @@ class FakeConnector implements LabConnector {
 
   async fetchOrderForms(_page: LabPage, ref: OrderRef) {
     this.forms.push(ref.externalKey)
+    if (this.formsBroken) throw new SyntaxError('Unexpected identifier')
     return [
       new TextEncoder().encode(`%PDF ${ref.externalKey} ${JSON.stringify(this.orders.get(ref.externalKey))}`),
     ]
@@ -263,6 +266,30 @@ describe('SyncService', () => {
       expect(run.stats).toMatchObject({ ordersWaiting: 0 })
       expect(stored()).toEqual([{ key: 'mine', patientId, personId: null }])
     })
+  })
+
+  it('fetches once more every order an older version of the connector read, forms included', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    connector.orders.set('old', { collectedOn: '2025-01-10', results: [GLUCOSE] })
+    const account = labs.createAccount(kdlId, patientId)
+    connector.formsBroken = true
+    await sync.syncAccount(account.id)
+    const order = db.select().from(labOrder).get()
+    expect(order && forms.of(order.id)).toEqual([])
+
+    const resync = async (version: string) => {
+      connector.version = version
+      connector.fetched = []
+      await sync.syncAccount(account.id)
+      return connector.fetched
+    }
+    // A new version reads the old order again, even with nothing new to find in it, and once.
+    expect(await resync('test-2')).toEqual(['old'])
+    expect(await resync('test-2')).toEqual([])
+    // The version that downloads forms again brings the one the order lacked.
+    connector.formsBroken = false
+    expect(await resync('test-3')).toEqual(['old'])
+    expect(order && forms.of(order.id)).toHaveLength(1)
   })
 
   it('reports a blocked site and a logged-out account without importing anything', async () => {

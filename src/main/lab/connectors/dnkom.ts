@@ -112,7 +112,8 @@ function resultsOf(detail: HTMLElement): RawResult[] {
 
 export const dnkomConnector: LabConnector = {
   id: 'dnkom',
-  version: '1',
+  // 2: the forms of orders 0.2.0 imported, which it could not download.
+  version: '2',
   homeUrl: RESULTS_URL,
   hosts: ['dnkom.ru'],
   requestIntervalMs: 400,

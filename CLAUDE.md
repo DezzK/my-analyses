@@ -128,7 +128,9 @@ and commits are English.
   site with no API, only pages rendered on the server (DNKOM), is read in the main process with
   `node-html-parser`.
 - Connected lab accounts: connecting, logging in again, syncing, the run history and which orders a
-  sync fetches again (`RECHECK_DAYS`): `SyncService` (`src/main/import/sync.ts`).
+  sync fetches again — recent ones (`RECHECK_DAYS`) and every one an older `LabConnector.version`
+  read, so a connector fixed to fetch more (forms, say) brings it for orders already imported:
+  `SyncService` (`src/main/import/sync.ts`).
 - Whose each imported order is: `LabPeople` (`src/main/services/lab-people.ts`). A connector names
   the person an order is of (`OrderRef.person`) when its lab says; the person using the app chooses
   the patient once per person of an account (the one born the same day is offered, never assumed),
