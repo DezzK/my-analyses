@@ -4,6 +4,12 @@
  */
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
+const ISO_DATE_LENGTH = 'YYYY-MM-DD'.length
+
+/** The date of an ISO moment: `2015-03-01T08:30:00.000Z` → `2015-03-01`. */
+export function datePart(isoMoment: string): string {
+  return isoMoment.slice(0, ISO_DATE_LENGTH)
+}
 const MS_PER_DAY = 86_400_000
 
 /** Days since 1970-01-01 of a valid ISO date, or null. */
@@ -24,7 +30,7 @@ export function isIsoDate(value: string): boolean {
 }
 
 export function isoFromEpochDay(day: number): string {
-  return new Date(day * MS_PER_DAY).toISOString().slice(0, 10)
+  return datePart(new Date(day * MS_PER_DAY).toISOString())
 }
 
 /** Whole days from `from` to `to`; both must be valid ISO dates. */
@@ -50,6 +56,12 @@ export function formatDateRu(iso: string): string {
 }
 
 const DATE_RU = /^(\d{2})\.(\d{2})\.(\d{4})(?!\d)/
+
+/** The ISO date a lab names in either way labs write dates (`2015-03-01T00:00:00`, `01.03.2015`); null if neither. */
+export function isoFromLabDate(text: string): string | null {
+  const iso = datePart(text.trim())
+  return isIsoDate(iso) ? iso : isoFromDateRu(text)
+}
 
 /** The ISO date of one written as `formatDateRu` writes it, a time after it or not; null if none. */
 export function isoFromDateRu(text: string): string | null {

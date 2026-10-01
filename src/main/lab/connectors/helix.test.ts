@@ -3,7 +3,21 @@ import { answer, answerBytes, FakeLabPage, refuse } from '../fake-page'
 import { helixConnector } from './helix'
 
 /** Made-up account data, shaped the way Helix sends it. */
-const PROFILE = { id: '1000001', lastName: 'Иванова', firstName: 'Анна', middleName: 'Петровна' }
+const PROFILE = {
+  id: '1000001',
+  lastName: 'Иванова',
+  firstName: 'Анна',
+  middleName: 'Петровна',
+  birthDate: '1990-05-14T00:00:00',
+}
+/** Her son, whose orders sit in the same account. */
+const SON = {
+  id: '1000002',
+  lastName: 'Иванов',
+  firstName: 'Пётр',
+  middleName: 'Сергеевич',
+  birthDate: '2015-03-01T00:00:00',
+}
 const ORDER_CODE = '00000-00000-00000001'
 const REF = {
   externalKey: ORDER_CODE,
@@ -97,7 +111,7 @@ describe('helixConnector', () => {
     await expect(helixConnector.detectAccount(failing)).rejects.toThrow('HTTP 502')
   })
 
-  it("lists the profile's orders that have results, dated in Moscow", async () => {
+  it("lists every profile's orders that have results, each under its person, dated in Moscow", async () => {
     const orders = {
       orders: [
         // 21:30 UTC is already the next day in Moscow.
@@ -111,11 +125,21 @@ describe('helixConnector', () => {
       ],
       preOrders: [],
     }
+    const sonsOrder = { code: '00000-00000-00000003', createdOn: '2026-08-01T07:00:00+00:00' }
     const page = new FakeLabPage([
-      answer('/api/profiles/current', JSON.stringify(PROFILE)),
+      answer('/api/profiles', JSON.stringify([PROFILE, SON])),
       answer(`/api/v2/orders?profileId=${PROFILE.id}`, JSON.stringify(orders)),
+      answer(`/api/v2/orders?profileId=${SON.id}`, JSON.stringify({ orders: [sonsOrder], preOrders: [] })),
     ])
-    expect(await helixConnector.listOrders(page)).toEqual([REF])
+    expect(await helixConnector.listOrders(page)).toEqual([
+      { ...REF, person: { key: PROFILE.id, name: 'Иванова Анна Петровна', birthDate: '1990-05-14' } },
+      {
+        externalKey: sonsOrder.code,
+        collectedOn: '2026-08-01',
+        person: { key: SON.id, name: 'Иванов Пётр Сергеевич', birthDate: '2015-03-01' },
+        data: { code: sonsOrder.code, profileId: SON.id },
+      },
+    ])
   })
 
   it('reads single tests under their own name and panel components under the test code and theirs', async () => {

@@ -1,4 +1,6 @@
+import { isoFromLabDate } from '@shared/domain/dates'
 import type { LabFlag } from '@shared/domain/enums'
+import { foldCase } from '@shared/domain/text'
 import { detectVpnBlock } from '../pages'
 import { collectPages } from '../paging'
 import { tokenUsable, unixSeconds } from '../time'
@@ -10,6 +12,7 @@ import {
   type FetchedText,
   type LabConnector,
   type LabPage,
+  type LabPerson,
   type OrderRef,
   type RawResult,
 } from '../types'
@@ -19,8 +22,10 @@ import {
  * api2.gemotest.ru and trusts nothing but a bearer token: the app keeps it in localStorage with the
  * refresh token and the device both were issued to. A token lives 20 minutes, so a sync refreshes
  * it as the app would and leaves the new pair where the app looks for it; syncs run on a quiet
- * page of the site, so the app never refreshes alongside. An order's results come service by
- * service, and a value ends with « +» or « -» when it is out of range.
+ * page of the site, so the app never refreshes alongside. The list names each order's patient,
+ * the holder or someone they ordered for, but gives them no id: a person is known by name and
+ * birth date, which only an order's details carry. An order's results come service by service, and
+ * a value ends with « +» or « -» when it is out of range.
  */
 
 const SITE = 'https://gemotest.ru'
@@ -64,6 +69,14 @@ interface GemotestOrder {
   order_num: string | number
   /** «2026-07-15 09:41:12.000», Moscow time. */
   date: string
+  last_name?: string | null
+  first_name?: string | null
+  middle_name?: string | null
+}
+
+/** An order's details, as far as they name its patient. */
+interface GemotestOrderDetails {
+  order?: { patient?: { birthdate?: string | null } | null } | null
 }
 
 interface GemotestService {
@@ -125,6 +138,33 @@ async function api(page: LabPage, path: string): Promise<FetchedText> {
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     credentials: 'omit',
   })
+}
+
+function orderPath(orderNumber: string): string {
+  return `customer/v3/order/${encodeURIComponent(orderNumber)}`
+}
+
+function nameOf(order: GemotestOrder): string {
+  return [order.last_name, order.first_name, order.middle_name]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(' ')
+}
+
+/** The people the orders are of, by name; each one's birth date comes from one of their orders. */
+async function peopleOf(page: LabPage, orders: readonly GemotestOrder[]): Promise<Map<string, LabPerson>> {
+  const people = new Map<string, LabPerson>()
+  for (const order of orders) {
+    const name = nameOf(order)
+    if (!name || people.has(name)) continue
+    const details = JSON.parse(
+      (await api(page, orderPath(String(order.order_num)))).text,
+    ) as GemotestOrderDetails
+    const written = details.order?.patient?.birthdate
+    const birthDate = written ? isoFromLabDate(written) : null
+    people.set(name, { key: `${foldCase(name)}|${birthDate ?? ''}`, name, birthDate })
+  }
+  return people
 }
 
 function orderNumberOf(ref: OrderRef): string {
@@ -198,8 +238,8 @@ export const gemotestConnector: LabConnector = {
     }
   },
 
-  listOrders(page) {
-    return collectPages(
+  async listOrders(page) {
+    const orders = await collectPages(
       ORDERS_PER_PAGE,
       async (index) => {
         const response = await api(
@@ -207,25 +247,30 @@ export const gemotestConnector: LabConnector = {
           `customer/v2/orders_actual?limit=${ORDERS_PER_PAGE}&offset=${index * ORDERS_PER_PAGE}`,
         )
         const body = JSON.parse(response.text) as { result?: { orders?: GemotestOrder[] } | null }
-        return (body.result?.orders ?? []).map((order) => {
-          const orderNumber = String(order.order_num)
-          return { externalKey: orderNumber, collectedOn: order.date.slice(0, 10), data: { orderNumber } }
-        })
+        return body.result?.orders ?? []
       },
-      (ref) => ref.externalKey,
+      (order) => String(order.order_num),
     )
+    const people = await peopleOf(page, orders)
+    return orders.flatMap((order) => {
+      const orderNumber = String(order.order_num)
+      const collectedOn = isoFromLabDate(order.date)
+      const person = people.get(nameOf(order))
+      if (!collectedOn) return []
+      return [{ externalKey: orderNumber, collectedOn, ...(person ? { person } : {}), data: { orderNumber } }]
+    })
   },
 
   async fetchOrder(page, ref) {
     const orderNumber = orderNumberOf(ref)
-    const order = await api(page, `customer/v3/order/${encodeURIComponent(orderNumber)}`)
+    const order = await api(page, orderPath(orderNumber))
     const { services = [] } = JSON.parse(order.text) as { services?: GemotestService[] }
     const results: RawResult[] = []
     const reports: string[] = []
     for (const service of services) {
       let report: FetchedText
       try {
-        report = await api(page, `customer/v3/order/${encodeURIComponent(orderNumber)}/service/${service.id}`)
+        report = await api(page, `${orderPath(orderNumber)}/service/${service.id}`)
       } catch (error) {
         if (LabHttpError.isStatus(error, HTTP_NOT_FOUND) && service.status !== SERVICE_DONE) continue
         throw error

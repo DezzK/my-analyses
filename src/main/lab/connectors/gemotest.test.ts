@@ -102,19 +102,47 @@ describe('gemotestConnector', () => {
     expect(empty.requests).toEqual([])
   })
 
-  it('lists orders page by page, dated as the lab dates them', async () => {
-    const order = (n: number) => ({ order_num: String(20000000 + n), date: '2026-02-19 08:15:00.000' })
+  it('lists orders page by page, each under its person, dated as the lab dates them', async () => {
+    const holder = { last_name: 'Иванова', first_name: 'Анна', middle_name: 'Петровна' }
+    const son = { last_name: 'Иванов', first_name: 'Пётр', middle_name: 'Сергеевич' }
+    const firstNumber = 20000000
+    const order = (n: number) => ({
+      order_num: String(firstNumber + n),
+      date: '2026-02-19 08:15:00.000',
+      // The lab names nobody for one of them.
+      ...(n === 1 ? {} : holder),
+    })
     const firstPage = Array.from({ length: PER_PAGE }, (_, n) => order(n))
+    const patient = (birthdate: string) => JSON.stringify({ order: { patient: { birthdate } } })
     const page = sessionPage([
       answer(`limit=${PER_PAGE}&offset=0`, JSON.stringify({ jsonrpc: '2.0', result: { orders: firstPage } })),
       answer(
         `limit=${PER_PAGE}&offset=${PER_PAGE}`,
-        JSON.stringify({ result: { orders: [{ order_num: ORDER, date: '2026-07-15 23:40:12.000' }] } }),
+        JSON.stringify({
+          result: { orders: [{ order_num: ORDER, date: '2026-07-15 23:40:12.000', ...son }] },
+        }),
       ),
+      answer(`/customer/v3/order/${firstNumber}`, patient('14.05.1990')),
+      answer(`/customer/v3/order/${ORDER}`, patient('01.03.2015')),
     ])
     const refs = await gemotestConnector.listOrders(page)
     expect(refs).toHaveLength(PER_PAGE + 1)
-    expect(refs.at(-1)).toEqual(REF)
+    expect(refs[0]?.person).toEqual({
+      key: 'иванова анна петровна|1990-05-14',
+      name: 'Иванова Анна Петровна',
+      birthDate: '1990-05-14',
+    })
+    expect(refs[1]?.person).toBeUndefined()
+    expect(refs.at(-1)).toEqual({
+      ...REF,
+      person: {
+        key: 'иванов петр сергеевич|2015-03-01',
+        name: 'Иванов Пётр Сергеевич',
+        birthDate: '2015-03-01',
+      },
+    })
+    // One order's details per person tell their birth date.
+    expect(page.requests.filter((r) => r.url.includes('/customer/v3/order/'))).toHaveLength(2)
   })
 
   it("reads each service's results, with the lab's marks as flags", async () => {

@@ -1,3 +1,4 @@
+import { isoFromLabDate } from '@shared/domain/dates'
 import type { LabFlag } from '@shared/domain/enums'
 import { detectVpnBlock, isPdf } from '../pages'
 import { moscowDate, tokenUsable, unixSeconds } from '../time'
@@ -11,6 +12,7 @@ import {
   type FetchInit,
   type LabConnector,
   type LabPage,
+  type LabPerson,
   type OrderRef,
   type RawResult,
 } from '../types'
@@ -20,18 +22,18 @@ import {
  * /golk on the same origin. The app keeps a refresh token and a fingerprint in localStorage and
  * the access token, which lives five minutes, in memory only; every refresh hands out a new pair
  * and voids the old one. So a sync runs on a quiet page of the site, where no app refreshes
- * behind the connector's back, and stores each new pair where the app will look for it. The
- * patient chosen on the site is the one imported. The lab marks a result out of range with «*»,
+ * behind the connector's back, and stores each new pair where the app will look for it. An
+ * account holds its patients' orders, the holder's own and their family's: every patient's are
+ * listed, each order under its patient. The lab marks a result out of range with «*»,
  * and sends values as JSON numbers: a trailing zero the form prints is gone before it arrives.
  */
 
 const ORIGIN = 'https://www.invitro.ru'
 const API = `${ORIGIN}/golk`
 
-/** Where the app keeps its session and its chosen patient in localStorage. */
+/** Where the app keeps its session in localStorage. */
 const REFRESH_TOKEN = 'refreshToken'
 const FINGERPRINT = 'fingerprint'
-const PATIENT_ID = 'patientId'
 /** How Invitro refuses a pair it no longer honors; the app logs out on either. */
 const SESSION_OVER_STATUSES: readonly number[] = [HTTP_BAD_REQUEST, HTTP_UNAUTHORIZED]
 
@@ -51,6 +53,9 @@ interface InvitroPatient {
   id: string
   first_name?: string | null
   last_name?: string | null
+  /** «1990-05-14». */
+  birthday?: string | null
+  /** The account holder. */
   main?: boolean
 }
 
@@ -128,15 +133,24 @@ async function api(page: LabPage, path: string, init: FetchInit = {}): Promise<F
   return fetchOk(page, url, await authorized(page, url, init))
 }
 
-/** The patient chosen on the site; before anyone is chosen, the account's own. */
-async function currentPatient(page: LabPage): Promise<InvitroPatient> {
+/** The account's patients: its holder and the family whose orders they keep there. */
+async function accountPatients(page: LabPage): Promise<InvitroPatient[]> {
   const { patients = [] } = JSON.parse((await api(page, 'users/api/v1/patients')).text) as {
     patients?: InvitroPatient[]
   }
-  const chosen = (await page.readStorage([PATIENT_ID]))[PATIENT_ID]
-  const patient = patients.find((p) => p.id === chosen) ?? patients.find((p) => p.main) ?? patients[0]
-  if (!patient) throw new Error('Invitro lists no patients in this account')
-  return patient
+  return patients
+}
+
+function nameOf(patient: InvitroPatient): string {
+  return [patient.last_name, patient.first_name].filter(Boolean).join(' ')
+}
+
+function personOf(patient: InvitroPatient): LabPerson {
+  return {
+    key: patient.id,
+    name: nameOf(patient) || patient.id,
+    birthDate: patient.birthday ? isoFromLabDate(patient.birthday) : null,
+  }
 }
 
 function keyOf(ref: OrderRef): InvitroKey {
@@ -215,24 +229,31 @@ export const invitroConnector: LabConnector = {
 
   async detectAccount(page) {
     if (!(await accessToken(page))) return null
-    const patient = await currentPatient(page)
-    const label = [patient.last_name, patient.first_name].filter(Boolean).join(' ')
-    return { externalId: patient.id, label: label || null }
+    const patients = await accountPatients(page)
+    const holder = patients.find((p) => p.main) ?? patients[0]
+    if (!holder) throw new Error('Invitro lists no patients in this account')
+    return { externalId: holder.id, label: nameOf(holder) || null }
   },
 
   async listOrders(page) {
-    const patient = await currentPatient(page)
-    const response = await api(page, `history/api/v2/orders?patient_id=${encodeURIComponent(patient.id)}`)
-    const groups = JSON.parse(response.text) as { orders?: InvitroOrder[] }[]
-    return groups
-      .flatMap((group) => group.orders ?? [])
-      .filter((order) => (order.multiple_inz ?? []).length > 0)
-      .map((order) => ({
-        externalKey: String(order.number),
-        // Invitro writes the moment of the order in UTC; the sample was taken on its Moscow date.
-        collectedOn: moscowDate(unixSeconds(Date.parse(order.created_at))),
-        data: { patientId: patient.id, inzs: (order.multiple_inz ?? []).map(String) } satisfies InvitroKey,
-      }))
+    const refs: OrderRef[] = []
+    for (const patient of await accountPatients(page)) {
+      const response = await api(page, `history/api/v2/orders?patient_id=${encodeURIComponent(patient.id)}`)
+      const groups = JSON.parse(response.text) as { orders?: InvitroOrder[] }[]
+      const person = personOf(patient)
+      for (const order of groups.flatMap((group) => group.orders ?? [])) {
+        const inzs = (order.multiple_inz ?? []).map(String)
+        if (inzs.length === 0) continue
+        refs.push({
+          externalKey: String(order.number),
+          // Invitro writes the moment of the order in UTC; the sample was taken on its Moscow date.
+          collectedOn: moscowDate(unixSeconds(Date.parse(order.created_at))),
+          person,
+          data: { patientId: patient.id, inzs } satisfies InvitroKey,
+        })
+      }
+    }
+    return refs
   },
 
   async fetchOrder(page, ref) {

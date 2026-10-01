@@ -1,3 +1,4 @@
+import { isoFromLabDate } from '@shared/domain/dates'
 import { detectVpnBlock, isPdf } from '../pages'
 import { moscowDate, unixSeconds } from '../time'
 import {
@@ -7,14 +8,15 @@ import {
   LabHttpError,
   type LabConnector,
   type LabPage,
+  type LabPerson,
   type OrderRef,
   type RawResult,
 } from '../types'
 
 /**
  * Helix (helix.ru). The account is an app on my.helix.ru with a JSON API on the same origin and a
- * cookie session. An account may hold several people's profiles; the one chosen on the site is
- * the one imported. A panel's components (a blood count) have no codes of their own, so each is
+ * cookie session. An account may hold several people's profiles, each with orders of its own: all
+ * of them are listed, each order under its profile's person. A panel's components (a blood count) have no codes of their own, so each is
  * known by its test's code and its own name; the forms come one per sample.
  */
 
@@ -25,8 +27,11 @@ const NO_SESSION_STATUS = HTTP_FORBIDDEN
 
 interface HelixProfile {
   id: string
-  lastName?: string
-  firstName?: string
+  lastName?: string | null
+  firstName?: string | null
+  middleName?: string | null
+  /** «1990-05-14T00:00:00». */
+  birthDate?: string | null
 }
 
 interface HelixOrder {
@@ -59,10 +64,25 @@ interface HelixTest {
 /** The words Helix puts beside a lone lower bound: «более 60». */
 const LOWER_BOUND_ONLY = /^более/i
 
-/** The profile chosen on the site: its orders are the ones imported. */
+/** The profile chosen on the site, which names the account. */
 async function currentProfile(page: LabPage): Promise<HelixProfile> {
   const response = await fetchOk(page, `${ORIGIN}/api/profiles/current`, JSON_HEADERS)
   return JSON.parse(response.text) as HelixProfile
+}
+
+/** Every profile of the account: the people whose orders it holds. */
+async function allProfiles(page: LabPage): Promise<HelixProfile[]> {
+  const response = await fetchOk(page, `${ORIGIN}/api/profiles`, JSON_HEADERS)
+  return JSON.parse(response.text) as HelixProfile[]
+}
+
+function personOf(profile: HelixProfile): LabPerson {
+  const name = [profile.lastName, profile.firstName, profile.middleName].filter(Boolean).join(' ')
+  return {
+    key: profile.id,
+    name: name || profile.id,
+    birthDate: profile.birthDate ? isoFromLabDate(profile.birthDate) : null,
+  }
 }
 
 function keyOf(ref: OrderRef): HelixKey {
@@ -141,17 +161,22 @@ export const helixConnector: LabConnector = {
   },
 
   async listOrders(page) {
-    const profile = await currentProfile(page)
-    const response = await fetchOk(page, forProfile('/v2/orders', profile.id), JSON_HEADERS)
-    const { orders = [] } = JSON.parse(response.text) as { orders?: HelixOrder[] }
-    return orders
-      .filter((order) => order.canShowDetails !== false)
-      .map((order) => ({
-        externalKey: order.code,
-        // Helix writes the moment of the order in UTC; the sample was taken on its Moscow date.
-        collectedOn: moscowDate(unixSeconds(Date.parse(order.createdOn))),
-        data: { code: order.code, profileId: profile.id } satisfies HelixKey,
-      }))
+    const refs: OrderRef[] = []
+    for (const profile of await allProfiles(page)) {
+      const response = await fetchOk(page, forProfile('/v2/orders', profile.id), JSON_HEADERS)
+      const { orders = [] } = JSON.parse(response.text) as { orders?: HelixOrder[] }
+      const person = personOf(profile)
+      for (const order of orders.filter((o) => o.canShowDetails !== false)) {
+        refs.push({
+          externalKey: order.code,
+          // Helix writes the moment of the order in UTC; the sample was taken on its Moscow date.
+          collectedOn: moscowDate(unixSeconds(Date.parse(order.createdOn))),
+          person,
+          data: { code: order.code, profileId: profile.id } satisfies HelixKey,
+        })
+      }
+    }
+    return refs
   },
 
   async fetchOrder(page, ref) {

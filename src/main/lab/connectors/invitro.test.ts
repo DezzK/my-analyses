@@ -13,10 +13,16 @@ const REF = {
   collectedOn: '2026-07-15',
   data: { patientId: 'patient-a', inzs: [INZ_BLOOD, INZ_URINE] },
 }
+/** The account holder's own order. */
+const HOLDERS_ORDER = {
+  number: '1000000000003',
+  created_at: '2026-06-01T06:00:00Z',
+  multiple_inz: ['333333333'],
+}
 const PATIENTS = {
   patients: [
-    { id: 'patient-a', main: false, last_name: 'Иванова', first_name: 'Анна' },
-    { id: 'patient-main', main: true, last_name: 'Иванов', first_name: 'Пётр' },
+    { id: 'patient-a', main: false, last_name: 'Иванова', first_name: 'Анна', birthday: '1990-05-14' },
+    { id: 'patient-main', main: true, last_name: 'Иванов', first_name: 'Пётр', birthday: '1985-02-10' },
   ],
 }
 
@@ -32,11 +38,10 @@ function tokens(n: number) {
 }
 
 /** A page holding a made-up session the way the site leaves it in localStorage. */
-function sessionPage(routes: Routes, patientId: string | null = 'patient-a'): FakeLabPage {
+function sessionPage(routes: Routes): FakeLabPage {
   const page = new FakeLabPage(routes)
   page.storage.set('refreshToken', 'refresh-1')
   page.storage.set('fingerprint', 'fp-1')
-  if (patientId) page.storage.set('patientId', patientId)
   return page
 }
 
@@ -77,11 +82,11 @@ describe('invitroConnector', () => {
     expect(await invitroConnector.detectLogin?.(new FakeLabPage([]))).toBe(false)
   })
 
-  it('refreshes the session, stores the new pair, and knows the account by the chosen patient', async () => {
+  it('refreshes the session, stores the new pair, and knows the account by its holder', async () => {
     const page = sessionPage([rotatingRefresh(), answer('/users/api/v1/patients', JSON.stringify(PATIENTS))])
     expect(await invitroConnector.detectAccount(page)).toEqual({
-      externalId: 'patient-a',
-      label: 'Иванова Анна',
+      externalId: 'patient-main',
+      label: 'Иванов Пётр',
     })
     const [refresh, patients] = page.requests
     expect(refresh?.init).toEqual({
@@ -92,15 +97,6 @@ describe('invitroConnector', () => {
     expect(patients?.init?.headers?.['Authorization']).toBe('Bearer access-1')
     expect(page.storage.get('refreshToken')).toBe('refresh-2')
     expect(page.storage.get('fingerprint')).toBe('fp-2')
-
-    const unchosen = sessionPage(
-      [rotatingRefresh(), answer('/users/api/v1/patients', JSON.stringify(PATIENTS))],
-      null,
-    )
-    expect(await invitroConnector.detectAccount(unchosen)).toEqual({
-      externalId: 'patient-main',
-      label: 'Иванов Пётр',
-    })
   })
 
   it('refreshes once per sync, and again only when the token runs out', async () => {
@@ -124,7 +120,7 @@ describe('invitroConnector', () => {
     for (const status of [400, 401]) {
       const page = sessionPage([refuse('/auth/token/refresh', status)])
       expect(await invitroConnector.detectAccount(page)).toBeNull()
-      expect(Object.fromEntries(page.storage)).toEqual({ patientId: 'patient-a' })
+      expect(Object.fromEntries(page.storage)).toEqual({})
       expect(await invitroConnector.detectLogin?.(page)).toBe(false)
     }
   })
@@ -135,7 +131,7 @@ describe('invitroConnector', () => {
     expect(page.storage.get('refreshToken')).toBe('refresh-1')
   })
 
-  it("lists the chosen patient's orders that have requisitions, dated in Moscow", async () => {
+  it("lists every patient's orders that have requisitions, each under its person, dated in Moscow", async () => {
     const groups = [
       {
         date_label: '15 июля 2026',
@@ -154,8 +150,17 @@ describe('invitroConnector', () => {
       rotatingRefresh(),
       answer('/users/api/v1/patients', JSON.stringify(PATIENTS)),
       answer('/history/api/v2/orders?patient_id=patient-a', JSON.stringify(groups)),
+      answer('/history/api/v2/orders?patient_id=patient-main', JSON.stringify([{ orders: [HOLDERS_ORDER] }])),
     ])
-    expect(await invitroConnector.listOrders(page)).toEqual([REF])
+    expect(await invitroConnector.listOrders(page)).toEqual([
+      { ...REF, person: { key: 'patient-a', name: 'Иванова Анна', birthDate: '1990-05-14' } },
+      {
+        externalKey: HOLDERS_ORDER.number,
+        collectedOn: '2026-06-01',
+        person: { key: 'patient-main', name: 'Иванов Пётр', birthDate: '1985-02-10' },
+        data: { patientId: 'patient-main', inzs: HOLDERS_ORDER.multiple_inz },
+      },
+    ])
   })
 
   it('reads the results of all requisitions, with the lab mark as a flag', async () => {

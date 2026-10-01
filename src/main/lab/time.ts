@@ -1,3 +1,5 @@
+import { datePart } from '@shared/domain/dates'
+
 /** Moscow has kept UTC+3 all year since 2014. */
 const MOSCOW_UTC_OFFSET_SECONDS = 3 * 3600
 const MS_PER_SECOND = 1000
@@ -17,5 +19,5 @@ export function tokenUsable(expiresAt: number): boolean {
 
 /** The Moscow calendar date of a Unix time, `YYYY-MM-DD`: Russian labs date samples in Moscow time. */
 export function moscowDate(unixTime: number): string {
-  return new Date((unixTime + MOSCOW_UTC_OFFSET_SECONDS) * MS_PER_SECOND).toISOString().slice(0, 10)
+  return datePart(new Date((unixTime + MOSCOW_UTC_OFFSET_SECONDS) * MS_PER_SECOND).toISOString())
 }
