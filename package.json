@@ -2,7 +2,7 @@
   "name": "my-analyses",
   "productName": "Мои анализы",
   "desktopName": "my-analyses.desktop",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Family lab results tracker: imports from lab accounts, tables, charts and printable reports",
   "private": true,
   "author": "dezz",
