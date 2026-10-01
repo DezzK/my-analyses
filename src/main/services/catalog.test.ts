@@ -331,4 +331,13 @@ describe('panels', () => {
     app.panels.remove(saved.id)
     expect(app.panels.list()).toEqual([])
   })
+
+  it('are found by part of the name, as analytes are', () => {
+    const thyroid = app.panels.save(null, 'Щитовидная железа', [ids.kdlTsh])
+    app.panels.save(null, 'Ёмкость железа', [ids.ferritin])
+    expect(app.panels.search('щитов').map((p) => p.id)).toEqual([thyroid.id])
+    expect(app.panels.search(' ЕМКОСТЬ ').map((p) => p.name)).toEqual(['Ёмкость железа'])
+    expect(app.panels.search('железа').map((p) => p.name)).toEqual(['Ёмкость железа', 'Щитовидная железа'])
+    expect(app.panels.search('  ')).toEqual([])
+  })
 })

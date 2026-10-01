@@ -22,7 +22,7 @@ import { EmptyState } from '../components/EmptyState'
 import { ButtonLink } from '../components/links'
 import { PageHeader } from '../components/PageHeader'
 import { formatDate, plural } from '../format'
-import { ORDER_FORMS } from '../labels'
+import { ANALYTE_FORMS, ORDER_FORMS } from '../labels'
 import { notifyError, notifyUndoable } from '../notify'
 import { useCurrentPatient } from '../patients/current'
 import { useLabMap, useOrder, useOrders, useUnits } from '../queries'
@@ -130,7 +130,7 @@ export function OrderLine({
           ))}
         {!compact && (
           <Text size="sm" c="dimmed" className="tabular nowrap">
-            {order.resultCount} {plural(order.resultCount, ['показатель', 'показателя', 'показателей'])}
+            {order.resultCount} {plural(order.resultCount, ANALYTE_FORMS)}
           </Text>
         )}
       </Group>

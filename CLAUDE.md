@@ -60,8 +60,8 @@ and commits are English.
   then the lab's rule, then the general rule), the verdict and whether the lab agrees: `interpret`
   (`src/shared/domain/interpret.ts`). The main process reads results only through `ResultReader`
   (`src/main/services/results.ts`), so tables, charts, orders and reports never disagree.
-- Russian names of the closed sets, and the Russian forms of nouns counted in the UI (`ORDER_FORMS`):
-  `src/renderer/src/labels.ts`.
+- Russian names of the closed sets, and the Russian forms of nouns counted in the UI (`ORDER_FORMS`,
+  `ANALYTE_FORMS`): `src/renderer/src/labels.ts`.
 - Heading weight and icon sizes: `TITLE_WEIGHT` and `ICON_SIZE` (`src/renderer/src/theme.ts`).
 - Rules about patients and periods: `PatientService` (`src/main/services/patients.ts`). The UI never
   validates on a service's behalf; it shows the `UserError` the service throws.
@@ -73,7 +73,8 @@ and commits are English.
 - Labs, their chart markers (`LAB_MARKERS`), the built-in labs and which connector serves a lab
   (`LabService.connector`): `LabService`.
 - Analytes, their lab codes, the unit each is shown in, search and the FTS index
-  (`normalizeSearchText`): `AnalyteService`.
+  (`normalizeSearchText`), and what a search matches (`searchNeedle`, `holdsNeedle`, which panels are
+  searched by as well): `AnalyteService`.
 - Orders, their summaries and original forms, entering them by hand and correcting results (what
   a typed order must satisfy, the ten-times warning, undoing a delete): `OrderService`
   (`src/main/services/orders.ts`). An order's original forms — several when the lab issues one per
@@ -86,7 +87,8 @@ and commits are English.
 - Merging one analyte into another and undoing it: `MergeService`; an analyte's places in named
   lists (panel items, report blocks) move and come back by one rule, `movePlaces` and
   `restorePlaces` over a `Places` table. Reference rules and their consistency (one rule per lab,
-  sex, condition and age): `RuleService`; panels: `PanelService`.
+  sex, condition and age): `RuleService`; panels, and finding them by name: `PanelService`. A panel's
+  page shows all its analytes' results (`src/renderer/src/analytes/PanelPage.tsx`).
 - Report templates (blocks as `report_block` rows, layout as JSON) and what a report must satisfy
   to be built (`checkSpec`): `ReportService` (`src/main/services/reports.ts`). The paper, the width
   a report is laid out at, the default layout and the print route with the spec in its address
@@ -94,7 +96,8 @@ and commits are English.
   a PDF — a hidden window on that route, drawn without the shell and always light, that says when it
   is ready, then `printToPDF` — and the preview and save: `ReportPrinter`
   (`src/main/report-printer.ts`). Which blocks share a row: `rowsOf`
-  (`src/renderer/src/reports/rows.ts`); the report being built is kept by `useReportDraft`.
+  (`src/renderer/src/reports/rows.ts`); the report being built is kept by `useReportDraft`, and
+  analytes, one or a panel's, join it through `withAnalytes`.
 - Which windows may call the API: `TrustedWindows` (`src/main/windows.ts`); how a window loads the
   UI, with which web preferences, and that nothing navigates it away: `loadRenderer`,
   `appWindowPreferences`, `lockNavigation` (`src/main/renderer-window.ts`).
@@ -147,6 +150,10 @@ and commits are English.
   drawn with its color and shape by `LabMarker`. Values and references are spelled by `valueText` and
   `referenceText` (`src/renderer/src/results/format.ts`), shown by `ResultsTable` and by
   `ResultsChart`, whose options come from `buildChartOption` (`src/renderer/src/results/chart.ts`).
+  A page of results — an analyte's or a panel's — keeps the period and the look last chosen
+  (`useResultsPeriod`, `useResultsLook`) and shows each analyte through `ResultsView`
+  (`src/renderer/src/results/ResultsView.tsx`); which results a view, a report included, shows:
+  `collectedBetween`, `isPlottable` (`src/renderer/src/results/shown.ts`).
   Labs and units by id: `useLabMap`, `useUnits`. Links with route params: `AnchorLink`,
   `ButtonLink` (`src/renderer/src/components/links.tsx`). Dates are typed in `DateField`. Numbers typed into fields: `readDecimal`
   (`src/renderer/src/input.ts`). An action that can be undone reports itself with `notifyUndoable`.

@@ -8,7 +8,7 @@ import { api } from '../api'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { formatAge, formatDate, formatDateTime, plural } from '../format'
-import { SEX_LABELS, SYNC_STATUS_LABELS } from '../labels'
+import { ANALYTE_FORMS, SEX_LABELS, SYNC_STATUS_LABELS } from '../labels'
 import { describeProgress, SYNC_STATUS_COLORS } from '../labs/sync-text'
 import { notifyError } from '../notify'
 import { OrderLine } from '../orders/OrdersPage'
@@ -92,7 +92,7 @@ function LastOrderCard({ order }: { order: OrderSummary }) {
       ) : deviating.length === 0 ? (
         <Text>
           {order.resultCount > 0
-            ? `Все ${order.resultCount} ${plural(order.resultCount, ['показатель', 'показателя', 'показателей'])} в норме.`
+            ? `Все ${order.resultCount} ${plural(order.resultCount, ANALYTE_FORMS)} в норме.`
             : 'Лаборатория ещё не прислала результаты.'}
         </Text>
       ) : (

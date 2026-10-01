@@ -36,9 +36,9 @@ import { AnalytePicker } from '../components/AnalytePicker'
 import { PageHeader } from '../components/PageHeader'
 import { notifyError } from '../notify'
 import { useCurrentPatient } from '../patients/current'
-import { useCatalog, useReportTemplates } from '../queries'
+import { useCatalog, usePanels, useReportTemplates } from '../queries'
 import { ICON_SIZE } from '../theme'
-import { useReportDraft, withAnalyte, type ReportDraft } from './draft'
+import { useReportDraft, withAnalytes, type ReportDraft } from './draft'
 import { ReportDocument } from './ReportDocument'
 
 const VIEW_LABELS: Record<ReportView, string> = { table: 'Таблица', chart: 'График', both: 'Оба' }
@@ -150,6 +150,7 @@ function FitToWidth({ children }: { children: ReactNode }) {
 }
 
 function BlocksCard({ draft, onChange }: { draft: ReportDraft; onChange: (draft: ReportDraft) => void }) {
+  const { data: panels = [] } = usePanels()
   const { data: catalog = [] } = useCatalog()
   const names = new Map(catalog.map((entry) => [entry.id, entry.name]))
   const setBlocks = (blocks: ReportBlock[]) => onChange({ ...draft, blocks })
@@ -248,8 +249,20 @@ function BlocksCard({ draft, onChange }: { draft: ReportDraft; onChange: (draft:
           placeholder="Добавить показатель"
           value={null}
           exclude={draft.blocks.map((block) => block.analyteId)}
-          onChange={(picked) => picked && onChange(withAnalyte(draft, picked.id))}
+          onChange={(picked) => picked && onChange(withAnalytes(draft, [picked.id]))}
         />
+        {panels.length > 0 && (
+          <Select
+            placeholder="Добавить набор"
+            value={null}
+            searchable
+            data={panels.map((panel) => ({ value: String(panel.id), label: panel.name }))}
+            onChange={(picked) => {
+              const panel = panels.find((p) => String(p.id) === picked)
+              if (panel) onChange(withAnalytes(draft, panel.analyteIds))
+            }}
+          />
+        )}
       </Stack>
     </Card>
   )

@@ -1,19 +1,6 @@
 import { useMemo, useState } from 'react'
-import {
-  Badge,
-  Button,
-  Card,
-  Center,
-  Chip,
-  Group,
-  Loader,
-  SegmentedControl,
-  Select,
-  Stack,
-  Text,
-} from '@mantine/core'
-import { useLocalStorage } from '@mantine/hooks'
-import { IconChartLine, IconFileText, IconTable } from '@tabler/icons-react'
+import { Badge, Button, Card, Center, Chip, Group, Loader, Select, Stack } from '@mantine/core'
+import { IconFileText, IconTable } from '@tabler/icons-react'
 import { useNavigate, useParams } from '@tanstack/react-router'
 import type { AnalyteResults, Lab, Unit } from '@shared/api'
 import { api } from '../api'
@@ -25,15 +12,17 @@ import { notifyError } from '../notify'
 import { useCurrentPatient } from '../patients/current'
 import { useAnalyteResults, useLabMap, useUnits } from '../queries'
 import { unitText } from '../results/format'
-import { ResultsChart } from '../results/ResultsChart'
-import { ResultsTable } from '../results/ResultsTable'
-import { useReportDraft, withAnalyte } from '../reports/draft'
+import {
+  LookSwitch,
+  PeriodSwitch,
+  ResultsView,
+  useResultsLook,
+  useResultsPeriod,
+} from '../results/ResultsView'
+import { collectedBetween, isPlottable } from '../results/shown'
+import { useReportDraft, withAnalytes } from '../reports/draft'
 import { ICON_SIZE } from '../theme'
-import { PERIOD_LABELS, periodStart, PERIODS, type Period } from './periods'
-
-type View = 'table' | 'chart'
-const VIEW_KEY = 'my-analyses:analyte-view'
-const PERIOD_KEY = 'my-analyses:analyte-period'
+import { periodStart } from './periods'
 
 export function AnalytePage() {
   const { analyteId } = useParams({ from: '/analytes/$analyteId' })
@@ -63,19 +52,17 @@ function AnalyteView({
   units: ReadonlyMap<number, Unit>
   patientName: string
 }) {
-  const [view, setView] = useLocalStorage<View>({ key: VIEW_KEY, defaultValue: 'table' })
-  const [period, setPeriod] = useLocalStorage<Period>({ key: PERIOD_KEY, defaultValue: 'all' })
+  const [look, setLook] = useResultsLook()
+  const [period, setPeriod] = useResultsPeriod()
   const presentLabs = useMemo(() => [...new Set(data.rows.map((row) => row.labId))], [data.rows])
   const [hiddenLabs, setHiddenLabs] = useState<number[]>([])
   const [, setDraft] = useReportDraft()
   const navigate = useNavigate()
 
-  const start = periodStart(period)
-  const rows = data.rows.filter(
-    (row) => (start === null || row.collectedOn >= start) && !hiddenLabs.includes(row.labId),
+  const rows = collectedBetween(data.rows, periodStart(period)).filter(
+    (row) => !hiddenLabs.includes(row.labId),
   )
-  const plottable = rows.some((row) => row.read.value.number !== null)
-  const shownView: View = plottable ? view : 'table'
+  const plottable = isPlottable(rows)
   const { analyte } = data
 
   return (
@@ -104,7 +91,7 @@ function AnalyteView({
               variant="default"
               leftSection={<IconFileText size={ICON_SIZE.button} />}
               onClick={() => {
-                setDraft((current) => withAnalyte(current, analyte.id))
+                setDraft((current) => withAnalytes(current, [analyte.id]))
                 void navigate({ to: '/reports' })
               }}
             >
@@ -124,11 +111,7 @@ function AnalyteView({
           <Stack gap="md">
             <Group justify="space-between">
               <Group gap="sm">
-                <SegmentedControl
-                  value={period}
-                  onChange={(value) => setPeriod(value as Period)}
-                  data={PERIODS.map((p) => ({ value: p, label: PERIOD_LABELS[p] }))}
-                />
+                <PeriodSwitch value={period} onChange={setPeriod} />
                 {presentLabs.length > 1 && (
                   <Chip.Group
                     multiple
@@ -153,41 +136,16 @@ function AnalyteView({
                   </Chip.Group>
                 )}
               </Group>
-              <SegmentedControl
-                value={shownView}
-                onChange={(value) => setView(value as View)}
-                data={[
-                  {
-                    value: 'table',
-                    label: (
-                      <Group gap={6} wrap="nowrap">
-                        <IconTable size={ICON_SIZE.button} />
-                        Таблица
-                      </Group>
-                    ),
-                  },
-                  {
-                    value: 'chart',
-                    disabled: !plottable,
-                    label: (
-                      <Group gap={6} wrap="nowrap">
-                        <IconChartLine size={ICON_SIZE.button} />
-                        График
-                      </Group>
-                    ),
-                  },
-                ]}
-              />
+              <LookSwitch value={plottable ? look : 'table'} onChange={setLook} chartDisabled={!plottable} />
             </Group>
-            {rows.length === 0 ? (
-              <Text c="dimmed" size="sm">
-                За выбранный период результатов нет.
-              </Text>
-            ) : shownView === 'chart' ? (
-              <ResultsChart rows={rows} labs={labs} unitLabel={unitText(data.unitId, units)} />
-            ) : (
-              <ResultsTable rows={rows} by="date" labs={labs} units={units} />
-            )}
+            <ResultsView
+              rows={rows}
+              look={look}
+              unitId={data.unitId}
+              labs={labs}
+              units={units}
+              empty="За выбранный период результатов нет."
+            />
           </Stack>
         </Card>
       )}

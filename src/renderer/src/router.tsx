@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-router'
 import { REPORT_PRINT_ROUTE } from '@shared/report'
 import { AnalytePage } from './analytes/AnalytePage'
+import { PanelPage } from './analytes/PanelPage'
 import { AnalyteCardPage } from './catalog/AnalyteCardPage'
 import { CatalogPage } from './catalog/CatalogPage'
 import { LabsPage } from './labs/LabsPage'
@@ -68,6 +69,7 @@ const routeTree = rootRoute.addChildren([
   page('/orders/new', NewOrderPage),
   page('/labs', LabsPage),
   page('/analytes/$analyteId', AnalytePage),
+  page('/panels/$panelId', PanelPage),
   page('/mapping', MappingPage),
   page('/catalog', CatalogPage),
   page('/catalog/$analyteId', AnalyteCardPage),

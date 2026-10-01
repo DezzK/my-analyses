@@ -448,6 +448,8 @@ export interface Api {
   }
   panels: {
     list(): Promise<Panel[]>
+    /** By part of the name, ignoring case and ё, as analytes are searched. */
+    search(query: string): Promise<Panel[]>
     save(panelId: number | null, name: string, analyteIds: number[]): Promise<Panel>
     remove(panelId: number): Promise<void>
   }

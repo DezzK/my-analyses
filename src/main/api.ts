@@ -133,6 +133,7 @@ export function createApi(s: Services): Api {
     },
     panels: {
       list: async () => s.panels.list(),
+      search: async (query) => s.panels.search(query),
       save: async (panelId, name, analyteIds) => s.panels.save(panelId, name, analyteIds),
       remove: async (panelId) => s.panels.remove(panelId),
     },

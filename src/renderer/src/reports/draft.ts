@@ -31,8 +31,11 @@ export function useReportDraft() {
   return [draft, setDraft] as const
 }
 
-/** The draft with the analyte added at the end, shown both ways, unless it is there already. */
-export function withAnalyte(draft: ReportDraft, analyteId: number): ReportDraft {
-  if (draft.blocks.some((block) => block.analyteId === analyteId)) return draft
-  return { ...draft, blocks: [...draft.blocks, { analyteId, view: 'both', breakAfter: false }] }
+/** The draft with the analytes added at the end in their order, shown both ways; ones there already stay where they are. */
+export function withAnalytes(draft: ReportDraft, analyteIds: readonly number[]): ReportDraft {
+  const present = new Set(draft.blocks.map((block) => block.analyteId))
+  const added = [...new Set(analyteIds)].filter((id) => !present.has(id))
+  if (added.length === 0) return draft
+  const blocks = added.map((analyteId) => ({ analyteId, view: 'both' as const, breakAfter: false }))
+  return { ...draft, blocks: [...draft.blocks, ...blocks] }
 }

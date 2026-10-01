@@ -6,6 +6,7 @@ import { formatAge } from '../format'
 import { SEX_LABELS } from '../labels'
 import { useAnalyteResults, useLabMap, useUnits } from '../queries'
 import { unitText } from '../results/format'
+import { collectedBetween, isPlottable } from '../results/shown'
 import { ResultsChart } from '../results/ResultsChart'
 import { ResultsTable } from '../results/ResultsTable'
 import { TITLE_WEIGHT } from '../theme'
@@ -66,13 +67,9 @@ function ReportBlockView({
   const labs = useLabMap()
   const units = useUnits()
   if (!data) return null
-  const rows = data.rows.filter(
-    (row) =>
-      (spec.from === null || row.collectedOn >= spec.from) &&
-      (spec.to === null || row.collectedOn <= spec.to),
-  )
+  const rows = collectedBetween(data.rows, spec.from, spec.to)
   const unit = unitText(data.unitId, units)
-  const plottable = rows.some((row) => row.read.value.number !== null)
+  const plottable = isPlottable(rows)
   return (
     <section className="report-block">
       <Group gap="xs" mb="xs" align="baseline">

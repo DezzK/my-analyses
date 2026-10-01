@@ -61,7 +61,7 @@ test('results are found, tabulated, charted and grouped into orders', async () =
     await snapshot(window, '08-overview')
 
     await window.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
-    await window.getByPlaceholder('Показатель, синоним или код теста').fill('глюк')
+    await window.getByPlaceholder('Показатель, набор, синоним или код теста').fill('глюк')
     await expect(window.getByRole('button', { name: /Глюкоза/ })).toBeVisible()
     await snapshot(window, '09-search')
     await window.getByRole('button', { name: /Глюкоза/ }).click()

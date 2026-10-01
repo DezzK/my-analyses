@@ -6,7 +6,7 @@ import type { Db } from '../db/client'
 import { analyte, panel, panelItem } from '../db/schema'
 import { inTransaction } from '../db/transaction'
 import { dataChanged, type EventSink } from '../events'
-import { normalizeSearchText } from './analytes'
+import { holdsNeedle, normalizeSearchText, searchNeedle } from './analytes'
 import { typedName } from './validation'
 
 /** Owner of panels: named sets of analytes entered and searched together. */
@@ -31,6 +31,12 @@ export class PanelService {
         name: row.name,
         analyteIds: (items.get(row.id) ?? []).map((i) => i.analyteId),
       }))
+  }
+
+  /** Panels whose name holds what was typed, matched as analytes are. */
+  search(query: string): Panel[] {
+    const needle = searchNeedle(query)
+    return needle ? this.list().filter((p) => holdsNeedle(p.name, needle)) : []
   }
 
   /** Creates a panel (`panelId` null) or replaces a panel's name and analytes, in the given order. */

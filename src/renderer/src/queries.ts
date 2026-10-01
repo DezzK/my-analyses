@@ -26,6 +26,7 @@ export const keys = {
   rules: (analyteId: number) => ['catalog', 'rules', analyteId] as const,
   merges: (analyteId: number) => ['catalog', 'merges', analyteId] as const,
   panels: () => ['catalog', 'panels'] as const satisfies readonly [DataScope, string],
+  panelSearch: (query: string) => ['catalog', 'panel-search', query] as const,
   reportTemplates: () => ['reports', 'templates'] as const satisfies readonly [DataScope, string],
   labReferences: (analyteId: number) => [DERIVED, 'lab-references', analyteId] as const,
   mapping: (patientId: number) => [DERIVED, 'mapping', patientId] as const,
@@ -154,6 +155,15 @@ export function useReportTemplates() {
 
 export function usePanels() {
   return useQuery({ queryKey: keys.panels(), queryFn: () => api.panels.list() })
+}
+
+export function usePanelSearch(query: string) {
+  return useQuery({
+    queryKey: keys.panelSearch(query),
+    queryFn: () => api.panels.search(query),
+    enabled: query.trim().length > 0,
+    placeholderData: (previous) => previous,
+  })
 }
 
 /** One analyte's results for a patient, for `useQuery` and `useQueries` alike. */

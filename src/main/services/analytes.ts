@@ -22,6 +22,16 @@ export function normalizeSearchText(text: string): string {
   return foldCase(text)
 }
 
+/** What a search looks for: what was typed, case and ё folded; empty when nothing was. */
+export function searchNeedle(query: string): string {
+  return normalizeSearchText(query).trim()
+}
+
+/** Whether a name, a synonym or a code holds what a search looks for, anywhere in it. */
+export function holdsNeedle(text: string, needle: string): boolean {
+  return normalizeSearchText(text).includes(needle)
+}
+
 /** The unit an analyte is shown in: the one the person chose, else its canonical unit. */
 export function shownUnitId(row: Pick<AnalyteRow, 'displayUnitId' | 'canonicalUnitId'>): number | null {
   return row.displayUnitId ?? row.canonicalUnitId
@@ -255,7 +265,7 @@ export class AnalyteService {
    * patient has results for come first, most recently measured first.
    */
   search(query: string, patientId: number | null): AnalyteHit[] {
-    const needle = normalizeSearchText(query).trim()
+    const needle = searchNeedle(query)
     if (!needle) return []
     const rows = this.db.$client
       .prepare(
@@ -278,7 +288,7 @@ export class AnalyteService {
       lastCollectedOn: string | null
     }[]
     const aliases = this.aliases(rows.map((r) => r.id))
-    const matches = (text: string | null) => text !== null && normalizeSearchText(text).includes(needle)
+    const matches = (text: string | null) => text !== null && holdsNeedle(text, needle)
     return rows.map((row) => {
       const own = aliases.filter((a) => a.analyteId === row.id)
       const matched = matches(row.name)

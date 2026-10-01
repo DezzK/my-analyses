@@ -32,7 +32,7 @@ import { AnalytePicker } from '../components/AnalytePicker'
 import { AnchorLink } from '../components/links'
 import { PageHeader } from '../components/PageHeader'
 import { plural } from '../format'
-import { SPECIMEN_LABELS } from '../labels'
+import { ANALYTE_FORMS, SPECIMEN_LABELS } from '../labels'
 import { notifyError } from '../notify'
 import { useCatalog, useLabMap, usePanels, useUnits } from '../queries'
 import { ICON_SIZE } from '../theme'
@@ -185,7 +185,8 @@ function PanelList() {
     <Stack gap="md">
       <Group justify="space-between">
         <Text size="sm" c="dimmed">
-          Набор добавляет свои показатели в новый заказ одним выбором и находится поиском.
+          Набор одним выбором добавляет свои показатели в новый заказ или в отчёт, а поиск находит его и
+          показывает результаты всех его показателей разом.
         </Text>
         <Button
           variant="light"
@@ -339,7 +340,7 @@ function PanelFields({
         onChange={(picked) => picked && setIds([...ids, picked.id])}
       />
       <Text size="xs" c="dimmed">
-        {ids.length} {plural(ids.length, ['показатель', 'показателя', 'показателей'])}
+        {ids.length} {plural(ids.length, ANALYTE_FORMS)}
       </Text>
       <Group justify="flex-end">
         <Button variant="default" onClick={onDone}>

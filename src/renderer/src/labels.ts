@@ -101,6 +101,8 @@ export const CONDITION_LABELS: Record<ReferenceCondition, string> = {
 
 /** Forms of «заказ» for 1, 2 and 5. */
 export const ORDER_FORMS: readonly [string, string, string] = ['заказ', 'заказа', 'заказов']
+/** Forms of «показатель» for 1, 2 and 5. */
+export const ANALYTE_FORMS: readonly [string, string, string] = ['показатель', 'показателя', 'показателей']
 
 /** Forms for 1, 2 and 5 of each unit an age limit is stated in. */
 export const AGE_UNIT_FORMS: Record<AgeUnit, readonly [string, string, string]> = {
