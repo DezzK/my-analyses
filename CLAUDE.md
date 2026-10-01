@@ -176,7 +176,11 @@ and commits are English.
   analysis: `labCodesText` (`src/renderer/src/format.ts`). Links with route params: `AnchorLink`,
   `ButtonLink` (`src/renderer/src/components/links.tsx`). Dates are typed in `DateField`. Numbers typed into fields: `readDecimal`
   (`src/renderer/src/input.ts`). An action that can be undone reports itself with `notifyUndoable`.
-  The platform check: `IS_MAC` (`src/renderer/src/platform.ts`).
+  The platform check: `IS_MAC` (`src/renderer/src/platform.ts`). What a page keeps in its address so
+  that going back finds it as it was left — the order open, the tab, a list's filter — and how a
+  change of it replaces the address without scrolling (`KEEP_PLACE`, `tabSearch`):
+  `src/renderer/src/page-state.ts`, read by each page's `validateSearch`; the router restores where a
+  page was scrolled, and the header's back button (`BackButton`, `AppLayout`) goes back as a mouse's does.
 - Numbers in Russian spelling: `formatDecimal` (as measured), `formatSignificant` (after a
   conversion) and `formatNumber` (shortest, e.g. axis ticks), all in `src/shared/domain/numbers.ts`.
 

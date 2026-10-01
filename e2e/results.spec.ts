@@ -69,9 +69,16 @@ test('results are found, tabulated, charted and grouped into orders', async () =
 
     // The chart follows the system's dark theme.
     await window.emulateMedia({ colorScheme: 'dark' })
+    // Expressions of the page's own: the tests are typed without the browser's globals.
+    const scrolled = await window.evaluate<number>('scrollTo(0, 120), scrollY')
     await window.getByRole('link', { name: 'Глюкоза' }).click()
     await expect(window.locator('svg').filter({ hasText: 'ммоль/л' }).first()).toBeVisible()
     await snapshot(window, '13-analyte-chart-dark')
+
+    // Back on the orders, the order is still open and the page where it was.
+    await window.getByRole('button', { name: 'Назад' }).click()
+    await expect(window.getByRole('link', { name: 'С-реактивный белок' })).toBeVisible()
+    await expect.poll(() => window.evaluate<number>('scrollY')).toBe(scrolled)
   } finally {
     await app.close()
   }

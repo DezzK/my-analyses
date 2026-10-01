@@ -15,6 +15,7 @@ import {
   Text,
 } from '@mantine/core'
 import { IconChecks } from '@tabler/icons-react'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { MappingQueue, OrderSummary, UnknownUnit, UnreviewedAnalyte, UnreviewedMerge } from '@shared/api'
 import { CYCLE_PHASES, type CyclePhase } from '@shared/domain/enums'
 import { api } from '../api'
@@ -23,6 +24,7 @@ import { PageHeader } from '../components/PageHeader'
 import { formatDate, labCodesText, plural } from '../format'
 import { CYCLE_PHASE_LABELS, LAB_FLAG_LABELS, SPECIMEN_LABELS } from '../labels'
 import { notifyError, notifyUndoable } from '../notify'
+import { KEEP_PLACE, tabSearch } from '../page-state'
 import { useCurrentPatient } from '../patients/current'
 import { useLabMap, useMappingQueue, useSuggestions, useUnits } from '../queries'
 import { referenceText, unitText, valueText } from '../results/format'
@@ -36,9 +38,17 @@ export function pendingCount(queue: MappingQueue | undefined): number {
     : 0
 }
 
+const MAPPING_TABS = ['analytes', 'merges', 'units', 'phases', 'disagreements'] as const
+type MappingTab = (typeof MAPPING_TABS)[number]
+
+/** The tab shown, kept in the address (`KEEP_PLACE`). */
+export const mappingSearch = tabSearch(MAPPING_TABS)
+
 export function MappingPage() {
   const { patient } = useCurrentPatient()
   const { data: queue, isLoading } = useMappingQueue(patient?.id ?? null)
+  const { tab: shownTab = 'analytes' } = useSearch({ from: '/mapping' })
+  const navigate = useNavigate({ from: '/mapping' })
   if (isLoading || !queue || !patient) {
     return (
       <Center py="xl">
@@ -59,7 +69,11 @@ export function MappingPage() {
   return (
     <>
       <PageHeader title="Сопоставление" subtitle="Что после импорта стоит проверить или уточнить" />
-      <Tabs defaultValue="analytes" keepMounted={false}>
+      <Tabs
+        value={shownTab}
+        onChange={(value) => value && void navigate({ search: { tab: value as MappingTab }, ...KEEP_PLACE })}
+        keepMounted={false}
+      >
         <Tabs.List mb="md">
           <Tabs.Tab value="analytes">{tab('Новые показатели', queue.analytes.length)}</Tabs.Tab>
           <Tabs.Tab value="merges">{tab('Объединения', queue.merges.length)}</Tabs.Tab>

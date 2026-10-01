@@ -24,7 +24,7 @@ import {
   IconTrash,
   IconX,
 } from '@tabler/icons-react'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { CatalogEntry, Panel } from '@shared/api'
 import { foldCase } from '@shared/domain/text'
 import { api } from '../api'
@@ -34,13 +34,32 @@ import { PageHeader } from '../components/PageHeader'
 import { labCodesText, plural } from '../format'
 import { ANALYTE_FORMS, SPECIMEN_LABELS } from '../labels'
 import { notifyError } from '../notify'
+import { KEEP_PLACE, tabSearch } from '../page-state'
 import { useCatalog, useLabMap, usePanels, useUnits } from '../queries'
 import { ICON_SIZE } from '../theme'
 import { AnalyteForm } from './AnalyteForm'
 
+const CATALOG_TABS = ['analytes', 'panels'] as const
+type CatalogTab = (typeof CATALOG_TABS)[number]
+
+/** The tab shown and the list's filter, kept in the address (`KEEP_PLACE`). */
+export function catalogSearch(search: Record<string, unknown>): {
+  tab?: CatalogTab
+  q?: string
+  unreviewed?: true
+} {
+  const q = search['q']
+  return {
+    ...tabSearch(CATALOG_TABS)(search),
+    ...(typeof q === 'string' && q ? { q } : {}),
+    ...(search['unreviewed'] === true ? { unreviewed: true } : {}),
+  }
+}
+
 export function CatalogPage() {
   const [creating, setCreating] = useState(false)
   const navigate = useNavigate()
+  const { tab = 'analytes' } = useSearch({ from: '/catalog' })
   return (
     <>
       <PageHeader
@@ -52,7 +71,18 @@ export function CatalogPage() {
           </Button>
         }
       />
-      <Tabs defaultValue="analytes" keepMounted={false}>
+      <Tabs
+        value={tab}
+        onChange={(value) =>
+          value &&
+          void navigate({
+            to: '/catalog',
+            search: (prev) => ({ ...prev, tab: value as CatalogTab }),
+            ...KEEP_PLACE,
+          })
+        }
+        keepMounted={false}
+      >
         <Tabs.List mb="md">
           <Tabs.Tab value="analytes">Показатели</Tabs.Tab>
           <Tabs.Tab value="panels">Наборы</Tabs.Tab>
@@ -87,8 +117,15 @@ function AnalyteList() {
   const { data: entries = [] } = useCatalog()
   const labs = useLabMap()
   const units = useUnits()
-  const [query, setQuery] = useState('')
-  const [unreviewedOnly, setUnreviewedOnly] = useState(false)
+  const search = useSearch({ from: '/catalog' })
+  const navigate = useNavigate({ from: '/catalog' })
+  // Typed into a field of its own and copied to the address, so that typing never waits for it.
+  const [query, setQuery] = useState(search.q ?? '')
+  const unreviewedOnly = search.unreviewed === true
+  const changeQuery = (value: string) => {
+    setQuery(value)
+    void navigate({ search: (prev) => ({ ...prev, q: value || undefined }), ...KEEP_PLACE })
+  }
   const needle = foldCase(query.trim())
   const shown = entries.filter((e) => (!unreviewedOnly || !e.reviewed) && (!needle || matches(e, needle)))
   const unreviewed = entries.filter((e) => !e.reviewed).length
@@ -100,13 +137,16 @@ function AnalyteList() {
           placeholder="Название или код"
           leftSection={<IconSearch size={ICON_SIZE.button} />}
           value={query}
-          onChange={(e) => setQuery(e.currentTarget.value)}
+          onChange={(e) => changeQuery(e.currentTarget.value)}
           w={320}
         />
         <Switch
           label={`Только непроверенные (${unreviewed})`}
           checked={unreviewedOnly}
-          onChange={(e) => setUnreviewedOnly(e.currentTarget.checked)}
+          onChange={(e) => {
+            const unreviewed = e.currentTarget.checked || undefined
+            void navigate({ search: (prev) => ({ ...prev, unreviewed }), ...KEEP_PLACE })
+          }}
         />
       </Group>
       {shown.length === 0 ? (

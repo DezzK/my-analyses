@@ -12,13 +12,13 @@ import { REPORT_PRINT_ROUTE } from '@shared/report'
 import { AnalytePage } from './analytes/AnalytePage'
 import { PanelPage } from './analytes/PanelPage'
 import { AnalyteCardPage } from './catalog/AnalyteCardPage'
-import { CatalogPage } from './catalog/CatalogPage'
+import { catalogSearch, CatalogPage } from './catalog/CatalogPage'
 import { LabsPage } from './labs/LabsPage'
 import { AppLayout } from './layout/AppLayout'
-import { MappingPage } from './mapping/MappingPage'
+import { mappingSearch, MappingPage } from './mapping/MappingPage'
 import { Welcome, type WelcomeStep } from './onboarding/Welcome'
 import { NewOrderPage } from './orders/NewOrderPage'
-import { OrdersPage } from './orders/OrdersPage'
+import { OrdersPage, ordersSearch } from './orders/OrdersPage'
 import { OverviewPage } from './pages/OverviewPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { useCurrentPatient } from './patients/current'
@@ -63,22 +63,43 @@ const rootRoute = createRootRoute({ component: Root })
 const page = <TPath extends string>(path: TPath, component: () => React.ReactNode) =>
   createRoute({ getParentRoute: () => rootRoute, path, component })
 
+// Pages that keep their state in the address, so that going back finds them as they were left.
+const ordersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/orders',
+  component: OrdersPage,
+  validateSearch: ordersSearch,
+})
+const mappingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/mapping',
+  component: MappingPage,
+  validateSearch: mappingSearch,
+})
+const catalogRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/catalog',
+  component: CatalogPage,
+  validateSearch: catalogSearch,
+})
+
 const routeTree = rootRoute.addChildren([
   page('/', OverviewPage),
-  page('/orders', OrdersPage),
+  ordersRoute,
   page('/orders/new', NewOrderPage),
   page('/labs', LabsPage),
   page('/analytes/$analyteId', AnalytePage),
   page('/panels/$panelId', PanelPage),
-  page('/mapping', MappingPage),
-  page('/catalog', CatalogPage),
+  mappingRoute,
+  catalogRoute,
   page('/catalog/$analyteId', AnalyteCardPage),
   page('/reports', ReportsPage),
   page(REPORT_PRINT_ROUTE, PrintReportPage),
   page('/settings', SettingsPage),
 ])
 
-export const router = createRouter({ routeTree, history: createHashHistory() })
+// Going back and forth returns each page to where it was scrolled; a new visit starts at the top.
+export const router = createRouter({ routeTree, history: createHashHistory(), scrollRestoration: true })
 
 declare module '@tanstack/react-router' {
   interface Register {

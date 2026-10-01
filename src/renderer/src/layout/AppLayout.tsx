@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
-import { AppShell, Badge, Group, NavLink, Stack, Text, ThemeIcon } from '@mantine/core'
+import { ActionIcon, AppShell, Badge, Group, NavLink, Stack, Text, ThemeIcon, Tooltip } from '@mantine/core'
+import { useHotkeys } from '@mantine/hooks'
 import {
+  IconArrowLeft,
   IconArrowsShuffle,
   IconBook2,
   IconBuildingHospital,
@@ -10,7 +12,7 @@ import {
   IconLayoutDashboard,
   IconSettings,
 } from '@tabler/icons-react'
-import { Link, Outlet, useRouterState } from '@tanstack/react-router'
+import { Link, Outlet, useCanGoBack, useRouter, useRouterState } from '@tanstack/react-router'
 import { pendingCount } from '../mapping/MappingPage'
 import { useCurrentPatient } from '../patients/current'
 import { PatientSwitcher } from '../patients/PatientSwitcher'
@@ -73,6 +75,34 @@ function SectionLink({
   )
 }
 
+/** The keys that go back, as each platform's browsers have them, and how the platform writes them. */
+const BACK_KEYS = IS_MAC ? { hotkey: 'mod+[', label: '⌘[' } : { hotkey: 'alt+ArrowLeft', label: 'Alt+←' }
+
+/** Goes back to the page before, the way a browser's back button and a mouse's back button do. */
+function BackButton() {
+  const router = useRouter()
+  const canGoBack = useCanGoBack()
+  const back = () => {
+    if (canGoBack) router.history.back()
+  }
+  useHotkeys([[BACK_KEYS.hotkey, back]])
+  return (
+    <Tooltip label={`Назад (${BACK_KEYS.label})`} disabled={!canGoBack}>
+      <ActionIcon
+        className="no-drag"
+        variant="subtle"
+        color="gray"
+        size="lg"
+        aria-label="Назад"
+        disabled={!canGoBack}
+        onClick={back}
+      >
+        <IconArrowLeft size={ICON_SIZE.shell} />
+      </ActionIcon>
+    </Tooltip>
+  )
+}
+
 export function AppLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const { patient } = useCurrentPatient()
@@ -84,6 +114,7 @@ export function AppLayout() {
       <AppShell.Header className="drag-region" pl={IS_MAC ? MAC_TRAFFIC_LIGHTS_INSET : 'md'} pr="md">
         <Group h="100%" justify="space-between" wrap="nowrap">
           <Group gap="xs" wrap="nowrap">
+            <BackButton />
             <ThemeIcon variant="light" radius="md" size="md">
               <IconHeartbeat size={ICON_SIZE.shell} />
             </ThemeIcon>

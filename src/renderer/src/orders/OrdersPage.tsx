@@ -15,7 +15,7 @@ import {
 } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { IconFileTypePdf, IconFlask, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import type { Lab, OrderDetails, OrderSummary, ResultRow, Unit } from '@shared/api'
 import { api } from '../api'
 import { EmptyState } from '../components/EmptyState'
@@ -24,6 +24,7 @@ import { PageHeader } from '../components/PageHeader'
 import { formatDate, plural } from '../format'
 import { ANALYTE_FORMS, ORDER_FORMS } from '../labels'
 import { notifyError, notifyUndoable } from '../notify'
+import { KEEP_PLACE } from '../page-state'
 import { useCurrentPatient } from '../patients/current'
 import { useLabMap, useOrder, useOrders, useUnits } from '../queries'
 import { LabName, ResultsTable } from '../results/ResultsTable'
@@ -31,12 +32,21 @@ import { ICON_SIZE, TITLE_WEIGHT } from '../theme'
 import { headerOf, OrderHeaderFields, orderInput, type HeaderValues } from './OrderHeaderFields'
 import { ResultEditor, type ResultEdit } from './ResultEditor'
 
+/** The order shown open, kept in the address (`KEEP_PLACE`). */
+export function ordersSearch(search: Record<string, unknown>): { open?: string } {
+  const open = search['open']
+  return typeof open === 'string' || typeof open === 'number' ? { open: String(open) } : {}
+}
+
 export function OrdersPage() {
   const { patient } = useCurrentPatient()
   const { data: orders = [], isLoading } = useOrders(patient?.id ?? null)
   const labs = useLabMap()
   const units = useUnits()
-  const [open, setOpen] = useState<string | null>(null)
+  const { open = null } = useSearch({ from: '/orders' })
+  const navigate = useNavigate({ from: '/orders' })
+  const setOpen = (value: string | null) =>
+    void navigate({ search: value === null ? {} : { open: value }, ...KEEP_PLACE })
 
   if (isLoading) {
     return (
