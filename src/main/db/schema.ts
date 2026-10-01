@@ -184,6 +184,8 @@ export const analyteAlias = sqliteTable(
     labId: integer('lab_id').references(() => lab.id, { onDelete: 'cascade' }),
     /** The lab's own test code; an import finds the analyte by it. */
     labCode: text('lab_code'),
+    /** The lab's analysis the code is part of («Общий анализ мочи»), when the lab names it. */
+    analysis: text('analysis'),
   },
   (t) => [
     uniqueIndex('analyte_alias_lab_code')

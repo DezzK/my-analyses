@@ -1,4 +1,4 @@
-import type { LabFlag } from '@shared/domain/enums'
+import type { LabFlag, Specimen } from '@shared/domain/enums'
 
 /** One result as the lab reported it; reading it is the importer's and the domain's job. */
 export interface RawResult {
@@ -12,6 +12,14 @@ export interface RawResult {
   /** The reference range printed next to the result, if any. */
   reference: string | null
   flag: LabFlag | null
+  /**
+   * The analysis the result is part of, as the lab names it: a service, a panel («Общий анализ
+   * мочи»). Tests of different analyses share names («Лейкоциты» of urine, of stool), so it is what
+   * tells them apart.
+   */
+  analysis?: string | null
+  /** The specimen, when the lab says: a sample's material, a section of its catalog. */
+  specimen?: Specimen | null
 }
 
 export interface RawOrder {

@@ -61,7 +61,9 @@ and commits are English.
   applying it — an entry's analytes are merged, for the person to confirm, into the one the person
   looked at or with the most results, which is linked to the entry; never two with results in one
   order nor one the person split out (`separated`) — `AnalyteDictionary`
-  (`src/main/services/dictionary.ts`), after each imported order and at every start.
+  (`src/main/services/dictionary.ts`), after each imported order and at every start. A finding named
+  alike in analyses of several specimens («Лейкоциты», «Слизь») is an entry only within an analysis
+  of its specimen (`contextual`).
 - Which reference applies and whether a value deviates: `chooseRule`, `evaluate` and `isDeviation` in
   `src/shared/domain/references.ts`; trimesters and other conditions: `src/shared/domain/conditions.ts`.
 - How a stored result is shown: its value in the chosen unit, the reference that applies (the lab's,
@@ -75,15 +77,19 @@ and commits are English.
   validates on a service's behalf; it shows the `UserError` the service throws.
 - Which spelling means which unit, the built-in units in the database, and mapping an unknown
   spelling onto a unit (or keeping it as its own): `UnitService`.
-- The review queue after imports: new analytes and what they may be merged with, the dictionary's
-  merges, unknown units,
+- The review queue after imports: new analytes and what they may be merged with (never one of another
+  specimen), the dictionary's merges, unknown units,
   orders whose norms need a cycle phase (`cycleOn`, `CYCLE_PHASE_CONDITIONS` in
   `src/shared/domain/conditions.ts`), results the lab judged otherwise: `MappingService`.
 - Labs, their chart markers (`LAB_MARKERS`), the built-in labs and which connector serves a lab
   (`LabService.connector`): `LabService`.
-- Analytes, their lab codes, the unit each is shown in, search and the FTS index
-  (`normalizeSearchText`), and what a search matches (`searchNeedle`, `holdsNeedle`, which panels are
-  searched by as well): `AnalyteService`.
+- Analytes, their lab codes with the analysis each is part of, the unit each is shown in, search and
+  the FTS index (`normalizeSearchText`), and what a search matches (`searchNeedle`, `holdsNeedle`,
+  which panels are searched by as well): `AnalyteService`. The specimen of a lab's test — its name's,
+  else the lab's, else its analysis's (`specimenOfTest`) — is set when an import meets the code, and
+  later when the lab names it (`noteContext`). Which specimen a name or an analysis states
+  (`inferSpecimen`), which a lab's material does (`specimenOfMaterial`), and that serum and plasma
+  are blood (`specimenKind`): `src/shared/domain/specimens.ts`.
 - Orders, their summaries and original forms, entering them by hand and correcting results (what
   a typed order must satisfy, the ten-times warning, undoing a delete): `OrderService`
   (`src/main/services/orders.ts`). An order's original forms — several when the lab issues one per
@@ -127,10 +133,11 @@ and commits are English.
 - Age limits of rules stated in years, months or days, and back: `ageToDays`, `daysToAge`
   (`src/shared/domain/age.ts`).
 - Turning a lab's report into orders and results (dedup, protecting hand edits, new analytes for
-  unknown codes, handed to the dictionary once their order is in): `ImportService`
-  (`src/main/import/importer.ts`). Connectors only return
+  unknown codes, handed to the dictionary once their order is in; what a newer connector says of a
+  report already stored): `ImportService` (`src/main/import/importer.ts`). Connectors only return
   `RawOrder`s and their forms (`LabConnector` in `src/main/lab/types.ts`, one file per lab in
-  `src/main/lab/connectors/`); a site that refreshes its own session names a quiet `syncUrl` for
+  `src/main/lab/connectors/`); each result names the analysis it is part of and its specimen when the
+  lab says (`RawResult.analysis`, `specimen`); a site that refreshes its own session names a quiet `syncUrl` for
   syncs and a `detectLogin` for the login window. What several labs' pages share — the VPN refusal
   (`detectVpnBlock`), telling a PDF from an error page served in its place (`isPdf`) — lives in
   `src/main/lab/pages.ts`; reading a list served page by page, in `collectPages`
@@ -165,8 +172,8 @@ and commits are English.
   (`useResultsPeriod`, `useResultsLook`) and shows each analyte through `ResultsView`
   (`src/renderer/src/results/ResultsView.tsx`); which results a view, a report included, shows:
   `collectedBetween`, `isPlottable` (`src/renderer/src/results/shown.ts`).
-  Labs and units by id: `useLabMap`, `useUnits`; lab codes after their labs' names: `labCodesText`
-  (`src/renderer/src/format.ts`). Links with route params: `AnchorLink`,
+  Labs and units by id: `useLabMap`, `useUnits`; lab codes after their labs' names and before their
+  analysis: `labCodesText` (`src/renderer/src/format.ts`). Links with route params: `AnchorLink`,
   `ButtonLink` (`src/renderer/src/components/links.tsx`). Dates are typed in `DateField`. Numbers typed into fields: `readDecimal`
   (`src/renderer/src/input.ts`). An action that can be undone reports itself with `notifyUndoable`.
   The platform check: `IS_MAC` (`src/renderer/src/platform.ts`).

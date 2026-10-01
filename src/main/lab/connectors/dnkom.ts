@@ -1,5 +1,7 @@
 import { parse, type HTMLElement } from 'node-html-parser'
 import { isoFromDateRu } from '@shared/domain/dates'
+import type { Specimen } from '@shared/domain/enums'
+import { specimenOfMaterial } from '@shared/domain/specimens'
 import { detectVpnBlock, isPdf } from '../pages'
 import {
   fetchBytesOk,
@@ -87,33 +89,64 @@ function testCodeOf(line: HTMLElement): string | null {
   return href ? new URL(href, RESULTS_URL).searchParams.get('TEST_CODE')?.trim() || null : null
 }
 
-/** Each service's results; a test with no history link is known by the service's code and its name. */
+/** A group of an order's results: the analysis it is, with its form, and the material it is of. */
+interface DnkomGroup {
+  analysis: string | null
+  specimen: Specimen | null
+}
+
+/**
+ * Each service's results, under the analysis and of the material its group names («ОАМ», «Моча
+ * (разовая)»); a test with no history link is known by the service's code and its name. A
+ * service may be a package of several analyses («Чекап»), so its own title says less.
+ */
 function resultsOf(detail: HTMLElement): RawResult[] {
-  return detail.querySelectorAll('.detail-order').flatMap((service) => {
-    const serviceCode = textOf(service.querySelector('.order-title .code'))
-    return service.querySelectorAll('.detail-line').flatMap((line) => {
-      const name = textOf(line.querySelector('.detail-title'))
-      if (!name) return []
-      const reference = textOf(line.querySelector('.detail-normal .param-value')) || null
-      const outOfRange = line.querySelector('.out-param') !== null
-      return [
-        {
-          labCode: testCodeOf(line) ?? `${serviceCode} ${name}`,
-          labName: name,
-          value: null,
-          printed: textOf(line.querySelector('.detail-param .param-value')),
-          reference,
-          flag: outOfRange ? 'abnormal' : reference ? 'normal' : null,
-        } satisfies RawResult,
-      ]
-    })
+  let group: DnkomGroup = { analysis: null, specimen: null }
+  const results: RawResult[] = []
+  // Groups and their services stand side by side, a group before the services of its material.
+  for (const element of detail.querySelectorAll('.group-line, .detail-order')) {
+    if (element.classList.contains('group-line')) {
+      const material = textOf(element.querySelector('.order-material'))
+      group = {
+        analysis: textOf(element.querySelector('.order-type')) || null,
+        specimen: material ? specimenOfMaterial(material) : null,
+      }
+    } else {
+      results.push(...serviceResults(element, group))
+    }
+  }
+  return results
+}
+
+function serviceResults(service: HTMLElement, group: DnkomGroup): RawResult[] {
+  const serviceCode = textOf(service.querySelector('.order-title .code'))
+  const analysis = group.analysis ?? (textOf(service.querySelector('.order-title .title')) || null)
+  const { specimen } = group
+  return service.querySelectorAll('.detail-line').flatMap((line) => {
+    const name = textOf(line.querySelector('.detail-title'))
+    if (!name) return []
+    const reference = textOf(line.querySelector('.detail-normal .param-value')) || null
+    const outOfRange = line.querySelector('.out-param') !== null
+    return [
+      {
+        labCode: testCodeOf(line) ?? `${serviceCode} ${name}`,
+        labName: name,
+        value: null,
+        printed: textOf(line.querySelector('.detail-param .param-value')),
+        reference,
+        flag: outOfRange ? 'abnormal' : reference ? 'normal' : null,
+        analysis,
+        specimen,
+      } satisfies RawResult,
+    ]
   })
 }
 
 export const dnkomConnector: LabConnector = {
   id: 'dnkom',
-  // 2: the forms of orders 0.2.0 imported, which it could not download.
-  version: '2',
+  // 2: the forms of orders 0.2.0 imported, which it could not download; 3: each result's analysis
+  // and specimen.
+  version: '3',
   homeUrl: RESULTS_URL,
   hosts: ['dnkom.ru'],
   requestIntervalMs: 400,

@@ -19,10 +19,15 @@ export interface DictionaryEntry {
   molarMass?: number
   /** Whether labs answer it in words ("отрицательно"), not only in numbers. */
   words?: boolean
+  /**
+   * Named alike in analyses of other specimens («Лейкоциты» of urine, of stool, of semen): it is
+   * this entry only when the analyte's specimen, from its name or from its analysis, is the entry's.
+   */
+  contextual?: boolean
 }
 
 type Units = DictionaryEntry['units']
-type Details = Pick<DictionaryEntry, 'molarMass' | 'words'>
+type Details = Pick<DictionaryEntry, 'molarMass' | 'words' | 'contextual'>
 
 /** Results without a unit: indices, ratios, words. */
 const NO_UNIT: Units = [null]
@@ -46,6 +51,8 @@ const NANOGRAMS: Units = ['ng/mL']
 const PICOGRAMS: Units = ['pg/mL']
 const SECONDS: Units = ['s']
 const FEMTOLITERS: Units = ['fL']
+/** A finding of a microscopy or a look at a specimen, in words, named alike for every specimen. */
+const IN_CONTEXT: Details = { words: true, contextual: true }
 /** Answered in words alone, with `words: true`: a blood group, «отрицательно». */
 const NO_NUMBERS: Units = []
 /** Antibodies and antigens of infections, when not in words: an index, bare or named, or a concentration. */
@@ -1752,23 +1759,38 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
     ],
     [null, 'g/mL'],
   ),
-  urine('urine_ph', ['pH мочи', 'Реакция мочи', 'Реакция мочи pH'], NO_UNIT),
+  urine('urine_color', ['Цвет', 'Цвет мочи'], NO_NUMBERS, IN_CONTEXT),
+  urine('urine_clarity', ['Прозрачность', 'Прозрачность мочи', 'Мутность'], NO_NUMBERS, IN_CONTEXT),
+  urine(
+    'urine_ph',
+    ['pH', 'pH мочи', 'Реакция', 'Реакция pH', 'Реакция мочи', 'Реакция мочи pH'],
+    NO_UNIT,
+    IN_CONTEXT,
+  ),
   urine(
     'urine_protein',
-    ['Белок в моче', 'Белок мочи', 'Общий белок в моче', 'Белок общий в моче', 'Протеинурия', 'PRO'],
+    ['Белок', 'Белок в моче', 'Белок мочи', 'Общий белок в моче', 'Белок общий в моче', 'Протеинурия', 'PRO'],
     ['g/L', 'mg/dL'],
-    { words: true },
+    IN_CONTEXT,
   ),
-  urine('urine_glucose', ['Глюкоза в моче', 'Глюкоза мочи', 'Сахар в моче'], ['mmol/L', 'mg/dL'], {
-    words: true,
-  }),
+  urine(
+    'urine_glucose',
+    ['Глюкоза', 'Глюкоза в моче', 'Глюкоза мочи', 'Сахар в моче'],
+    ['mmol/L', 'mg/dL'],
+    IN_CONTEXT,
+  ),
   urine(
     'urine_ketones',
     ['Кетоновые тела', 'Кетоновые тела в моче', 'Кетоны', 'Ацетон', 'Ацетон в моче', 'KET', 'Ketones'],
     ['mmol/L', 'mg/dL'],
     { words: true },
   ),
-  urine('urine_bilirubin', ['Билирубин в моче', 'Билирубин мочи', 'BIL'], BILIRUBIN_UNITS, { words: true }),
+  urine(
+    'urine_bilirubin',
+    ['Билирубин', 'Билирубин в моче', 'Билирубин мочи', 'BIL'],
+    BILIRUBIN_UNITS,
+    IN_CONTEXT,
+  ),
   urine(
     'urobilinogen',
     ['Уробилиноген', 'Уробилиноген в моче', 'Уробилиноиды', 'UBG', 'URO', 'Urobilinogen'],
@@ -1776,15 +1798,19 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
     { words: true },
   ),
   urine('nitrites', ['Нитриты', 'Нитриты в моче', 'NIT', 'Nitrite'], NO_NUMBERS, { words: true }),
+  // A sediment is counted per microliter or per field of view, in words; a count per milliliter
+  // (Нечипоренко) is another analysis.
   urine(
     'urine_leukocytes',
     ['Лейкоциты', 'Лейкоциты в моче', 'Лейкоциты мочи', 'LEU', 'WBC'],
     PER_MICROLITER,
+    IN_CONTEXT,
   ),
   urine(
     'urine_erythrocytes',
     ['Эритроциты', 'Эритроциты в моче', 'Эритроциты мочи', 'ERY', 'RBC'],
     PER_MICROLITER,
+    IN_CONTEXT,
   ),
   urine(
     'urine_hyaline_casts',
@@ -1795,14 +1821,31 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
   urine('urine_pathological_casts', ['Цилиндры патологические', 'Патологические цилиндры'], PER_MICROLITER, {
     words: true,
   }),
-  urine('urine_squamous_epithelium', ['Эпителий плоский', 'Плоский эпителий'], PER_MICROLITER),
+  urine('urine_granular_casts', ['Цилиндры зернистые', 'Зернистые цилиндры'], PER_MICROLITER, {
+    words: true,
+  }),
+  urine('urine_squamous_epithelium', ['Эпителий плоский', 'Плоский эпителий'], PER_MICROLITER, IN_CONTEXT),
   urine(
     'urine_nonsquamous_epithelium',
-    ['Эпителий неплоский', 'Неплоский эпителий', 'Эпителий переходный', 'Переходный эпителий'],
+    [
+      'Эпителий неплоский',
+      'Неплоский эпителий',
+      'Эпителий переходный',
+      'Переходный эпителий',
+      'Эпителий переходный и почечный',
+    ],
     PER_MICROLITER,
+    IN_CONTEXT,
   ),
-  urine('urine_bacteria', ['Бактерии', 'Бактерии в моче'], PER_MICROLITER),
-  urine('urine_yeast', ['Дрожжевые грибы', 'Дрожжевые клетки'], PER_MICROLITER),
+  urine('urine_bacteria', ['Бактерии', 'Бактерии в моче'], PER_MICROLITER, IN_CONTEXT),
+  urine(
+    'urine_yeast',
+    ['Дрожжевые грибы', 'Дрожжеподобные грибы', 'Дрожжевые клетки'],
+    PER_MICROLITER,
+    IN_CONTEXT,
+  ),
+  urine('urine_mucus', ['Слизь', 'Слизь в моче'], PER_MICROLITER, IN_CONTEXT),
+  urine('urine_salts', ['Соли', 'Кристаллы', 'Соли в моче'], PER_MICROLITER, IN_CONTEXT),
   urine(
     'microalbumin',
     [
@@ -1856,7 +1899,53 @@ export const DICTIONARY: readonly DictionaryEntry[] = [
     UNITS_PER_LITER,
   ),
 
-  // Stool.
+  // Stool: a coprogram's findings, then the tests of stool.
+  stool('stool_color', ['Цвет', 'Цвет кала'], NO_NUMBERS, IN_CONTEXT),
+  stool('stool_consistency', ['Консистенция'], NO_NUMBERS, IN_CONTEXT),
+  stool('stool_ph', ['pH', 'Реакция', 'Реакция pH'], NO_UNIT, IN_CONTEXT),
+  stool('stool_mucus', ['Слизь'], NO_NUMBERS, IN_CONTEXT),
+  stool('stool_leukocytes', ['Лейкоциты'], NO_NUMBERS, IN_CONTEXT),
+  stool('stool_erythrocytes', ['Эритроциты'], NO_NUMBERS, IN_CONTEXT),
+  stool(
+    'stool_striated_muscle_fibers',
+    ['Мышечные волокна с исчерченностью', 'Мышечные волокна переваренные'],
+    NO_NUMBERS,
+    IN_CONTEXT,
+  ),
+  stool(
+    'stool_unstriated_muscle_fibers',
+    ['Мышечные волокна без исчерченности', 'Мышечные волокна непереваренные'],
+    NO_NUMBERS,
+    IN_CONTEXT,
+  ),
+  stool('stool_connective_tissue', ['Соединительная ткань'], NO_NUMBERS, IN_CONTEXT),
+  stool('stool_neutral_fat', ['Нейтральный жир'], NO_NUMBERS, IN_CONTEXT),
+  stool('stool_fatty_acids', ['Жирные кислоты'], NO_NUMBERS, IN_CONTEXT),
+  stool('stool_soaps', ['Соли жирных кислот', 'Мыла', 'Соли жирных кислот мыла'], NO_NUMBERS, IN_CONTEXT),
+  stool('stool_digestible_fiber', ['Переваримая клетчатка', 'Клетчатка переваримая'], NO_NUMBERS, IN_CONTEXT),
+  stool(
+    'stool_intracellular_starch',
+    ['Крахмал внутриклеточный', 'Внутриклеточный крахмал'],
+    NO_NUMBERS,
+    IN_CONTEXT,
+  ),
+  stool(
+    'stool_extracellular_starch',
+    ['Крахмал внеклеточный', 'Внеклеточный крахмал'],
+    NO_NUMBERS,
+    IN_CONTEXT,
+  ),
+  stool(
+    'stool_iodophilic_flora',
+    ['Йодофильная флора', 'Йодофильная флора нормальная', 'Йодофильная флора патологическая'],
+    NO_NUMBERS,
+    IN_CONTEXT,
+  ),
+  stool('stool_yeast', ['Дрожжевые грибы', 'Дрожжеподобные грибы'], NO_NUMBERS, IN_CONTEXT),
+  stool('stool_protozoa', ['Простейшие', 'Цисты простейших'], NO_NUMBERS, IN_CONTEXT),
+  stool('stool_helminth_eggs', ['Яйца гельминтов', 'Яйца глистов'], NO_NUMBERS, IN_CONTEXT),
+  stool('stool_stercobilin', ['Реакция на стеркобилин', 'Стеркобилин'], NO_NUMBERS, IN_CONTEXT),
+  stool('stool_bilirubin', ['Реакция на билирубин'], NO_NUMBERS, IN_CONTEXT),
   stool(
     'calprotectin',
     [

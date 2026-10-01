@@ -1,4 +1,4 @@
-import type { LabFlag } from '@shared/domain/enums'
+import type { LabFlag, Specimen } from '@shared/domain/enums'
 import { detectVpnBlock } from '../pages'
 import { collectPages } from '../paging'
 import { objectsWithKey } from '../rsc'
@@ -38,6 +38,23 @@ interface KdlResponse<T> {
 
 const FLAGS: Record<string, LabFlag> = { is_exceed: 'high', is_low: 'low', is_normal: 'normal' }
 
+/**
+ * KDL numbers a test by the section of its catalog, the first two parts of the code: «6.1.B16.401»
+ * is a urine test. The sections of specimens other than blood say what a test is of, which its
+ * name does not: «Лейкоциты», «Слизь» are found in urine, in stool and in semen alike. The
+ * details name no analysis.
+ */
+const SECTION_SPECIMENS: ReadonlyMap<string, Specimen> = new Map([
+  ['6.1', 'urine'],
+  ['6.2', 'stool'],
+  ['6.3', 'other'],
+  ['14.12', 'stool'],
+])
+
+function specimenOfCode(code: string): Specimen | null {
+  return SECTION_SPECIMENS.get(/^\d+\.\d+/.exec(code)?.[0] ?? '') ?? null
+}
+
 function ordersUrl(page: number, perPage: number): string {
   return `${ORIGIN}/account/orders?orderPage=${page}&orderPerPage=${perPage}&preorderPage=1&preorderPerPage=1`
 }
@@ -70,12 +87,14 @@ function toRawResult(analysis: KdlAnalysis): RawResult | null {
     printed: analysis.result?.valueString ?? '',
     reference: analysis.norm ?? null,
     flag: FLAGS[analysis.result?.resultStatus ?? ''] ?? null,
+    specimen: specimenOfCode(labCode),
   }
 }
 
 export const kdlConnector: LabConnector = {
   id: 'kdl',
-  version: '1',
+  // 2: the specimen of each test, from its code's section.
+  version: '2',
   homeUrl: `${ORIGIN}/account/orders`,
   hosts: ['kdl.ru'],
   requestIntervalMs: 400,

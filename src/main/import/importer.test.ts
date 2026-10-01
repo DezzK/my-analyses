@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { AttachmentStore } from '../attachments'
 import type { OrderForms } from '../services/order-forms'
 import type { Db } from '../db/client'
-import { analyte, labOrder, result, unit } from '../db/schema'
+import { analyte, analyteAlias, labOrder, result, unit } from '../db/schema'
 import type { RawOrder, RawResult } from '../lab/types'
 import { createTestServices } from '../test-support'
 import type { ImportService, ImportTarget } from './importer'
@@ -112,6 +112,36 @@ describe('ImportService', () => {
     // The dictionary knows the rest; the antibodies, in a unit it does not know them by, wait.
     const waiting = db.select().from(analyte).where(eq(analyte.reviewed, false)).all()
     expect(waiting.map((row) => row.name)).toEqual(['Антитела'])
+  })
+
+  it('keeps the analysis of each code, and reads the specimen of a test from it', () => {
+    const leukocytes: RawResult = {
+      labCode: '2.1.B1.9',
+      labName: 'Лейкоциты',
+      value: null,
+      printed: '2-4 в п/зр',
+      reference: null,
+      flag: null,
+    }
+    const report = order([leukocytes], '5:1002')
+    importer.importOrders(target, [report])
+    const created = db.select().from(analyte).where(eq(analyte.name, 'Лейкоциты')).get()
+    expect(created?.specimen).toBeNull()
+
+    // A newer connector reads the same report, and names the analysis this time.
+    const stats = importer.importOrders({ ...target, connectorVersion: 'test-2' }, [
+      { ...report, results: [{ ...leukocytes, analysis: 'Общий анализ мочи' }] },
+    ])
+    expect(stats).toMatchObject({ ordersUnchanged: 1 })
+    expect(
+      db
+        .select()
+        .from(analyte)
+        .where(eq(analyte.id, created?.id ?? -1))
+        .get()?.specimen,
+    ).toBe('urine')
+    const code = db.select().from(analyteAlias).where(eq(analyteAlias.labCode, leukocytes.labCode)).get()
+    expect(code?.analysis).toBe('Общий анализ мочи')
   })
 
   it('changes nothing when the lab reports the same order again', () => {

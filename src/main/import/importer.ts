@@ -9,7 +9,7 @@ import { labOrder, result } from '../db/schema'
 import { inTransaction } from '../db/transaction'
 import { dataChanged, type EventSink } from '../events'
 import type { RawOrder, RawResult } from '../lab/types'
-import type { AnalyteService } from '../services/analytes'
+import type { AnalyteService, LabContext } from '../services/analytes'
 import type { AnalyteDictionary } from '../services/dictionary'
 import type { OrderForms } from '../services/order-forms'
 import type { UnitService } from '../services/units'
@@ -55,6 +55,11 @@ function readResult(raw: RawResult): { rawValue: string; unitText: string | null
   return { rawValue: split.valueText, unitText: split.unitText ?? refUnit }
 }
 
+/** What the lab says of the result's test beyond its name. */
+function contextOf(raw: RawResult): LabContext {
+  return { analysis: raw.analysis?.trim() || null, specimen: raw.specimen ?? null }
+}
+
 /** Compiles only while every kind `parseValue` returns is one of VALUE_KINDS. */
 function valueKindOf(rawValue: string): ValueKind {
   return parseValue(rawValue).kind
@@ -89,16 +94,19 @@ export class ImportService {
 
   importOrders(target: ImportTarget, orders: readonly RawOrder[]): SyncStats {
     const stats = emptyStats()
+    let learned = false
     for (const order of orders) {
       inTransaction(this.deps.db, () => {
-        const created = this.importOrder(target, order, stats)
+        const news = this.importOrder(target, order, stats)
         // Once the whole order is in, so that the dictionary sees which analytes share it.
-        if (created.length === 0) return
-        const { linked, merged } = this.deps.dictionary.apply(created)
+        if (news.length === 0) return
+        learned = true
+        const { linked, merged } = this.deps.dictionary.apply(news)
         stats.analytesRecognized += linked + merged
       })
     }
     if (stats.ordersAdded + stats.ordersUpdated > 0) dataChanged(this.deps.events, 'orders', 'catalog')
+    else if (learned) dataChanged(this.deps.events, 'catalog')
     return stats
   }
 
@@ -130,9 +138,9 @@ export class ImportService {
       .get()
   }
 
-  /** Stores the order; returns the analytes it created. */
+  /** Stores the order; returns the analytes it created or learned more of, for the dictionary. */
   private importOrder(target: ImportTarget, raw: RawOrder, stats: SyncStats): number[] {
-    const { db } = this.deps
+    const { db, analytes } = this.deps
     const existing = this.find(target.labId, raw.externalKey)
     const storedForms = existing ? this.deps.forms.of(existing.id) : []
     const fetched = this.deps.forms.storePdfs(raw.forms)
@@ -140,15 +148,17 @@ export class ImportService {
     const forms = fetched.length > 0 ? fetched : storedForms
     const sameForms = forms.length === storedForms.length && forms.every((file, i) => file === storedForms[i])
     if (existing && sameReport(existing, raw.rawPayload) && sameForms) {
-      // Read again by this version of the connector, it need not be fetched again for that.
-      if (existing.connectorVersion !== target.connectorVersion) {
-        db.update(labOrder)
-          .set({ connectorVersion: target.connectorVersion })
-          .where(eq(labOrder.id, existing.id))
-          .run()
-      }
       stats.ordersUnchanged += 1
-      return []
+      if (existing.connectorVersion === target.connectorVersion) return []
+      // Read again by this version of the connector, it need not be fetched again for that; a
+      // newer connector may say more of the same report: what analysis each test is part of.
+      db.update(labOrder)
+        .set({ connectorVersion: target.connectorVersion })
+        .where(eq(labOrder.id, existing.id))
+        .run()
+      return raw.results.flatMap(
+        (item) => analytes.noteContext(target.labId, item.labCode, contextOf(item)) ?? [],
+      )
     }
 
     const fields = {
@@ -176,18 +186,18 @@ export class ImportService {
     stats[existing ? 'ordersUpdated' : 'ordersAdded'] += 1
     if (!sameForms) this.deps.forms.replace(orderId, forms)
 
-    const created: number[] = []
-    for (const item of raw.results) this.importResult(target, orderId, item, stats, created)
-    return created
+    const news: number[] = []
+    for (const item of raw.results) this.importResult(target, orderId, item, stats, news)
+    return news
   }
 
-  /** Stores the result; an analyte it creates for an unknown code joins `created`. */
+  /** Stores the result; an analyte it creates, or learns more of, joins `news`. */
   private importResult(
     target: ImportTarget,
     orderId: number,
     raw: RawResult,
     stats: SyncStats,
-    created: number[],
+    news: number[],
   ): void {
     const { db, units, analytes } = this.deps
     const read = readResult(raw)
@@ -200,6 +210,7 @@ export class ImportService {
       if (resolved.created) stats.unknownUnits += 1
     }
 
+    const context = contextOf(raw)
     let analyteRow = analytes.findByLabCode(target.labId, raw.labCode)
     if (!analyteRow) {
       analyteRow = analytes.createFromLab({
@@ -208,11 +219,14 @@ export class ImportService {
         name: raw.labName,
         valueKind: valueKindOf(read.rawValue),
         unitId,
+        context,
       })
       stats.analytesCreated += 1
-      created.push(analyteRow.id)
-    } else if (unitId !== null) {
-      analytes.allowUnit(analyteRow.id, unitId)
+      news.push(analyteRow.id)
+    } else {
+      const learned = analytes.noteContext(target.labId, raw.labCode, context)
+      if (learned !== null) news.push(learned)
+      if (unitId !== null) analytes.allowUnit(analyteRow.id, unitId)
     }
 
     const values = {

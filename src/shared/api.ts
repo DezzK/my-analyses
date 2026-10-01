@@ -110,7 +110,20 @@ export interface AnalyteSummary {
   description: string | null
   valueKind: ValueKind
   reviewed: boolean
-  aliases: { id: number; alias: string; labId: number | null; labCode: string | null }[]
+  aliases: {
+    id: number
+    alias: string
+    labId: number | null
+    labCode: string | null
+    analysis: string | null
+  }[]
+}
+
+/** A code a lab imports an analyte by, with the analysis it is part of when the lab names it. */
+export interface LabCode {
+  labId: number | null
+  code: string
+  analysis: string | null
 }
 
 /** An analyte as the catalog lists it. */
@@ -122,7 +135,7 @@ export interface CatalogEntry {
   canonicalUnitId: number | null
   resultCount: number
   /** Lab codes the analyte is imported by. */
-  codes: { labId: number | null; code: string }[]
+  codes: LabCode[]
 }
 
 /** Everything the analyte's card edits. */
@@ -174,7 +187,7 @@ export interface UnreviewedAnalyte {
   name: string
   specimen: Specimen | null
   unitId: number | null
-  codes: { labId: number | null; code: string }[]
+  codes: LabCode[]
   resultCount: number
 }
 
@@ -195,7 +208,7 @@ export interface UnreviewedMerge {
     mergeId: number
     name: string
     /** The lab codes the merged analyte was imported by. */
-    codes: { labId: number | null; code: string }[]
+    codes: LabCode[]
   }[]
 }
 
@@ -536,7 +549,10 @@ export interface SyncStats {
   /** Results the person corrected by hand; the lab's newer version was not applied over them. */
   resultsKeptEdited: number
   analytesCreated: number
-  /** New analytes the built-in dictionary knew: linked to their entry or merged into its analyte. */
+  /**
+   * Analytes the built-in dictionary knew once the import told it what they are — new ones, or old
+   * ones of an analysis a newer connector named: linked to their entry or merged into its analyte.
+   */
   analytesRecognized: number
   unknownUnits: number
   /** Orders of people nobody has said whose they are yet; they come in once someone does. */

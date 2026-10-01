@@ -1,6 +1,8 @@
 import { and, count, eq, inArray, isNull } from 'drizzle-orm'
 import type { MappingQueue, MatchSuggestion, UnknownUnit } from '@shared/api'
 import { CYCLE_PHASE_CONDITIONS, cycleOn } from '@shared/domain/conditions'
+import type { Specimen } from '@shared/domain/enums'
+import { specimenKind } from '@shared/domain/specimens'
 import { compareRussian, foldCase } from '@shared/domain/text'
 import type { Db } from '../db/client'
 import { analyte, analyteUnit, labOrder, referenceRule, result } from '../db/schema'
@@ -60,9 +62,10 @@ export class MappingService {
   /**
    * Existing analytes a new one may be: they share words of the name with it, the more the
    * likelier, and a unit of the same kind counts too. Analytes that another code of the same lab
-   * already maps to are left out: a lab does not measure one thing under two codes. Unlike the
-   * dictionary (`findEntry`), which merges on its own and so takes only an exact name, this only
-   * suggests, and so reaches further.
+   * already maps to are left out: a lab does not measure one thing under two codes; so are those of
+   * another specimen, whose analysis names its tests alike («Лейкоциты» of urine and of stool).
+   * Unlike the dictionary (`findEntry`), which merges on its own and so takes only an exact name,
+   * this only suggests, and so reaches further.
    */
   suggestions(analyteId: number): MatchSuggestion[] {
     const { analytes, units } = this.deps
@@ -84,11 +87,13 @@ export class MappingService {
     const dimension = (unitId: number | null) =>
       unitId === null ? null : (units.get(unitId)?.dimension ?? null)
     const ownDimension = dimension(self.canonicalUnitId)
+    const otherSpecimen = (specimen: Specimen | null) =>
+      specimen !== null && self.specimen !== null && specimenKind(specimen) !== specimenKind(self.specimen)
     return candidates
       .filter((id) => !sameLab.has(id))
       .flatMap((id) => {
         const row = analytes.get(id)
-        if (!row) return []
+        if (!row || otherSpecimen(row.specimen)) return []
         const alike = ownDimension !== null && dimension(row.canonicalUnitId) === ownDimension
         return [
           { id, name: row.name, unitId: row.canonicalUnitId, score: (scores.get(id) ?? 0) + Number(alike) },

@@ -134,6 +134,8 @@ function toRawResults(test: HelixTest): RawResult[] {
         printed: [entry, result.units?.trim()].filter(Boolean).join(' '),
         reference: referenceOf(result),
         flag: null,
+        // The test is the analysis its results are part of: «Общий анализ мочи».
+        analysis: test.name?.trim() || null,
       },
     ]
   })
@@ -141,7 +143,8 @@ function toRawResults(test: HelixTest): RawResult[] {
 
 export const helixConnector: LabConnector = {
   id: 'helix',
-  version: '1',
+  // 2: the analysis each result is part of, its test.
+  version: '2',
   homeUrl: `${ORIGIN}/orders`,
   hosts: ['helix.ru'],
   requestIntervalMs: 400,

@@ -1,5 +1,12 @@
 import { and, count, eq, inArray, isNull, sql } from 'drizzle-orm'
-import type { AnalyteCard, AnalyteHit, AnalyteInput, AnalyteSummary, CatalogEntry } from '@shared/api'
+import type {
+  AnalyteCard,
+  AnalyteHit,
+  AnalyteInput,
+  AnalyteSummary,
+  CatalogEntry,
+  LabCode,
+} from '@shared/api'
 import { SPECIMENS, VALUE_KINDS, type Specimen, type ValueKind } from '@shared/domain/enums'
 import { inferSpecimen } from '@shared/domain/specimens'
 import { compareRussian, foldCase } from '@shared/domain/text'
@@ -32,10 +39,28 @@ export function holdsNeedle(text: string, needle: string): boolean {
   return normalizeSearchText(text).includes(needle)
 }
 
-/** The lab codes among aliases, each with its lab: what imports know an analyte by. */
-export function labCodesOf(aliases: readonly AnalyteAliasRow[]): { labId: number | null; code: string }[] {
+/** The lab codes among aliases, each with its lab and analysis: what imports know an analyte by. */
+export function labCodesOf(aliases: readonly AnalyteAliasRow[]): LabCode[] {
   return aliases.flatMap((alias) =>
-    alias.labCode === null ? [] : [{ labId: alias.labId, code: alias.labCode }],
+    alias.labCode === null ? [] : [{ labId: alias.labId, code: alias.labCode, analysis: alias.analysis }],
+  )
+}
+
+/** What a lab says of a test beyond its name: the analysis it is part of, and the specimen. */
+export interface LabContext {
+  analysis: string | null
+  specimen: Specimen | null
+}
+
+/**
+ * The specimen of a lab's test: what its name says, else what the lab says of the sample, else
+ * what the name of its analysis says («Лейкоциты» of «Общий анализ мочи»).
+ */
+function specimenOfTest(name: string, context: LabContext): Specimen | null {
+  return (
+    inferSpecimen(name) ??
+    context.specimen ??
+    (context.analysis === null ? null : inferSpecimen(context.analysis))
   )
 }
 
@@ -78,11 +103,12 @@ export class AnalyteService {
       description: row.description,
       valueKind: row.valueKind,
       reviewed: row.reviewed,
-      aliases: this.aliases([id]).map(({ id: aliasId, alias, labId, labCode }) => ({
+      aliases: this.aliases([id]).map(({ id: aliasId, alias, labId, labCode, analysis }) => ({
         id: aliasId,
         alias,
         labId,
         labCode,
+        analysis,
       })),
     }
   }
@@ -368,13 +394,14 @@ export class AnalyteService {
     name: string
     valueKind: ValueKind
     unitId: number | null
+    context: LabContext
   }): AnalyteRow {
     const name = input.name.trim()
     const row = this.db
       .insert(analyte)
       .values({
         name,
-        specimen: inferSpecimen(name),
+        specimen: specimenOfTest(name, input.context),
         valueKind: input.valueKind,
         canonicalUnitId: input.unitId,
         reviewed: false,
@@ -383,11 +410,44 @@ export class AnalyteService {
       .get()
     this.db
       .insert(analyteAlias)
-      .values({ analyteId: row.id, alias: name, labId: input.labId, labCode: input.labCode })
+      .values({
+        analyteId: row.id,
+        alias: name,
+        labId: input.labId,
+        labCode: input.labCode,
+        analysis: input.context.analysis,
+      })
       .run()
     if (input.unitId !== null) this.allowUnit(row.id, input.unitId)
     this.reindex(row.id)
     return row
+  }
+
+  /**
+   * What a lab says of a code it reports again: the analysis the code is part of, and the specimen,
+   * which an analyte without one takes. Returns the analyte when the lab told something new of it.
+   */
+  noteContext(labId: number, labCode: string, context: LabContext): number | null {
+    const alias = this.db
+      .select()
+      .from(analyteAlias)
+      .where(and(eq(analyteAlias.labId, labId), eq(analyteAlias.labCode, labCode)))
+      .get()
+    if (!alias) return null
+    const analysis = context.analysis !== null && alias.analysis !== context.analysis
+    if (analysis) {
+      this.db
+        .update(analyteAlias)
+        .set({ analysis: context.analysis })
+        .where(eq(analyteAlias.id, alias.id))
+        .run()
+    }
+    const row = this.get(alias.analyteId)
+    const specimen = row?.specimen === null ? specimenOfTest(alias.alias, context) : null
+    if (specimen !== null) {
+      this.db.update(analyte).set({ specimen }).where(eq(analyte.id, alias.analyteId)).run()
+    }
+    return analysis || specimen !== null ? alias.analyteId : null
   }
 
   /** Records that results of the analyte come in `unitId`; the first such unit becomes canonical. */

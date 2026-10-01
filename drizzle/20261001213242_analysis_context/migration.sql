@@ -1,0 +1,1 @@
+ALTER TABLE `analyte_alias` ADD `analysis` text;

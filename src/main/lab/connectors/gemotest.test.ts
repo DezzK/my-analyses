@@ -149,10 +149,17 @@ describe('gemotestConnector', () => {
     expect(page.requests.filter((r) => r.url.includes('/customer/v3/order/'))).toHaveLength(2)
   })
 
-  it("reads each service's results, with the lab's marks as flags", async () => {
+  it("reads each service's results under its analysis, with the lab's marks as flags", async () => {
+    const CBC = 'Общий анализ крови'
     const services = [
-      { id: 'CBC_QUJD%2B', code: '1.1.', status: 'Выполнен' },
-      { id: 'VITD_REVG', code: '4.2.', status: 'Выполнен' },
+      { id: 'CBC_QUJD%2B', code: '1.1.', title: CBC, material: '', status: 'Выполнен' },
+      {
+        id: 'VITD_REVG',
+        code: '4.2.',
+        title: 'Витамин D',
+        material: 'Кровь (сыворотка)',
+        status: 'Выполнен',
+      },
       { id: 'LATE_WA', code: '9.9.', status: 'В работе' },
     ]
     const bloodCount = {
@@ -212,6 +219,8 @@ describe('gemotestConnector', () => {
         printed: '150 г/л',
         reference: '120 - 140',
         flag: 'normal',
+        analysis: CBC,
+        specimen: null,
       },
       {
         labCode: '1.1. WBC',
@@ -220,6 +229,8 @@ describe('gemotestConnector', () => {
         printed: '11.20 10*9/л',
         reference: '4 - 9',
         flag: 'high',
+        analysis: CBC,
+        specimen: null,
       },
       {
         labCode: '1.1. RBC',
@@ -228,6 +239,8 @@ describe('gemotestConnector', () => {
         printed: '3.10 10*12/л',
         reference: null,
         flag: 'low',
+        analysis: CBC,
+        specimen: null,
       },
       {
         labCode: '1.1. IDX',
@@ -236,6 +249,8 @@ describe('gemotestConnector', () => {
         printed: '0.52',
         reference: '< 1',
         flag: 'abnormal',
+        analysis: CBC,
+        specimen: null,
       },
       {
         labCode: '4.2. VITD',
@@ -244,6 +259,8 @@ describe('gemotestConnector', () => {
         printed: '41.2 нг/мл',
         reference: '<10.0 нг/мл - дефицит; 10.0 - 30.0 нг/мл - недостаточность',
         flag: 'normal',
+        analysis: 'Витамин D',
+        specimen: 'serum',
       },
     ])
     expect(JSON.parse(order.rawPayload)).toEqual({

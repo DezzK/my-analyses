@@ -158,7 +158,9 @@ function AnalyteView({
 function AliasLine({ data, labs }: { data: AnalyteResults; labs: ReadonlyMap<number, Lab> }) {
   const { name, aliases } = data.analyte
   const synonyms = [...new Set(aliases.map((a) => a.alias).filter((alias) => alias !== name))]
-  const codes = aliases.flatMap((a) => (a.labCode ? [{ labId: a.labId, code: a.labCode }] : []))
+  const codes = aliases.flatMap((a) =>
+    a.labCode ? [{ labId: a.labId, code: a.labCode, analysis: a.analysis }] : [],
+  )
   const parts = [
     synonyms.length > 0 && `Синонимы: ${synonyms.join(', ')}`,
     codes.length > 0 && `Код: ${labCodesText(codes, labs)}`,

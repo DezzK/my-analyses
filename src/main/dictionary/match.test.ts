@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { VALUE_KINDS } from '@shared/domain/enums'
+import { SPECIMENS, VALUE_KINDS } from '@shared/domain/enums'
 import { BUILTIN_UNITS, type UnitCode } from '@shared/domain/units'
 import { DICTIONARY } from './entries'
 import { findEntry, fits, nameKey, type AnalyteTraits } from './match'
@@ -71,13 +71,24 @@ describe('findEntry', () => {
     expect(entryOf('Нейтрофилы, абс.', '10*9/L')).toBe('neutrophils_count')
     expect(entryOf('Нейтрофилы', null)).toBeNull()
     expect(entryOf('Лейкоциты', '10*9/L')).toBe('leukocytes')
-    expect(entryOf('Лейкоциты', '/uL')).toBe('urine_leukocytes')
+    expect(entryOf('Лейкоциты', '/uL', { specimen: 'urine' })).toBe('urine_leukocytes')
   })
 
   it('keeps to the specimen the analyte is of', () => {
     expect(entryOf('Глюкоза', 'mmol/L', { specimen: 'serum' })).toBe('glucose')
-    expect(entryOf('Глюкоза', 'mmol/L', { specimen: 'urine' })).toBeNull()
+    expect(entryOf('Глюкоза', 'mmol/L')).toBe('glucose')
+    expect(entryOf('Глюкоза', 'mmol/L', { specimen: 'urine' })).toBe('urine_glucose')
     expect(entryOf('Глюкоза в моче', 'mmol/L', { specimen: 'urine' })).toBe('urine_glucose')
+  })
+
+  it('knows a finding named alike in every specimen only within an analysis of its specimen', () => {
+    const inWords = { valueKind: 'text' } as const
+    expect(entryOf('Слизь', null, { ...inWords, specimen: 'urine' })).toBe('urine_mucus')
+    expect(entryOf('Слизь', null, { ...inWords, specimen: 'stool' })).toBe('stool_mucus')
+    expect(entryOf('Слизь', null, inWords)).toBeNull()
+    expect(entryOf('Лейкоциты', '/uL')).toBeNull()
+    // A count per milliliter, without a unit, is not a sediment's.
+    expect(entryOf('Лейкоциты', null, { specimen: 'urine' })).toBeNull()
   })
 
   it('takes results in words, which come without a unit, only for analytes labs answer in words', () => {
@@ -141,12 +152,16 @@ describe('the dictionary', () => {
       (named) => named.key,
     )
     for (const [name, named] of byName) {
-      for (const valueKind of VALUE_KINDS) {
-        for (const u of units) {
-          const fitting = named
-            .filter(({ entry }) => fits(entry, { names: [], specimen: null, valueKind, unit: u }))
-            .map(({ entry }) => entry.key)
-          expect(fitting.length, `«${name}» fits ${fitting.join(', ')}`).toBeLessThanOrEqual(1)
+      // A name of one entry cannot fit two.
+      if (named.length < 2) continue
+      for (const specimen of [null, ...SPECIMENS]) {
+        for (const valueKind of VALUE_KINDS) {
+          for (const u of units) {
+            const fitting = named
+              .filter(({ entry }) => fits(entry, { names: [], specimen, valueKind, unit: u }))
+              .map(({ entry }) => entry.key)
+            expect(fitting.length, `«${name}» fits ${fitting.join(', ')}`).toBeLessThanOrEqual(1)
+          }
         }
       }
     }

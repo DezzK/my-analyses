@@ -66,6 +66,31 @@ describe('the analyte dictionary', () => {
     expect(app.dictionary.apply()).toEqual({ linked: 0, merged: 0, apart: 1 })
   })
 
+  it("merges an analysis's findings across labs, and never across specimens", () => {
+    const dnkomId = app.labs.list().find((lab) => lab.name === 'ДНКОМ')?.id ?? -1
+    // KDL says the specimen through its catalog's section, DNKOM through the analysis.
+    app.importer.importOrders(into(app.kdlId), [
+      order('k1', '2026-06-01', [
+        { ...raw('U-LEU', 'Лейкоциты', '2-4 в п/зр'), specimen: 'urine' },
+        { ...raw('S-LEU', 'Лейкоциты', 'единичные в п/зр'), specimen: 'stool' },
+      ]),
+    ])
+    app.importer.importOrders(into(dnkomId), [
+      order('d1', '2026-07-01', [
+        { ...raw('D-LEU', 'Лейкоциты', '0-1 в п/зр'), analysis: 'Общий анализ мочи' },
+      ]),
+    ])
+    app.importer.importOrders(into(helixId), [
+      order('h1', '2026-08-01', [raw('H-LEU', 'Лейкоциты', '1-2 в п/зр')]),
+    ])
+
+    const kdlUrine = analyteOf(app.kdlId, 'U-LEU')
+    expect(analyteOf(dnkomId, 'D-LEU')?.id).toBe(kdlUrine?.id)
+    expect(analyteOf(app.kdlId, 'S-LEU')?.id).not.toBe(kdlUrine?.id)
+    // Of no analysis known, the same name is no one's.
+    expect(analyteOf(helixId, 'H-LEU')).toMatchObject({ specimen: null, reviewed: false })
+  })
+
   it('never merges again what the person split', () => {
     const tsh = (labCode: string, name: string) => raw(labCode, name, '2.1 мкМЕ/мл')
     app.importer.importOrders(into(app.kdlId), [order('k1', '2026-08-08', [tsh('TSH', 'ТТГ')])])
@@ -86,7 +111,14 @@ describe('the analyte dictionary', () => {
   it('takes in analytes imported before it knew them, into the one the person looked at', () => {
     const mmol = app.db.select().from(unit).where(eq(unit.code, 'mmol/L')).get()?.id ?? null
     const imported = (labId: number, labCode: string, name: string) =>
-      app.analytes.createFromLab({ labId, labCode, name, valueKind: 'numeric', unitId: mmol })
+      app.analytes.createFromLab({
+        labId,
+        labCode,
+        name,
+        valueKind: 'numeric',
+        unitId: mmol,
+        context: { analysis: null, specimen: null },
+      })
     imported(app.kdlId, 'GLU', 'Глюкоза')
     const helix = imported(helixId, 'H-GLU', 'Глюкоза плазмы')
     // The person looked at Helix's glucose and gave it a molar mass of their own.

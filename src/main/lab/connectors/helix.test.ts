@@ -142,7 +142,8 @@ describe('helixConnector', () => {
     ])
   })
 
-  it('reads single tests under their own name and panel components under the test code and theirs', async () => {
+  it('reads single tests under their own name and panel components under the test code and theirs, each test their analysis', async () => {
+    const CBC = 'Клинический анализ крови'
     const page = new FakeLabPage([answer(`/api/v2/orders/${ORDER_CODE}?profileId=${PROFILE.id}`, DETAILS)])
     const order = await helixConnector.fetchOrder(page, REF)
     expect(order.rawPayload).toBe(DETAILS)
@@ -154,6 +155,7 @@ describe('helixConnector', () => {
         printed: '41.20 нг/мл',
         reference: '30 - 100',
         flag: null,
+        analysis: 'Витамин D, 25-гидрокси',
       },
       {
         labCode: '90-002 Лейкоциты (WBC)',
@@ -162,6 +164,7 @@ describe('helixConnector', () => {
         printed: '5.10 *10^9/л',
         reference: '4,50 - 11,00',
         flag: null,
+        analysis: CBC,
       },
       {
         labCode: '90-002 СКФ',
@@ -170,8 +173,17 @@ describe('helixConnector', () => {
         printed: '95 мл/мин',
         reference: '> 60',
         flag: null,
+        analysis: CBC,
       },
-      { labCode: '90-002 СОЭ', labName: 'СОЭ', value: '7', printed: '7 мм/ч', reference: '< 20', flag: null },
+      {
+        labCode: '90-002 СОЭ',
+        labName: 'СОЭ',
+        value: '7',
+        printed: '7 мм/ч',
+        reference: '< 20',
+        flag: null,
+        analysis: CBC,
+      },
       {
         labCode: '90-002 Белок',
         labName: 'Белок',
@@ -179,6 +191,7 @@ describe('helixConnector', () => {
         printed: 'не обнаружен',
         reference: 'отрицательный',
         flag: null,
+        analysis: CBC,
       },
       {
         labCode: '90-002 Без нормы',
@@ -187,6 +200,7 @@ describe('helixConnector', () => {
         printed: '-',
         reference: null,
         flag: null,
+        analysis: CBC,
       },
     ])
   })

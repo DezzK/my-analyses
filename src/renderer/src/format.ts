@@ -1,4 +1,4 @@
-import type { Lab } from '@shared/api'
+import type { Lab, LabCode } from '@shared/api'
 import { ageInDays, ageInYears, DAYS_PER_MONTH } from '@shared/domain/age'
 import { formatDateRu, todayIso } from '@shared/domain/dates'
 import { AGE_UNIT_FORMS } from './labels'
@@ -36,10 +36,15 @@ export function formatBytes(bytes: number): string {
   return `${value.toLocaleString('ru-RU', { maximumFractionDigits: unit === 0 ? 0 : 1 })} ${units[unit]}`
 }
 
-/** The codes labs import an analyte by, each after its lab's name: «KDL TSH, Хеликс 1.1.A1». */
-export function labCodesText(
-  codes: readonly { labId: number | null; code: string }[],
-  labs: ReadonlyMap<number, Lab>,
-): string {
-  return codes.map((c) => `${labs.get(c.labId ?? -1)?.name ?? ''} ${c.code}`.trim()).join(', ')
+/**
+ * The codes labs import an analyte by, each after its lab's name and before the analysis it is part
+ * of: «KDL TSH, ДНКОМ ОАМ_Цвет (Общий анализ мочи)».
+ */
+export function labCodesText(codes: readonly LabCode[], labs: ReadonlyMap<number, Lab>): string {
+  return codes
+    .map((c) => {
+      const code = `${labs.get(c.labId ?? -1)?.name ?? ''} ${c.code}`.trim()
+      return c.analysis ? `${code} (${c.analysis})` : code
+    })
+    .join(', ')
 }

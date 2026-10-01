@@ -42,6 +42,13 @@ const DETAILS = JSON.stringify({
         norm: 'см. результат в pdf заказа',
         result: { value: null, valueString: 'см. результат в pdf заказа', resultStatus: null },
       },
+      // Its catalog section, 6.1, is urine's.
+      {
+        code: '6.1.B9.9',
+        name: 'Лейкоциты',
+        norm: '0-5',
+        result: { value: null, valueString: '2-4 в п/зр', resultStatus: 'is_normal' },
+      },
       { code: '', name: 'Без кода' },
     ],
   },
@@ -99,7 +106,7 @@ describe('kdlConnector', () => {
     expect(page.requests.every((r) => r.init?.headers?.['RSC'] === '1')).toBe(true)
   })
 
-  it('reads an order as the lab reports it', async () => {
+  it('reads an order as the lab reports it, each test of the specimen its catalog section says', async () => {
     const ref = {
       externalKey: `2:${ORDER_ID}`,
       collectedOn: '2026-07-15',
@@ -118,6 +125,7 @@ describe('kdlConnector', () => {
         printed: '5.40 ммоль/л',
         reference: '3.9-5.5 ммоль/л',
         flag: 'normal',
+        specimen: null,
       },
       {
         labCode: '1.1.A1.2',
@@ -126,6 +134,7 @@ describe('kdlConnector', () => {
         printed: '150 г/л',
         reference: '120-140 г/л',
         flag: 'high',
+        specimen: null,
       },
       {
         labCode: '7.1.B1.1',
@@ -134,6 +143,16 @@ describe('kdlConnector', () => {
         printed: 'см. результат в pdf заказа',
         reference: 'см. результат в pdf заказа',
         flag: null,
+        specimen: null,
+      },
+      {
+        labCode: '6.1.B9.9',
+        labName: 'Лейкоциты',
+        value: null,
+        printed: '2-4 в п/зр',
+        reference: '0-5',
+        flag: 'normal',
+        specimen: 'urine',
       },
     ])
   })

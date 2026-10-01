@@ -21,7 +21,7 @@ import { api } from '../api'
 import { AnchorLink } from '../components/links'
 import { PageHeader } from '../components/PageHeader'
 import { formatDate, labCodesText, plural } from '../format'
-import { CYCLE_PHASE_LABELS, LAB_FLAG_LABELS } from '../labels'
+import { CYCLE_PHASE_LABELS, LAB_FLAG_LABELS, SPECIMEN_LABELS } from '../labels'
 import { notifyError, notifyUndoable } from '../notify'
 import { useCurrentPatient } from '../patients/current'
 import { useLabMap, useMappingQueue, useSuggestions, useUnits } from '../queries'
@@ -152,6 +152,12 @@ function NewAnalytes({ analytes }: { analytes: UnreviewedAnalyte[] }) {
                   <AnchorLink to="/catalog/$analyteId" params={{ analyteId: String(a.id) }}>
                     {a.name}
                   </AnchorLink>
+                  {a.specimen && (
+                    <Text span size="xs" c="dimmed">
+                      {' '}
+                      · {SPECIMEN_LABELS[a.specimen]}
+                    </Text>
+                  )}
                 </Table.Td>
                 <Table.Td>
                   <Text size="xs" c="dimmed">

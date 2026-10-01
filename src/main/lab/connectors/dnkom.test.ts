@@ -71,6 +71,7 @@ const ORDER_PAGE = `<!doctype html><html><body>${HEADER}
       </div>
       <div class="group-line">
         <div class="group-cell order-type">Общий анализ мочи</div>
+        <div class="group-cell order-material">Моча (разовая)</div>
         <div class="group-cell order-file"><a class="action-block" href="/ajax/order_print.php?ORDER_ID=100000001&amp;ITEM_ID=2&amp;TOKEN=${TOKEN}"><span class="icon-pdf"></span></a></div>
       </div>
       <div class="detail-order">
@@ -127,9 +128,10 @@ describe('dnkomConnector', () => {
     expect(await dnkomConnector.listOrders(page)).toEqual([REF])
   })
 
-  it('reads the results of every group, each under its history code', async () => {
+  it("reads the results of every group, each under its history code, its group's analysis and material", async () => {
     const page = new FakeLabPage([answer(`/resultdetail/?ORDER_ID=100000001&TOKEN=${TOKEN}`, ORDER_PAGE)])
     const order = await dnkomConnector.fetchOrder(page, REF)
+    const URINALYSIS = 'Общий анализ мочи'
     expect(order.results).toEqual([
       {
         labCode: 'БХ_ALT',
@@ -138,6 +140,8 @@ describe('dnkomConnector', () => {
         printed: '52,3 Ед/л',
         reference: '< 41 Ед/л',
         flag: 'abnormal',
+        analysis: 'Биохимия',
+        specimen: 'serum',
       },
       {
         labCode: 'ОАМ_Цвет',
@@ -146,6 +150,8 @@ describe('dnkomConnector', () => {
         printed: 'соломенно-желтый',
         reference: 'соломенно-желтый',
         flag: 'normal',
+        analysis: URINALYSIS,
+        specimen: 'urine',
       },
       {
         labCode: '20.200 Лейкоциты',
@@ -154,6 +160,8 @@ describe('dnkomConnector', () => {
         printed: '2 в п/зр',
         reference: '0 - 5 в п/зр',
         flag: 'normal',
+        analysis: URINALYSIS,
+        specimen: 'urine',
       },
       {
         labCode: '20.200 Слизь',
@@ -162,6 +170,8 @@ describe('dnkomConnector', () => {
         printed: 'есть',
         reference: null,
         flag: null,
+        analysis: URINALYSIS,
+        specimen: 'urine',
       },
     ])
     // Only the results, not the page around them, which changes with every visit.

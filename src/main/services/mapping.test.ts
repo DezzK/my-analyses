@@ -71,7 +71,7 @@ describe('the mapping queue', () => {
           {
             mergeId: expect.any(Number),
             name: 'Тиреотропный гормон',
-            codes: [{ labId: helixId, code: 'H-TSH' }],
+            codes: [{ labId: helixId, code: 'H-TSH', analysis: null }],
           },
         ],
       },
@@ -116,6 +116,26 @@ describe('the mapping queue', () => {
     expect(app.mapping.suggestions(kdlTpo?.id ?? -1).map((s) => s.name)).toEqual([
       'Антитела к тиреоглобулину',
       'Антитела к тиреопероксидазе',
+    ])
+  })
+
+  it('never suggests an analyte of another specimen, whose analysis names its findings alike', () => {
+    const gemotestId = app.labs.list().find((lab) => lab.name === 'Гемотест')?.id ?? -1
+    app.importer.importOrders(kdl(), [
+      order('k2', '2026-09-02', [{ ...raw('S-DET', 'Детрит', 'много', ''), specimen: 'stool' }]),
+    ])
+    app.importer.importOrders({ ...kdl(), labId: helixId }, [
+      order('h2', '2026-09-03', [
+        { ...raw('H-DET', 'Детрит', 'немного', ''), analysis: 'Общий анализ мочи' },
+      ]),
+    ])
+    app.importer.importOrders({ ...kdl(), labId: gemotestId }, [
+      order('g2', '2026-09-04', [raw('G-DET', 'Детрит', 'немного', '')]),
+    ])
+    const helix = app.analytes.findByLabCode(helixId, 'H-DET')
+    // Gemotest's names no analysis, so its specimen is unknown and it may still be the one.
+    expect(app.mapping.suggestions(helix?.id ?? -1).map((s) => s.id)).toEqual([
+      app.analytes.findByLabCode(gemotestId, 'G-DET')?.id,
     ])
   })
 

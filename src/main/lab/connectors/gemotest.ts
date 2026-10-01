@@ -1,5 +1,6 @@
 import { isoFromLabDate } from '@shared/domain/dates'
 import type { LabFlag } from '@shared/domain/enums'
+import { specimenOfMaterial } from '@shared/domain/specimens'
 import { foldCase } from '@shared/domain/text'
 import { detectVpnBlock, isPdf } from '../pages'
 import { collectPages } from '../paging'
@@ -97,6 +98,10 @@ interface GemotestService {
   /** Escaped for a URL path already: escaping it again names a service that does not exist. */
   id: string
   code?: string | null
+  /** The analysis: «Общий анализ мочи», «С-реактивный белок (СРБ)». */
+  title?: string | null
+  /** The sample's material, when the lab fills it in. */
+  material?: string | null
   status?: string | null
 }
 
@@ -219,6 +224,9 @@ function flagOf(mark: string | undefined, isNormal: boolean | null | undefined):
 /** A service's results, each known by the service's code and its own: a code alone may repeat in an order. */
 function toRawResults(service: GemotestService, tests: readonly GemotestTest[]): RawResult[] {
   const serviceCode = service.code?.trim() || service.id
+  const analysis = service.title?.trim() || null
+  const material = service.material?.trim()
+  const specimen = material ? specimenOfMaterial(material) : null
   return tests.flatMap((test) => {
     const id = test.id?.trim()
     if (!id) return []
@@ -234,6 +242,8 @@ function toRawResults(service: GemotestService, tests: readonly GemotestTest[]):
         printed: [text, unit === NO_UNIT ? null : unit].filter(Boolean).join(' '),
         reference: referenceOf(test),
         flag: flagOf(mark?.[1], test.is_normal),
+        analysis,
+        specimen,
       },
     ]
   })
@@ -241,8 +251,8 @@ function toRawResults(service: GemotestService, tests: readonly GemotestTest[]):
 
 export const gemotestConnector: LabConnector = {
   id: 'gemotest',
-  // 2: the forms, which version 1 did not fetch.
-  version: '2',
+  // 2: the forms, which version 1 did not fetch; 3: the analysis each result is part of.
+  version: '3',
   homeUrl: `${SITE}/my/`,
   syncUrl: `${SITE}/robots.txt`,
   hosts: ['gemotest.ru'],

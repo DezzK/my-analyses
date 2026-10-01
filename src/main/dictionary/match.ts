@@ -1,5 +1,5 @@
 import type { Specimen, ValueKind } from '@shared/domain/enums'
-import { inferSpecimen } from '@shared/domain/specimens'
+import { inferSpecimen, specimenKind } from '@shared/domain/specimens'
 import { foldCase } from '@shared/domain/text'
 import { BUILTIN_UNITS } from '@shared/domain/units'
 import { DICTIONARY, type DictionaryEntry } from './entries'
@@ -55,17 +55,6 @@ const COUNTING = wordSet([
 /** Words saying blood that `inferSpecimen` leaves unread on purpose, since blood is the default. */
 const BLOOD = wordSet(['кровь крови венозная венозной капиллярная капиллярной цельная цельной'])
 
-/** Serum and plasma are blood to the dictionary. */
-const SPECIMEN_KIND: Record<Specimen, Specimen> = {
-  blood: 'blood',
-  serum: 'blood',
-  plasma: 'blood',
-  urine: 'urine',
-  stool: 'stool',
-  saliva: 'saliva',
-  other: 'other',
-}
-
 /** The specimen a word of a name says, as the import reads it from a whole name. */
 function specimenOf(word: string): Specimen | null {
   return BLOOD.has(word) ? 'blood' : inferSpecimen(word)
@@ -84,7 +73,7 @@ export function nameKey(text: string): string {
     if (COUNTING.has(word) || (word === 'в' && next !== undefined && specimenOf(next) !== null)) return []
     const specimen = specimenOf(word)
     if (specimen === null) return [word]
-    return SPECIMEN_KIND[specimen] === 'blood' ? [] : [specimen]
+    return specimenKind(specimen) === 'blood' ? [] : [specimen]
   })
   return [...new Set(kept)].sort().join(' ')
 }
@@ -120,15 +109,16 @@ const BY_NAME: ReadonlyMap<string, readonly DictionaryEntry[]> = (() => {
 const UNIT_BY_CODE = new Map(BUILTIN_UNITS.map((unit) => [unit.code, unit]))
 
 /**
- * Whether the analyte can be the entry: its specimen, if known, is the entry's; its results are
- * numbers unless the entry is answered in words, which come without a unit; and its unit is one of
- * the entry's, value for value (мкМЕ/мл and мМЕ/л alike) — a unit of the same kind on another
- * scale is a different analyte as often as not (leukocytes per microliter are urine's, per liter
- * blood's).
+ * Whether the analyte can be the entry: its specimen, if known, is the entry's — and must be known
+ * for an entry named the same in analyses of other specimens («Лейкоциты» of urine and of stool);
+ * its results are numbers unless the entry is answered in words, which come without a unit; and
+ * its unit is one of the entry's, value for value (мкМЕ/мл and мМЕ/л alike) — a unit of the same
+ * kind on another scale is a different analyte as often as not (leukocytes per microliter are
+ * urine's, per liter blood's).
  */
 export function fits(entry: DictionaryEntry, analyte: AnalyteTraits): boolean {
-  if (analyte.specimen !== null && SPECIMEN_KIND[analyte.specimen] !== SPECIMEN_KIND[entry.specimen])
-    return false
+  const kind = analyte.specimen === null ? null : specimenKind(analyte.specimen)
+  if (kind === null ? entry.contextual === true : kind !== specimenKind(entry.specimen)) return false
   const inWords = analyte.valueKind !== 'numeric'
   if (inWords && !entry.words) return false
   const unit = analyte.unit
