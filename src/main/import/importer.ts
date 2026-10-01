@@ -18,6 +18,8 @@ export interface ImportTarget {
   labId: number
   labAccountId: number | null
   patientId: number
+  /** The lab's person the orders are of; absent when the lab names nobody. */
+  labPersonId?: number | null
   connectorVersion: string | null
 }
 
@@ -31,6 +33,7 @@ export function emptyStats(): SyncStats {
     resultsKeptEdited: 0,
     analytesCreated: 0,
     unknownUnits: 0,
+    ordersWaiting: 0,
   }
 }
 
@@ -144,6 +147,7 @@ export class ImportService {
           .values({
             ...fields,
             patientId: target.patientId,
+            labPersonId: target.labPersonId ?? null,
             labId: target.labId,
             externalKey: raw.externalKey,
             source: 'import',

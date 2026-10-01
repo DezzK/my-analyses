@@ -106,6 +106,30 @@ export const labAccount = sqliteTable(
   (t) => [index('lab_account_lab').on(t.labId)],
 )
 
+/**
+ * A person whose orders a lab account holds, as the lab names them, and the patient the person
+ * using the app said their orders go to. Never guessed: until someone says, their orders wait.
+ */
+export const labPerson = sqliteTable(
+  'lab_person',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    labAccountId: integer('lab_account_id')
+      .notNull()
+      .references(() => labAccount.id, { onDelete: 'cascade' }),
+    /** The lab's key of the person, unique within the account. */
+    personKey: text('person_key').notNull(),
+    name: text('name').notNull(),
+    birthDate: text('birth_date'),
+    patientId: integer('patient_id').references(() => patient.id, { onDelete: 'set null' }),
+    /** Their orders are not kept in this app. */
+    skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
+    /** How many orders of theirs the account listed at its latest sync. */
+    orderCount: integer('order_count').notNull().default(0),
+  },
+  (t) => [uniqueIndex('lab_person_key').on(t.labAccountId, t.personKey)],
+)
+
 export const unit = sqliteTable('unit', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   /** Built-in units use the code from `src/shared/domain/units.ts`; unknown spellings get `?:<spelling>`. */
@@ -222,6 +246,8 @@ export const labOrder = sqliteTable(
       .notNull()
       .references(() => lab.id, { onDelete: 'restrict' }),
     labAccountId: integer('lab_account_id').references(() => labAccount.id, { onDelete: 'set null' }),
+    /** The lab's person the order was imported for: their orders follow them to another patient. */
+    labPersonId: integer('lab_person_id').references(() => labPerson.id, { onDelete: 'set null' }),
     collectedOn: text('collected_on').notNull(),
     collectedTime: text('collected_time'),
     cyclePhase: text('cycle_phase', { enum: CYCLE_PHASES }),

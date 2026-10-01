@@ -176,6 +176,7 @@ export function createApi(s: Services): Api {
       connect: (labId, patientId) => s.sync.connect(labId, patientId),
       login: (accountId) => s.sync.login(accountId),
       setPatient: async (accountId, patientId) => s.labs.setAccountPatient(accountId, patientId),
+      assignPerson: async (personId, patientId) => s.sync.assignPerson(personId, patientId),
       disconnect: (accountId) => s.sync.disconnect(accountId),
     },
     sync: {

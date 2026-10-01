@@ -16,6 +16,7 @@ import { formatDateTime } from '../format'
 import { notifyError } from '../notify'
 import { useCurrentPatient } from '../patients/current'
 import { ICON_SIZE, TITLE_WEIGHT } from '../theme'
+import { AccountPeople } from './AccountPeople'
 import { describeProgress, describeStats } from './sync-text'
 import { SyncHistory } from './SyncHistory'
 
@@ -41,6 +42,8 @@ export function AccountCard({
   })
   const labName = lab?.name ?? ''
   const syncing = progress !== undefined || sync.isPending
+  // Once the lab names whose each order is, the people decide and the account's patient does not.
+  const namesPeople = account.people.length > 0 && account.patientId !== null
 
   return (
     <Card>
@@ -58,17 +61,19 @@ export function AccountCard({
             </div>
           </Group>
           <Group gap="xs" wrap="nowrap">
-            <Select
-              aria-label="Чьи анализы"
-              placeholder="Чьи анализы?"
-              size="xs"
-              w={180}
-              leftSection={<IconUser size={ICON_SIZE.button} />}
-              data={patients.map((p) => ({ value: String(p.id), label: p.title }))}
-              value={account.patientId === null ? null : String(account.patientId)}
-              onChange={(value) => value && setPatient.mutate(Number(value))}
-              allowDeselect={false}
-            />
+            {!namesPeople && (
+              <Select
+                aria-label="Чьи анализы"
+                placeholder="Чьи анализы?"
+                size="xs"
+                w={180}
+                leftSection={<IconUser size={ICON_SIZE.button} />}
+                data={patients.map((p) => ({ value: String(p.id), label: p.title }))}
+                value={account.patientId === null ? null : String(account.patientId)}
+                onChange={(value) => value && setPatient.mutate(Number(value))}
+                allowDeselect={false}
+              />
+            )}
             <Button
               size="xs"
               variant="light"
@@ -117,6 +122,7 @@ export function AccountCard({
             </Menu>
           </Group>
         </Group>
+        {account.people.length > 0 && <AccountPeople account={account} />}
         <AccountStatus
           account={account}
           progress={progress}

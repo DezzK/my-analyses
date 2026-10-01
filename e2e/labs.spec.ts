@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { eq } from 'drizzle-orm'
-import { lab, labAccount, patient, syncRun } from '../src/main/db/schema'
+import { lab, labAccount, labPerson, patient, syncRun } from '../src/main/db/schema'
 import { emptyStats } from '../src/main/import/importer'
 import { createDataDir, launchApp, snapshot, withDatabase } from './app'
 
@@ -59,6 +59,40 @@ test('the labs page shows connected accounts and how their syncs went', async ()
       .set({ lastSyncAt: '2026-09-30T09:15:20.000Z' })
       .where(eq(labAccount.id, synced.id))
       .run()
+
+    // A family account: the lab names whose each order is, and one person still waits for a choice.
+    const helix = db.select().from(lab).where(eq(lab.name, 'Хеликс')).get()
+    if (!helix) throw new Error('Хеликс is a built-in lab')
+    db.insert(patient).values({ title: 'Пётр', sex: 'male', birthDate: '2015-03-01' }).run()
+    const family = db
+      .insert(labAccount)
+      .values({
+        labId: helix.id,
+        label: 'Петрова Ольга',
+        defaultPatientId: anna.id,
+        sessionPartition: 'e2e-account-3',
+      })
+      .returning()
+      .get()
+    db.insert(labPerson)
+      .values([
+        {
+          labAccountId: family.id,
+          personKey: 'profile-1',
+          name: 'Петрова Ольга Ивановна',
+          birthDate: '1990-05-14',
+          patientId: anna.id,
+          orderCount: 5,
+        },
+        {
+          labAccountId: family.id,
+          personKey: 'profile-2',
+          name: 'Петров Пётр Олегович',
+          birthDate: '2015-03-01',
+          orderCount: 6,
+        },
+      ])
+      .run()
   })
 
   const { app, window } = await launchApp(dataDir)
@@ -67,6 +101,15 @@ test('the labs page shows connected accounts and how their syncs went', async ()
     await expect(window.getByText('Иванова Анна')).toBeVisible()
     await expect(window.getByText('1 новый заказ, 2 заказа дополнены')).toBeVisible()
     await expect(window.getByText('Нужно снова войти в кабинет')).toBeVisible()
+    await expect(window.getByText('Чьи это анализы?')).toBeVisible()
+    await expect(window.getByRole('combobox', { name: 'Чьи анализы: Петрова Ольга Ивановна' })).toHaveValue(
+      'Анна',
+    )
+    await expect(window.getByRole('combobox', { name: 'Чьи анализы: Петров Пётр Олегович' })).toHaveValue('')
+    await expect(window.getByRole('button', { name: 'Это Пётр' })).toBeVisible()
+    // The family account's people decide, so it has no patient of its own to choose.
+    await expect(window.getByRole('combobox', { name: 'Чьи анализы', exact: true })).toHaveCount(2)
+    await expect(window.getByText('род. 01.03.2015 · 6 заказов')).toBeVisible()
     await snapshot(window, '05-labs')
 
     await window.getByRole('button', { name: 'Действия с кабинетом' }).first().click()

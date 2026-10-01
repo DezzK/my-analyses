@@ -29,10 +29,25 @@ export interface RawOrder {
   forms: Uint8Array[]
 }
 
+/** A person whose orders a lab account holds, named as the lab names them. */
+export interface LabPerson {
+  /** The lab's id of the person, or what stands in for one: unique within the account, stable across syncs. */
+  key: string
+  /** As the lab spells it: «Иванова Анна Петровна». */
+  name: string
+  /** `YYYY-MM-DD`, when the lab says. */
+  birthDate: string | null
+}
+
 /** What a connector needs to fetch one order's details later; its content is the connector's own. */
 export interface OrderRef {
   externalKey: string
   collectedOn: string
+  /**
+   * Whose order it is, from a lab whose account may hold several people's orders; absent when the
+   * lab names nobody, and the order is the account's patient's.
+   */
+  person?: LabPerson
   data: unknown
 }
 

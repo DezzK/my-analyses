@@ -8,6 +8,7 @@ import { syncRun } from '../db/schema'
 import { dataChanged, type EventSink } from '../events'
 import type { LabSessions } from '../lab/browser'
 import { LabHttpError, type LabConnector, type LabPage, type OrderRef } from '../lab/types'
+import type { LabPeople } from '../services/lab-people'
 import type { LabAccountRow, LabService } from '../services/labs'
 import { addStats, emptyStats, type ImportService, type ImportTarget } from './importer'
 
@@ -30,7 +31,8 @@ function toSyncRun(row: SyncRunRow): SyncRun {
     startedAt: row.startedAt,
     finishedAt: row.finishedAt,
     status: row.status,
-    stats: row.stats ? (JSON.parse(row.stats) as SyncStats) : null,
+    // A run kept before a counter existed did not count it.
+    stats: row.stats ? { ...emptyStats(), ...(JSON.parse(row.stats) as Partial<SyncStats>) } : null,
     error: row.error,
   }
 }
@@ -54,6 +56,7 @@ async function fetchForms(connector: LabConnector, page: LabPage, ref: OrderRef)
 interface Deps {
   db: Db
   labs: LabService
+  people: LabPeople
   importer: ImportService
   sessions: LabSessions
   events: EventSink
@@ -103,6 +106,12 @@ export class SyncService {
       .finally(() => this.loggingIn.delete(accountId))
     this.loggingIn.set(accountId, login)
     return login
+  }
+
+  /** Says whose a person of an account is; once they go to a patient, a sync brings their orders. */
+  assignPerson(personId: number, patientId: number | null): void {
+    const accountId = this.deps.people.assign(personId, patientId)
+    if (patientId !== null) this.syncInBackground(accountId)
   }
 
   async disconnect(accountId: number): Promise<void> {
@@ -201,24 +210,32 @@ export class SyncService {
     account: AccountWithPatient,
     stats: SyncStats,
   ): Promise<SyncStatus> {
-    const { labs, importer } = this.deps
+    const { labs, people, importer } = this.deps
     if (await connector.detectBlock(page)) return 'blocked'
     const identity = await connector.detectAccount(page)
     if (!identity) return 'login_required'
     labs.recordIdentity(account.id, identity)
 
     this.report({ accountId: account.id, stage: 'listing', done: 0, total: 0 })
-    const due = this.dueOrders(account.labId, await connector.listOrders(page))
-    const target: ImportTarget = {
-      labId: account.labId,
-      labAccountId: account.id,
-      patientId: account.defaultPatientId,
-      connectorVersion: connector.version,
-    }
-    for (const [done, ref] of due.entries()) {
+    const refs = await connector.listOrders(page)
+    people.record(account.id, refs)
+    const route = people.router(account)
+    const due = this.dueOrders(account.labId, refs).flatMap((ref) => {
+      const destination = route(ref)
+      if (destination.kind === 'waiting') stats.ordersWaiting += 1
+      return destination.kind === 'patient' ? [{ ref, destination }] : []
+    })
+    for (const [done, { ref, destination }] of due.entries()) {
       this.report({ accountId: account.id, stage: 'orders', done, total: due.length })
       const report = await connector.fetchOrder(page, ref)
       const forms = importer.needsForms(account.labId, report) ? await fetchForms(connector, page, ref) : []
+      const target: ImportTarget = {
+        labId: account.labId,
+        labAccountId: account.id,
+        patientId: destination.patientId,
+        labPersonId: destination.labPersonId,
+        connectorVersion: connector.version,
+      }
       addStats(stats, importer.importOrders(target, [{ ...report, forms }]))
     }
     return 'ok'
@@ -255,6 +272,7 @@ export class SyncService {
       labId: row.labId,
       label: row.label,
       patientId: row.defaultPatientId,
+      people: this.deps.people.list(row.id),
       lastSyncAt: row.lastSyncAt,
       lastRun: this.runs(row.id, 1)[0] ?? null,
     }

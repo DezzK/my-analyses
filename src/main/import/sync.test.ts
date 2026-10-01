@@ -12,12 +12,15 @@ import {
   type LabAccountInfo,
   type LabConnector,
   type LabPage,
+  type LabPerson,
   type OrderRef,
   type RawResult,
 } from '../lab/types'
 import type { LabService } from '../services/labs'
+import type { PatientService } from '../services/patients'
 import type { OrderForms } from '../services/order-forms'
 import { createTestServices, TEST_TODAY } from '../test-support'
+import { emptyStats } from './importer'
 import { RECHECK_DAYS, SyncService } from './sync'
 
 function daysAgo(days: number): string {
@@ -50,7 +53,7 @@ class FakeConnector implements LabConnector {
   readonly requestIntervalMs = 0
   blocked = false
   account: LabAccountInfo | null = { externalId: null, label: 'Иванова Анна' }
-  readonly orders = new Map<string, { collectedOn: string; results: RawResult[] }>()
+  readonly orders = new Map<string, { collectedOn: string; results: RawResult[]; person?: LabPerson }>()
   failure: { externalKey: string; error: Error } | null = null
   fetched: string[] = []
   forms: string[] = []
@@ -64,10 +67,11 @@ class FakeConnector implements LabConnector {
   }
 
   async listOrders(): Promise<OrderRef[]> {
-    return [...this.orders].map(([externalKey, { collectedOn }]) => ({
+    return [...this.orders].map(([externalKey, { collectedOn, person }]) => ({
       externalKey,
       collectedOn,
       data: null,
+      ...(person ? { person } : {}),
     }))
   }
 
@@ -76,7 +80,8 @@ class FakeConnector implements LabConnector {
     if (this.failure?.externalKey === ref.externalKey) throw this.failure.error
     const order = this.orders.get(ref.externalKey)
     if (!order) throw new Error(`No order ${ref.externalKey}`)
-    return { ...order, externalKey: ref.externalKey, rawPayload: JSON.stringify(order.results) }
+    const { collectedOn, results } = order
+    return { collectedOn, results, externalKey: ref.externalKey, rawPayload: JSON.stringify(results) }
   }
 
   async fetchOrderForms(_page: LabPage, ref: OrderRef) {
@@ -125,6 +130,7 @@ describe('SyncService', () => {
   let connector: FakeConnector
   let sessions: FakeSessions
   let labs: LabService
+  let patients: PatientService
   let forms: OrderForms
   let sync: SyncService
   let kdlId: number
@@ -133,10 +139,18 @@ describe('SyncService', () => {
   beforeEach(() => {
     connector = new FakeConnector()
     const app = createTestServices({ connectors: (id) => (id === connector.id ? connector : null) })
-    ;({ db, events, labs, forms, kdlId } = app)
+    ;({ db, events, labs, patients, forms, kdlId } = app)
     patientId = app.anna.id
     sessions = new FakeSessions()
-    sync = new SyncService({ db, labs, importer: app.importer, sessions, events, today: () => TEST_TODAY })
+    sync = new SyncService({
+      db,
+      labs,
+      people: app.people,
+      importer: app.importer,
+      sessions,
+      events,
+      today: () => TEST_TODAY,
+    })
   })
 
   function progressEvents(): SyncProgress[][] {
@@ -187,6 +201,68 @@ describe('SyncService', () => {
     const third = await sync.syncAccount(account.id)
     expect(connector.forms).toEqual(['recent'])
     expect(third.stats).toMatchObject({ ordersUpdated: 1, resultsAdded: 1 })
+  })
+
+  describe('with a lab that names whose each order is', () => {
+    /** A made-up son whose orders sit in his mother's account. */
+    const SON: LabPerson = { key: 'profile-2', name: 'Иванов Пётр Сергеевич', birthDate: '2015-03-01' }
+    let peter: number
+    let accountId: number
+
+    beforeEach(() => {
+      peter = patients.create({ title: 'Пётр', sex: 'male', birthDate: SON.birthDate ?? '', note: null }).id
+      connector.orders.set('mine', { collectedOn: daysAgo(3), results: [GLUCOSE] })
+      connector.orders.set('his-new', { collectedOn: daysAgo(5), results: [GLUCOSE], person: SON })
+      connector.orders.set('his-old', { collectedOn: '2025-01-10', results: [HEMOGLOBIN], person: SON })
+      accountId = labs.createAccount(kdlId, patientId).id
+    })
+
+    function son() {
+      const person = sync.accounts()[0]?.people[0]
+      if (!person) throw new Error('The son is not recorded')
+      return person
+    }
+
+    function stored() {
+      return db
+        .select({ key: labOrder.externalKey, patientId: labOrder.patientId, personId: labOrder.labPersonId })
+        .from(labOrder)
+        .all()
+    }
+
+    it("waits with a person's orders until someone says whose they are, then brings them", async () => {
+      const first = await sync.syncAccount(accountId)
+      expect(first.stats).toMatchObject({ ordersAdded: 1, ordersWaiting: 2 })
+      expect(connector.fetched).toEqual(['mine'])
+      expect(son()).toMatchObject({
+        name: SON.name,
+        orderCount: 2,
+        patientId: null,
+        suggestedPatientId: peter,
+      })
+
+      sync.assignPerson(son().id, peter)
+      // The choice starts a sync at once; this joins it.
+      expect(sync.currentProgress()).toEqual([expect.objectContaining({ accountId, stage: 'connecting' })])
+      const second = await sync.syncAccount(accountId)
+      expect(second.stats).toMatchObject({ ordersAdded: 2, ordersUnchanged: 1, ordersWaiting: 0 })
+      expect(stored()).toEqual([
+        { key: 'mine', patientId, personId: null },
+        { key: 'his-new', patientId: peter, personId: son().id },
+        { key: 'his-old', patientId: peter, personId: son().id },
+      ])
+    })
+
+    it('leaves out the orders of a person kept out, without fetching them', async () => {
+      await sync.syncAccount(accountId)
+      sync.assignPerson(son().id, null)
+      expect(sync.currentProgress()).toEqual([])
+      connector.fetched = []
+      const run = await sync.syncAccount(accountId)
+      expect(connector.fetched).toEqual(['mine'])
+      expect(run.stats).toMatchObject({ ordersWaiting: 0 })
+      expect(stored()).toEqual([{ key: 'mine', patientId, personId: null }])
+    })
   })
 
   it('reports a blocked site and a logged-out account without importing anything', async () => {
@@ -278,6 +354,15 @@ describe('SyncService', () => {
     const runs = await sync.syncAll()
     expect(runs.map((run) => run.accountId)).toEqual([withPatient.id])
     await expect(sync.syncAccount(orphan.id)).rejects.toBeInstanceOf(UserError)
+  })
+
+  it('reads a run kept before a counter existed as not having counted it', () => {
+    const account = labs.createAccount(kdlId, patientId)
+    const { ordersWaiting: _uncounted, ...before } = { ...emptyStats(), ordersAdded: 3 }
+    db.insert(syncRun)
+      .values({ labAccountId: account.id, status: 'ok', stats: JSON.stringify(before) })
+      .run()
+    expect(sync.history(account.id)[0]?.stats).toEqual({ ...emptyStats(), ordersAdded: 3 })
   })
 
   it('marks runs cut short by quitting the app as interrupted', () => {

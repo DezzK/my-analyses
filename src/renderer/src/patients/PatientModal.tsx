@@ -4,6 +4,7 @@ import { IconTrash } from '@tabler/icons-react'
 import type { Patient } from '@shared/api'
 import { api } from '../api'
 import { plural } from '../format'
+import { ORDER_FORMS } from '../labels'
 import { notifyError, notifyUndoable } from '../notify'
 import { PatientForm } from './PatientForm'
 import { PeriodsEditor } from './PeriodsEditor'
@@ -69,7 +70,7 @@ async function confirmRemoval(patient: Patient, onRemoved: () => void): Promise<
     children: (
       <Text size="sm">
         {orders > 0
-          ? `Вместе с пациентом удалятся ${orders} ${plural(orders, ['заказ', 'заказа', 'заказов'])} с результатами.`
+          ? `Вместе с пациентом удалятся ${orders} ${plural(orders, ORDER_FORMS)} с результатами.`
           : 'У пациента нет заказов.'}{' '}
         Удаление можно отменить сразу после него.
       </Text>

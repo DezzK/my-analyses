@@ -45,10 +45,30 @@ export interface LabAccount {
   labId: number
   /** The account holder's name as the lab shows it, or the lab's name until the first login. */
   label: string
-  /** Whose results the account holds; imported orders go to this patient. */
+  /** Whose results the account holds: orders the lab does not name a person for go to this patient. */
   patientId: number | null
+  /** The people the lab names as the account's orders' owners, when it names any. */
+  people: AccountPerson[]
   lastSyncAt: string | null
   lastRun: SyncRun | null
+}
+
+/** A person whose orders a lab account holds, and the patient their orders go to. */
+export interface AccountPerson {
+  id: number
+  /** As the lab spells it. */
+  name: string
+  birthDate: string | null
+  /** Orders of theirs the account listed at its latest sync. */
+  orderCount: number
+  /** Orders of theirs already in the app; they move along when the person goes to another patient. */
+  importedCount: number
+  /** Where their orders go; null and not `skipped`: nobody has said yet, and the orders wait. */
+  patientId: number | null
+  /** Their orders are not kept in this app. */
+  skipped: boolean
+  /** The patient born the same day, which the person most likely is; null when none or several are. */
+  suggestedPatientId: number | null
 }
 
 export interface SyncRun {
@@ -469,6 +489,11 @@ export interface Api {
     /** Opens an account's site again to renew its login; a sync starts once the person is in. */
     login(accountId: number): Promise<boolean>
     setPatient(accountId: number, patientId: number): Promise<void>
+    /**
+     * Says whose a person of an account is: their orders go to `patientId`, the ones already in the
+     * app move there too, and a sync fetches the rest. Null keeps them out and removes their orders.
+     */
+    assignPerson(personId: number, patientId: number | null): Promise<void>
     /** Forgets the account and its login; orders imported from it stay. */
     disconnect(accountId: number): Promise<void>
   }
@@ -492,6 +517,8 @@ export interface SyncStats {
   resultsKeptEdited: number
   analytesCreated: number
   unknownUnits: number
+  /** Orders of people nobody has said whose they are yet; they come in once someone does. */
+  ordersWaiting: number
 }
 
 /** Groups of data a change can touch; the UI refetches whatever depends on them. */

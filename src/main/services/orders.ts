@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import type {
   ManualOrder,
+  Patient,
   OrderDetails,
   OrderInput,
   OrderSummary,
@@ -33,6 +34,11 @@ type StoredResult = typeof result.$inferSelect
 /** A typed value this many times off the previous one is most likely in another unit. */
 const FAR_OFF_FACTOR = 10
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
+
+/** An order collected before its patient was born cannot be theirs. */
+function assertBornBy(patient: Patient, collectedOn: string): void {
+  if (collectedOn < patient.birthDate) throw new UserError('Дата сдачи раньше даты рождения пациента')
+}
 
 function summarize(order: OrderRow, results: readonly ResultRow[], formCount: number): OrderSummary {
   return {
@@ -178,6 +184,52 @@ export class OrderService {
     dataChanged(this.deps.events, 'orders')
   }
 
+  /** The orders imported for a lab's person. */
+  ofLabPerson(labPersonId: number): number[] {
+    return this.deps.db
+      .select({ id: labOrder.id })
+      .from(labOrder)
+      .where(eq(labOrder.labPersonId, labPersonId))
+      .all()
+      .map((row) => row.id)
+  }
+
+  /**
+   * Gives orders to another patient, as when the lab's person they came for turns out to be
+   * someone else. A cycle phase that patient cannot have had is dropped.
+   */
+  moveToPatient(orderIds: readonly number[], patientId: number): void {
+    const patient = this.deps.patients.get(patientId)
+    const orders = orderIds.map((id) => this.find(id))
+    for (const order of orders) assertBornBy(patient, order.collectedOn)
+    inTransaction(this.deps.db, () => {
+      for (const order of orders) {
+        const keepsPhase =
+          order.cyclePhase !== null && this.phaseProblem(patientId, order.collectedOn) === null
+        this.deps.db
+          .update(labOrder)
+          .set({
+            patientId,
+            cyclePhase: keepsPhase ? order.cyclePhase : null,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(labOrder.id, order.id))
+          .run()
+      }
+    })
+    if (orders.length > 0) dataChanged(this.deps.events, 'orders')
+  }
+
+  /** Deletes orders and their results for good, with no undo: nobody here wants them. */
+  purge(orderIds: readonly number[]): void {
+    if (orderIds.length === 0) return
+    this.deps.db
+      .delete(labOrder)
+      .where(inArray(labOrder.id, [...orderIds]))
+      .run()
+    dataChanged(this.deps.events, 'orders')
+  }
+
   /** Deletes an order and its results; the token brings them back while the undo is offered. */
   remove(orderId: number): string {
     const order = this.find(orderId)
@@ -260,22 +312,27 @@ export class OrderService {
       .map((r) => r.id)
   }
 
-  /** Only a woman has a cycle, and not while pregnant or after menopause. */
   private checkPhase(patientId: number, collectedOn: string, phase: CyclePhase | null): void {
     if (phase === null) return
     if (!CYCLE_PHASES.includes(phase)) throw new UserError('Неизвестная фаза цикла')
-    const patient = this.deps.patients.get(patientId)
-    if (patient.sex !== 'female') throw new UserError('Фаза цикла бывает только у женщин')
+    const problem = this.phaseProblem(patientId, collectedOn)
+    if (problem) throw new UserError(problem)
+  }
+
+  /** Why the patient had no cycle phase that day: only a woman has one, and not while pregnant or after menopause. */
+  private phaseProblem(patientId: number, collectedOn: string): string | null {
+    if (this.deps.patients.get(patientId).sex !== 'female') return 'Фаза цикла бывает только у женщин'
     if (!cycleOn(collectedOn, this.deps.patients.periods(patientId))) {
-      throw new UserError('В день сдачи шла беременность или менопауза: фазы цикла не было')
+      return 'В день сдачи шла беременность или менопауза: фазы цикла не было'
     }
+    return null
   }
 
   private validateHeader(input: OrderInput): OrderInput {
     const patient = this.deps.patients.get(input.patientId)
     if (!this.deps.labs.get(input.labId)) throw new UserError('Выберите лабораторию')
     assertPastDate(input.collectedOn, 'дата сдачи', this.deps.today())
-    if (input.collectedOn < patient.birthDate) throw new UserError('Дата сдачи раньше даты рождения пациента')
+    assertBornBy(patient, input.collectedOn)
     const collectedTime = input.collectedTime?.trim() || null
     if (collectedTime !== null && !TIME.test(collectedTime)) throw new UserError('Время сдачи — в виде ЧЧ:ММ')
     this.checkPhase(input.patientId, input.collectedOn, input.cyclePhase)

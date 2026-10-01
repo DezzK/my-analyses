@@ -99,6 +99,9 @@ export const CONDITION_LABELS: Record<ReferenceCondition, string> = {
   postmenopause: 'Постменопауза',
 }
 
+/** Forms of «заказ» for 1, 2 and 5. */
+export const ORDER_FORMS: readonly [string, string, string] = ['заказ', 'заказа', 'заказов']
+
 /** Forms for 1, 2 and 5 of each unit an age limit is stated in. */
 export const AGE_UNIT_FORMS: Record<AgeUnit, readonly [string, string, string]> = {
   years: ['год', 'года', 'лет'],

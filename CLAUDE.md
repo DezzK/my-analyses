@@ -60,7 +60,8 @@ and commits are English.
   then the lab's rule, then the general rule), the verdict and whether the lab agrees: `interpret`
   (`src/shared/domain/interpret.ts`). The main process reads results only through `ResultReader`
   (`src/main/services/results.ts`), so tables, charts, orders and reports never disagree.
-- Russian names of the closed sets: `src/renderer/src/labels.ts`.
+- Russian names of the closed sets, and the Russian forms of nouns counted in the UI (`ORDER_FORMS`):
+  `src/renderer/src/labels.ts`.
 - Heading weight and icon sizes: `TITLE_WEIGHT` and `ICON_SIZE` (`src/renderer/src/theme.ts`).
 - Rules about patients and periods: `PatientService` (`src/main/services/patients.ts`). The UI never
   validates on a service's behalf; it shows the `UserError` the service throws.
@@ -108,7 +109,8 @@ and commits are English.
   and signing: `scripts/mac-signing.mts`; the Mac install script: `scripts/install-macos.sh`, filled
   in by `scripts/release-steps.mts`.
 - Services are wired once, by `createServices` (`src/main/services/index.ts`), for the app and
-  for the tests alike.
+  for the tests alike. A change spanning services runs in `inTransaction` (`src/main/db/transaction.ts`);
+  called inside another, it joins that one.
 - Age limits of rules stated in years, months or days, and back: `ageToDays`, `daysToAge`
   (`src/shared/domain/age.ts`).
 - Turning a lab's report into orders and results (dedup, protecting hand edits, new analytes for
@@ -125,6 +127,12 @@ and commits are English.
   (DNKOM), is read in the main process with `node-html-parser`.
 - Connected lab accounts: connecting, logging in again, syncing, the run history and which orders a
   sync fetches again (`RECHECK_DAYS`): `SyncService` (`src/main/import/sync.ts`).
+- Whose each imported order is: `LabPeople` (`src/main/services/lab-people.ts`). A connector names
+  the person an order is of (`OrderRef.person`) when its lab says; the person using the app chooses
+  the patient once per person of an account (the one born the same day is offered, never assumed),
+  their orders wait until then and follow them if the choice changes. An order of nobody goes to the
+  account's patient. Moving orders to another patient, and the rules that come with it:
+  `OrderService.moveToPatient`.
 - The embedded browser: a persistent session partition per account, pages kept on the lab's hosts,
   the login window that closes itself once the person is in: `LabBrowser` (`src/main/lab/browser.ts`).
   Services depend on its `LabSessions` port; tests use a fake one.

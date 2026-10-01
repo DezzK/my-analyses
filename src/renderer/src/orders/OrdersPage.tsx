@@ -22,6 +22,7 @@ import { EmptyState } from '../components/EmptyState'
 import { ButtonLink } from '../components/links'
 import { PageHeader } from '../components/PageHeader'
 import { formatDate, plural } from '../format'
+import { ORDER_FORMS } from '../labels'
 import { notifyError, notifyUndoable } from '../notify'
 import { useCurrentPatient } from '../patients/current'
 import { useLabMap, useOrder, useOrders, useUnits } from '../queries'
@@ -50,7 +51,7 @@ export function OrdersPage() {
         title="Заказы"
         subtitle={
           orders.length > 0
-            ? `${orders.length} ${plural(orders.length, ['заказ', 'заказа', 'заказов'])}, новые сверху`
+            ? `${orders.length} ${plural(orders.length, ORDER_FORMS)}, новые сверху`
             : undefined
         }
         actions={

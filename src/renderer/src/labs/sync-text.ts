@@ -19,6 +19,10 @@ const REPORTED: readonly [keyof SyncStats, readonly [string, string, string]][] 
   ['analytesCreated', ['новый показатель', 'новых показателя', 'новых показателей']],
   ['unknownUnits', ['новая единица', 'новые единицы', 'новых единиц']],
   ['resultsKeptEdited', ['ручная правка сохранена', 'ручные правки сохранены', 'ручных правок сохранено']],
+  [
+    'ordersWaiting',
+    ['заказ ждёт выбора пациента', 'заказа ждут выбора пациента', 'заказов ждут выбора пациента'],
+  ],
 ]
 
 /** What a finished sync brought, in a few words. */

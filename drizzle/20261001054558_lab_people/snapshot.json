@@ -1,0 +1,2329 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "14ed8ac3-cc7d-4ebe-97a7-4685efe4fd8e",
+  "prevIds": [
+    "f348ff1c-29e1-4a91-b7fa-cf086603d9a4"
+  ],
+  "ddl": [
+    {
+      "name": "analyte",
+      "entityType": "tables"
+    },
+    {
+      "name": "analyte_alias",
+      "entityType": "tables"
+    },
+    {
+      "name": "analyte_merge",
+      "entityType": "tables"
+    },
+    {
+      "name": "analyte_unit",
+      "entityType": "tables"
+    },
+    {
+      "name": "lab",
+      "entityType": "tables"
+    },
+    {
+      "name": "lab_account",
+      "entityType": "tables"
+    },
+    {
+      "name": "lab_order",
+      "entityType": "tables"
+    },
+    {
+      "name": "lab_person",
+      "entityType": "tables"
+    },
+    {
+      "name": "order_form",
+      "entityType": "tables"
+    },
+    {
+      "name": "panel",
+      "entityType": "tables"
+    },
+    {
+      "name": "panel_item",
+      "entityType": "tables"
+    },
+    {
+      "name": "patient",
+      "entityType": "tables"
+    },
+    {
+      "name": "patient_period",
+      "entityType": "tables"
+    },
+    {
+      "name": "reference_rule",
+      "entityType": "tables"
+    },
+    {
+      "name": "report_block",
+      "entityType": "tables"
+    },
+    {
+      "name": "report_template",
+      "entityType": "tables"
+    },
+    {
+      "name": "result",
+      "entityType": "tables"
+    },
+    {
+      "name": "sync_run",
+      "entityType": "tables"
+    },
+    {
+      "name": "unit",
+      "entityType": "tables"
+    },
+    {
+      "name": "unit_spelling",
+      "entityType": "tables"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "analyte"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "analyte"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "specimen",
+      "entityType": "columns",
+      "table": "analyte"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "description",
+      "entityType": "columns",
+      "table": "analyte"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'numeric'",
+      "generated": null,
+      "name": "value_kind",
+      "entityType": "columns",
+      "table": "analyte"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "canonical_unit_id",
+      "entityType": "columns",
+      "table": "analyte"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "display_unit_id",
+      "entityType": "columns",
+      "table": "analyte"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "molar_mass",
+      "entityType": "columns",
+      "table": "analyte"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "reviewed",
+      "entityType": "columns",
+      "table": "analyte"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "analyte"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "analyte_alias"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "analyte_id",
+      "entityType": "columns",
+      "table": "analyte_alias"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "alias",
+      "entityType": "columns",
+      "table": "analyte_alias"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "lab_id",
+      "entityType": "columns",
+      "table": "analyte_alias"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "lab_code",
+      "entityType": "columns",
+      "table": "analyte_alias"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "analyte_merge"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "source_id",
+      "entityType": "columns",
+      "table": "analyte_merge"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "target_id",
+      "entityType": "columns",
+      "table": "analyte_merge"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "record",
+      "entityType": "columns",
+      "table": "analyte_merge"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "analyte_merge"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "analyte_id",
+      "entityType": "columns",
+      "table": "analyte_unit"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "unit_id",
+      "entityType": "columns",
+      "table": "analyte_unit"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "factor",
+      "entityType": "columns",
+      "table": "analyte_unit"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "lab"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "lab"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "connector_id",
+      "entityType": "columns",
+      "table": "lab"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "marker_color",
+      "entityType": "columns",
+      "table": "lab"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "marker_shape",
+      "entityType": "columns",
+      "table": "lab"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "lab"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "lab_account"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "lab_id",
+      "entityType": "columns",
+      "table": "lab_account"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "label",
+      "entityType": "columns",
+      "table": "lab_account"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "external_account_id",
+      "entityType": "columns",
+      "table": "lab_account"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "default_patient_id",
+      "entityType": "columns",
+      "table": "lab_account"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "session_partition",
+      "entityType": "columns",
+      "table": "lab_account"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_sync_at",
+      "entityType": "columns",
+      "table": "lab_account"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "lab_account"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "patient_id",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "lab_id",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "lab_account_id",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "lab_person_id",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "collected_on",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "collected_time",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cycle_phase",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "external_key",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "source",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "connector_version",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "raw_payload",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "raw_hash",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "note",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "lab_order"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "lab_person"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "lab_account_id",
+      "entityType": "columns",
+      "table": "lab_person"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "person_key",
+      "entityType": "columns",
+      "table": "lab_person"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "lab_person"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "birth_date",
+      "entityType": "columns",
+      "table": "lab_person"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "patient_id",
+      "entityType": "columns",
+      "table": "lab_person"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "skipped",
+      "entityType": "columns",
+      "table": "lab_person"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "order_count",
+      "entityType": "columns",
+      "table": "lab_person"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "order_id",
+      "entityType": "columns",
+      "table": "order_form"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "position",
+      "entityType": "columns",
+      "table": "order_form"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "file",
+      "entityType": "columns",
+      "table": "order_form"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "panel"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "panel"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "panel"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "panel_id",
+      "entityType": "columns",
+      "table": "panel_item"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "analyte_id",
+      "entityType": "columns",
+      "table": "panel_item"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "position",
+      "entityType": "columns",
+      "table": "panel_item"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "patient"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "title",
+      "entityType": "columns",
+      "table": "patient"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "sex",
+      "entityType": "columns",
+      "table": "patient"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "birth_date",
+      "entityType": "columns",
+      "table": "patient"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "note",
+      "entityType": "columns",
+      "table": "patient"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "deleted_at",
+      "entityType": "columns",
+      "table": "patient"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "patient"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "patient_period"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "patient_id",
+      "entityType": "columns",
+      "table": "patient_period"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "kind",
+      "entityType": "columns",
+      "table": "patient_period"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "start_date",
+      "entityType": "columns",
+      "table": "patient_period"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "end_date",
+      "entityType": "columns",
+      "table": "patient_period"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "reference_rule"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "analyte_id",
+      "entityType": "columns",
+      "table": "reference_rule"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "lab_id",
+      "entityType": "columns",
+      "table": "reference_rule"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "sex",
+      "entityType": "columns",
+      "table": "reference_rule"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "age_from_days",
+      "entityType": "columns",
+      "table": "reference_rule"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "age_to_days",
+      "entityType": "columns",
+      "table": "reference_rule"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "condition",
+      "entityType": "columns",
+      "table": "reference_rule"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "low",
+      "entityType": "columns",
+      "table": "reference_rule"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "high",
+      "entityType": "columns",
+      "table": "reference_rule"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "expected",
+      "entityType": "columns",
+      "table": "reference_rule"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "unit_id",
+      "entityType": "columns",
+      "table": "reference_rule"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "note",
+      "entityType": "columns",
+      "table": "reference_rule"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "reference_rule"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "template_id",
+      "entityType": "columns",
+      "table": "report_block"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "analyte_id",
+      "entityType": "columns",
+      "table": "report_block"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "position",
+      "entityType": "columns",
+      "table": "report_block"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "view",
+      "entityType": "columns",
+      "table": "report_block"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "break_after",
+      "entityType": "columns",
+      "table": "report_block"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "report_template"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "title",
+      "entityType": "columns",
+      "table": "report_template"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'{}'",
+      "generated": null,
+      "name": "layout",
+      "entityType": "columns",
+      "table": "report_template"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "report_template"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "report_template"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "result"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "order_id",
+      "entityType": "columns",
+      "table": "result"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "analyte_id",
+      "entityType": "columns",
+      "table": "result"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "raw_value",
+      "entityType": "columns",
+      "table": "result"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "unit_id",
+      "entityType": "columns",
+      "table": "result"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ref_raw",
+      "entityType": "columns",
+      "table": "result"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "lab_flag",
+      "entityType": "columns",
+      "table": "result"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "external_key",
+      "entityType": "columns",
+      "table": "result"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "user_edited",
+      "entityType": "columns",
+      "table": "result"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "note",
+      "entityType": "columns",
+      "table": "result"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "sync_run"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "lab_account_id",
+      "entityType": "columns",
+      "table": "sync_run"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+      "generated": null,
+      "name": "started_at",
+      "entityType": "columns",
+      "table": "sync_run"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "finished_at",
+      "entityType": "columns",
+      "table": "sync_run"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "sync_run"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stats",
+      "entityType": "columns",
+      "table": "sync_run"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "error",
+      "entityType": "columns",
+      "table": "sync_run"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "unit"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "code",
+      "entityType": "columns",
+      "table": "unit"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "display",
+      "entityType": "columns",
+      "table": "unit"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "dimension",
+      "entityType": "columns",
+      "table": "unit"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "1",
+      "generated": null,
+      "name": "scale",
+      "entityType": "columns",
+      "table": "unit"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "true",
+      "generated": null,
+      "name": "reviewed",
+      "entityType": "columns",
+      "table": "unit"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "spelling",
+      "entityType": "columns",
+      "table": "unit_spelling"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "unit_id",
+      "entityType": "columns",
+      "table": "unit_spelling"
+    },
+    {
+      "columns": [
+        "canonical_unit_id"
+      ],
+      "tableTo": "unit",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "name": "fk_analyte_canonical_unit_id_unit_id_fk",
+      "entityType": "fks",
+      "table": "analyte"
+    },
+    {
+      "columns": [
+        "display_unit_id"
+      ],
+      "tableTo": "unit",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "name": "fk_analyte_display_unit_id_unit_id_fk",
+      "entityType": "fks",
+      "table": "analyte"
+    },
+    {
+      "columns": [
+        "analyte_id"
+      ],
+      "tableTo": "analyte",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_analyte_alias_analyte_id_analyte_id_fk",
+      "entityType": "fks",
+      "table": "analyte_alias"
+    },
+    {
+      "columns": [
+        "lab_id"
+      ],
+      "tableTo": "lab",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_analyte_alias_lab_id_lab_id_fk",
+      "entityType": "fks",
+      "table": "analyte_alias"
+    },
+    {
+      "columns": [
+        "target_id"
+      ],
+      "tableTo": "analyte",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_analyte_merge_target_id_analyte_id_fk",
+      "entityType": "fks",
+      "table": "analyte_merge"
+    },
+    {
+      "columns": [
+        "analyte_id"
+      ],
+      "tableTo": "analyte",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_analyte_unit_analyte_id_analyte_id_fk",
+      "entityType": "fks",
+      "table": "analyte_unit"
+    },
+    {
+      "columns": [
+        "unit_id"
+      ],
+      "tableTo": "unit",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_analyte_unit_unit_id_unit_id_fk",
+      "entityType": "fks",
+      "table": "analyte_unit"
+    },
+    {
+      "columns": [
+        "lab_id"
+      ],
+      "tableTo": "lab",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_lab_account_lab_id_lab_id_fk",
+      "entityType": "fks",
+      "table": "lab_account"
+    },
+    {
+      "columns": [
+        "default_patient_id"
+      ],
+      "tableTo": "patient",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "name": "fk_lab_account_default_patient_id_patient_id_fk",
+      "entityType": "fks",
+      "table": "lab_account"
+    },
+    {
+      "columns": [
+        "patient_id"
+      ],
+      "tableTo": "patient",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_lab_order_patient_id_patient_id_fk",
+      "entityType": "fks",
+      "table": "lab_order"
+    },
+    {
+      "columns": [
+        "lab_id"
+      ],
+      "tableTo": "lab",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": false,
+      "name": "fk_lab_order_lab_id_lab_id_fk",
+      "entityType": "fks",
+      "table": "lab_order"
+    },
+    {
+      "columns": [
+        "lab_account_id"
+      ],
+      "tableTo": "lab_account",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "name": "fk_lab_order_lab_account_id_lab_account_id_fk",
+      "entityType": "fks",
+      "table": "lab_order"
+    },
+    {
+      "columns": [
+        "lab_person_id"
+      ],
+      "tableTo": "lab_person",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "name": "fk_lab_order_lab_person_id_lab_person_id_fk",
+      "entityType": "fks",
+      "table": "lab_order"
+    },
+    {
+      "columns": [
+        "lab_account_id"
+      ],
+      "tableTo": "lab_account",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_lab_person_lab_account_id_lab_account_id_fk",
+      "entityType": "fks",
+      "table": "lab_person"
+    },
+    {
+      "columns": [
+        "patient_id"
+      ],
+      "tableTo": "patient",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "name": "fk_lab_person_patient_id_patient_id_fk",
+      "entityType": "fks",
+      "table": "lab_person"
+    },
+    {
+      "columns": [
+        "order_id"
+      ],
+      "tableTo": "lab_order",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_order_form_order_id_lab_order_id_fk",
+      "entityType": "fks",
+      "table": "order_form"
+    },
+    {
+      "columns": [
+        "panel_id"
+      ],
+      "tableTo": "panel",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_panel_item_panel_id_panel_id_fk",
+      "entityType": "fks",
+      "table": "panel_item"
+    },
+    {
+      "columns": [
+        "analyte_id"
+      ],
+      "tableTo": "analyte",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_panel_item_analyte_id_analyte_id_fk",
+      "entityType": "fks",
+      "table": "panel_item"
+    },
+    {
+      "columns": [
+        "patient_id"
+      ],
+      "tableTo": "patient",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_patient_period_patient_id_patient_id_fk",
+      "entityType": "fks",
+      "table": "patient_period"
+    },
+    {
+      "columns": [
+        "analyte_id"
+      ],
+      "tableTo": "analyte",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_reference_rule_analyte_id_analyte_id_fk",
+      "entityType": "fks",
+      "table": "reference_rule"
+    },
+    {
+      "columns": [
+        "lab_id"
+      ],
+      "tableTo": "lab",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_reference_rule_lab_id_lab_id_fk",
+      "entityType": "fks",
+      "table": "reference_rule"
+    },
+    {
+      "columns": [
+        "unit_id"
+      ],
+      "tableTo": "unit",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "name": "fk_reference_rule_unit_id_unit_id_fk",
+      "entityType": "fks",
+      "table": "reference_rule"
+    },
+    {
+      "columns": [
+        "template_id"
+      ],
+      "tableTo": "report_template",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_report_block_template_id_report_template_id_fk",
+      "entityType": "fks",
+      "table": "report_block"
+    },
+    {
+      "columns": [
+        "analyte_id"
+      ],
+      "tableTo": "analyte",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_report_block_analyte_id_analyte_id_fk",
+      "entityType": "fks",
+      "table": "report_block"
+    },
+    {
+      "columns": [
+        "order_id"
+      ],
+      "tableTo": "lab_order",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_result_order_id_lab_order_id_fk",
+      "entityType": "fks",
+      "table": "result"
+    },
+    {
+      "columns": [
+        "analyte_id"
+      ],
+      "tableTo": "analyte",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": false,
+      "name": "fk_result_analyte_id_analyte_id_fk",
+      "entityType": "fks",
+      "table": "result"
+    },
+    {
+      "columns": [
+        "unit_id"
+      ],
+      "tableTo": "unit",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "name": "fk_result_unit_id_unit_id_fk",
+      "entityType": "fks",
+      "table": "result"
+    },
+    {
+      "columns": [
+        "lab_account_id"
+      ],
+      "tableTo": "lab_account",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_sync_run_lab_account_id_lab_account_id_fk",
+      "entityType": "fks",
+      "table": "sync_run"
+    },
+    {
+      "columns": [
+        "unit_id"
+      ],
+      "tableTo": "unit",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_unit_spelling_unit_id_unit_id_fk",
+      "entityType": "fks",
+      "table": "unit_spelling"
+    },
+    {
+      "columns": [
+        "analyte_id",
+        "unit_id"
+      ],
+      "nameExplicit": false,
+      "name": "analyte_unit_pk",
+      "entityType": "pks",
+      "table": "analyte_unit"
+    },
+    {
+      "columns": [
+        "order_id",
+        "position"
+      ],
+      "nameExplicit": false,
+      "name": "order_form_pk",
+      "entityType": "pks",
+      "table": "order_form"
+    },
+    {
+      "columns": [
+        "panel_id",
+        "analyte_id"
+      ],
+      "nameExplicit": false,
+      "name": "panel_item_pk",
+      "entityType": "pks",
+      "table": "panel_item"
+    },
+    {
+      "columns": [
+        "template_id",
+        "analyte_id"
+      ],
+      "nameExplicit": false,
+      "name": "report_block_pk",
+      "entityType": "pks",
+      "table": "report_block"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "analyte_pk",
+      "table": "analyte",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "analyte_alias_pk",
+      "table": "analyte_alias",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "analyte_merge_pk",
+      "table": "analyte_merge",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "lab_pk",
+      "table": "lab",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "lab_account_pk",
+      "table": "lab_account",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "lab_order_pk",
+      "table": "lab_order",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "lab_person_pk",
+      "table": "lab_person",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "panel_pk",
+      "table": "panel",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "patient_pk",
+      "table": "patient",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "patient_period_pk",
+      "table": "patient_period",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "reference_rule_pk",
+      "table": "reference_rule",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "report_template_pk",
+      "table": "report_template",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "result_pk",
+      "table": "result",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "sync_run_pk",
+      "table": "sync_run",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "unit_pk",
+      "table": "unit",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "spelling"
+      ],
+      "nameExplicit": false,
+      "name": "unit_spelling_pk",
+      "table": "unit_spelling",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "lab_id",
+          "isExpression": false
+        },
+        {
+          "value": "lab_code",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "\"analyte_alias\".\"lab_code\" is not null",
+      "origin": "manual",
+      "name": "analyte_alias_lab_code",
+      "entityType": "indexes",
+      "table": "analyte_alias"
+    },
+    {
+      "columns": [
+        {
+          "value": "analyte_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "analyte_alias_analyte",
+      "entityType": "indexes",
+      "table": "analyte_alias"
+    },
+    {
+      "columns": [
+        {
+          "value": "target_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "analyte_merge_target",
+      "entityType": "indexes",
+      "table": "analyte_merge"
+    },
+    {
+      "columns": [
+        {
+          "value": "lab_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "lab_account_lab",
+      "entityType": "indexes",
+      "table": "lab_account"
+    },
+    {
+      "columns": [
+        {
+          "value": "lab_id",
+          "isExpression": false
+        },
+        {
+          "value": "external_key",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "\"lab_order\".\"external_key\" is not null",
+      "origin": "manual",
+      "name": "lab_order_external",
+      "entityType": "indexes",
+      "table": "lab_order"
+    },
+    {
+      "columns": [
+        {
+          "value": "patient_id",
+          "isExpression": false
+        },
+        {
+          "value": "collected_on",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "lab_order_patient_date",
+      "entityType": "indexes",
+      "table": "lab_order"
+    },
+    {
+      "columns": [
+        {
+          "value": "lab_account_id",
+          "isExpression": false
+        },
+        {
+          "value": "person_key",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "lab_person_key",
+      "entityType": "indexes",
+      "table": "lab_person"
+    },
+    {
+      "columns": [
+        {
+          "value": "patient_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "patient_period_patient",
+      "entityType": "indexes",
+      "table": "patient_period"
+    },
+    {
+      "columns": [
+        {
+          "value": "analyte_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "reference_rule_analyte",
+      "entityType": "indexes",
+      "table": "reference_rule"
+    },
+    {
+      "columns": [
+        {
+          "value": "order_id",
+          "isExpression": false
+        },
+        {
+          "value": "external_key",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "\"result\".\"external_key\" is not null",
+      "origin": "manual",
+      "name": "result_external",
+      "entityType": "indexes",
+      "table": "result"
+    },
+    {
+      "columns": [
+        {
+          "value": "analyte_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "result_analyte",
+      "entityType": "indexes",
+      "table": "result"
+    },
+    {
+      "columns": [
+        {
+          "value": "order_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "result_order",
+      "entityType": "indexes",
+      "table": "result"
+    },
+    {
+      "columns": [
+        {
+          "value": "lab_account_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "sync_run_account",
+      "entityType": "indexes",
+      "table": "sync_run"
+    },
+    {
+      "columns": [
+        "name"
+      ],
+      "nameExplicit": false,
+      "name": "lab_name_unique",
+      "entityType": "uniques",
+      "table": "lab"
+    },
+    {
+      "columns": [
+        "session_partition"
+      ],
+      "nameExplicit": false,
+      "name": "lab_account_session_partition_unique",
+      "entityType": "uniques",
+      "table": "lab_account"
+    },
+    {
+      "columns": [
+        "name"
+      ],
+      "nameExplicit": false,
+      "name": "panel_name_unique",
+      "entityType": "uniques",
+      "table": "panel"
+    },
+    {
+      "columns": [
+        "title"
+      ],
+      "nameExplicit": false,
+      "name": "report_template_title_unique",
+      "entityType": "uniques",
+      "table": "report_template"
+    },
+    {
+      "columns": [
+        "code"
+      ],
+      "nameExplicit": false,
+      "name": "unit_code_unique",
+      "entityType": "uniques",
+      "table": "unit"
+    },
+    {
+      "value": "\"specimen\" is null or \"specimen\" in ('blood', 'serum', 'plasma', 'urine', 'stool', 'saliva', 'other')",
+      "name": "analyte_specimen",
+      "entityType": "checks",
+      "table": "analyte"
+    },
+    {
+      "value": "\"value_kind\" in ('numeric', 'qualitative', 'text')",
+      "name": "analyte_value_kind",
+      "entityType": "checks",
+      "table": "analyte"
+    },
+    {
+      "value": "\"marker_shape\" in ('circle', 'rect', 'triangle', 'diamond', 'roundRect', 'pin')",
+      "name": "lab_marker_shape",
+      "entityType": "checks",
+      "table": "lab"
+    },
+    {
+      "value": "\"cycle_phase\" is null or \"cycle_phase\" in ('follicular', 'ovulatory', 'luteal')",
+      "name": "lab_order_cycle_phase",
+      "entityType": "checks",
+      "table": "lab_order"
+    },
+    {
+      "value": "\"source\" in ('manual', 'import')",
+      "name": "lab_order_source",
+      "entityType": "checks",
+      "table": "lab_order"
+    },
+    {
+      "value": "\"sex\" in ('male', 'female')",
+      "name": "patient_sex",
+      "entityType": "checks",
+      "table": "patient"
+    },
+    {
+      "value": "\"kind\" in ('pregnancy', 'menopause')",
+      "name": "patient_period_kind",
+      "entityType": "checks",
+      "table": "patient_period"
+    },
+    {
+      "value": "\"sex\" is null or \"sex\" in ('male', 'female')",
+      "name": "reference_rule_sex",
+      "entityType": "checks",
+      "table": "reference_rule"
+    },
+    {
+      "value": "\"condition\" is null or \"condition\" in ('pregnancy_t1', 'pregnancy_t2', 'pregnancy_t3', 'phase_follicular', 'phase_ovulatory', 'phase_luteal', 'postmenopause')",
+      "name": "reference_rule_condition",
+      "entityType": "checks",
+      "table": "reference_rule"
+    },
+    {
+      "value": "\"view\" in ('table', 'chart', 'both')",
+      "name": "report_block_view",
+      "entityType": "checks",
+      "table": "report_block"
+    },
+    {
+      "value": "\"lab_flag\" is null or \"lab_flag\" in ('high', 'low', 'normal', 'abnormal')",
+      "name": "result_lab_flag",
+      "entityType": "checks",
+      "table": "result"
+    },
+    {
+      "value": "\"status\" in ('running', 'ok', 'error', 'blocked', 'login_required')",
+      "name": "sync_run_status",
+      "entityType": "checks",
+      "table": "sync_run"
+    }
+  ],
+  "renames": []
+}

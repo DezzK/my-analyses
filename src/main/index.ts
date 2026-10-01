@@ -80,11 +80,18 @@ async function start(): Promise<void> {
 
   const events = fanOut(windowEvents, backupOnDataChange(backups))
   const services = createServices({ db, events, attachmentsDir: dataPaths.attachments() })
-  const { patients, units, labs, importer } = services
+  const { patients, units, labs, people, importer } = services
   patients.purgeRemoved()
   units.ensureBuiltins()
   labs.ensureBuiltins()
-  const sync = new SyncService({ db, labs, importer, sessions: new LabBrowser(() => mainWindow), events })
+  const sync = new SyncService({
+    db,
+    labs,
+    people,
+    importer,
+    sessions: new LabBrowser(() => mainWindow),
+    events,
+  })
   sync.recoverInterrupted()
 
   const updates = new UpdateService({ updater: createUpdater(), events: windowEvents })

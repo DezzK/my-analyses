@@ -5,6 +5,7 @@ import type { EventSink } from '../events'
 import { ImportService } from '../import/importer'
 import { connectorFor } from '../lab/connectors'
 import { AnalyteService } from './analytes'
+import { LabPeople } from './lab-people'
 import { LabService } from './labs'
 import { MappingService } from './mapping'
 import { MergeService } from './merges'
@@ -54,6 +55,7 @@ export function createServices(deps: {
     events,
     today,
   })
+  const people = new LabPeople({ db, events, patients, orders })
   const mapping = new MappingService({ db, analytes, units, orders, results, patients })
   const reports = new ReportService({ db, analytes, patients, events })
   return {
@@ -69,6 +71,7 @@ export function createServices(deps: {
     panels,
     results,
     orders,
+    people,
     mapping,
     reports,
   }
