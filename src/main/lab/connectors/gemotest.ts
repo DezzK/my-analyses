@@ -1,10 +1,11 @@
 import { isoFromLabDate } from '@shared/domain/dates'
 import type { LabFlag } from '@shared/domain/enums'
 import { foldCase } from '@shared/domain/text'
-import { detectVpnBlock } from '../pages'
+import { detectVpnBlock, isPdf } from '../pages'
 import { collectPages } from '../paging'
 import { tokenUsable, unixSeconds } from '../time'
 import {
+  fetchBytesOk,
   fetchOk,
   HTTP_NOT_FOUND,
   isErrorStatus,
@@ -25,7 +26,8 @@ import {
  * page of the site, so the app never refreshes alongside. The list names each order's patient,
  * the holder or someone they ordered for, but gives them no id: a person is known by name and
  * birth date, which only an order's details carry. An order's results come service by service, and
- * a value ends with « +» or « -» when it is out of range.
+ * a value ends with « +» or « -» when it is out of range. Its form is a PDF the site asks for by
+ * posting a form, the token among its fields.
  */
 
 const SITE = 'https://gemotest.ru'
@@ -76,7 +78,19 @@ interface GemotestOrder {
 
 /** An order's details, as far as they name its patient. */
 interface GemotestOrderDetails {
-  order?: { patient?: { birthdate?: string | null } | null } | null
+  order?: {
+    patient?: {
+      birthdate?: string | null
+      /** 0 when the account's holder ordered for someone else. */
+      is_applicant?: number | null
+    } | null
+  } | null
+}
+
+interface GemotestKey {
+  orderNumber: string
+  /** The account's holder ordered it for someone else, which the form request has to say. */
+  representative: boolean
 }
 
 interface GemotestService {
@@ -129,13 +143,18 @@ async function accessToken(page: LabPage): Promise<string | null> {
   return tokens.access_token
 }
 
+/** The session's token for a request to `url`; a page without a session is refused as the API would. */
+async function tokenFor(page: LabPage, url: string): Promise<string> {
+  const token = await accessToken(page)
+  if (!token) throw LabHttpError.sessionEnded(url)
+  return token
+}
+
 /** A request to the API with the session's token; the page's cookies would make it refuse. */
 async function api(page: LabPage, path: string): Promise<FetchedText> {
   const url = `${API}/${path}`
-  const token = await accessToken(page)
-  if (!token) throw LabHttpError.sessionEnded(url)
   return fetchOk(page, url, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    headers: { Authorization: `Bearer ${await tokenFor(page, url)}`, Accept: 'application/json' },
     credentials: 'omit',
   })
 }
@@ -151,27 +170,36 @@ function nameOf(order: GemotestOrder): string {
     .join(' ')
 }
 
-/** The people the orders are of, by name; each one's birth date comes from one of their orders. */
-async function peopleOf(page: LabPage, orders: readonly GemotestOrder[]): Promise<Map<string, LabPerson>> {
-  const people = new Map<string, LabPerson>()
+/**
+ * The people the orders are of, by name: each one's birth date, and whether the holder ordered for
+ * them, come from one of their orders.
+ */
+async function peopleOf(
+  page: LabPage,
+  orders: readonly GemotestOrder[],
+): Promise<Map<string, { person: LabPerson; representative: boolean }>> {
+  const people = new Map<string, { person: LabPerson; representative: boolean }>()
   for (const order of orders) {
     const name = nameOf(order)
     if (!name || people.has(name)) continue
     const details = JSON.parse(
       (await api(page, orderPath(String(order.order_num)))).text,
     ) as GemotestOrderDetails
-    const written = details.order?.patient?.birthdate
-    const birthDate = written ? isoFromLabDate(written) : null
-    people.set(name, { key: `${foldCase(name)}|${birthDate ?? ''}`, name, birthDate })
+    const patient = details.order?.patient
+    const birthDate = patient?.birthdate ? isoFromLabDate(patient.birthdate) : null
+    people.set(name, {
+      person: { key: `${foldCase(name)}|${birthDate ?? ''}`, name, birthDate },
+      representative: patient?.is_applicant === 0,
+    })
   }
   return people
 }
 
-function orderNumberOf(ref: OrderRef): string {
-  const data = ref.data as { orderNumber?: unknown } | null
+function keyOf(ref: OrderRef): GemotestKey {
+  const data = ref.data as Partial<GemotestKey> | null
   if (typeof data?.orderNumber !== 'string')
     throw new Error(`Not a Gemotest order reference: ${ref.externalKey}`)
-  return data.orderNumber
+  return { orderNumber: data.orderNumber, representative: data.representative === true }
 }
 
 /** The reference as the form prints it; for «Смотри текст», the ranges the comments spell out. */
@@ -213,7 +241,8 @@ function toRawResults(service: GemotestService, tests: readonly GemotestTest[]):
 
 export const gemotestConnector: LabConnector = {
   id: 'gemotest',
-  version: '1',
+  // 2: the forms, which version 1 did not fetch.
+  version: '2',
   homeUrl: `${SITE}/my/`,
   syncUrl: `${SITE}/robots.txt`,
   hosts: ['gemotest.ru'],
@@ -255,14 +284,15 @@ export const gemotestConnector: LabConnector = {
     return orders.flatMap((order) => {
       const orderNumber = String(order.order_num)
       const collectedOn = isoFromLabDate(order.date)
-      const person = people.get(nameOf(order))
+      const known = people.get(nameOf(order))
       if (!collectedOn) return []
-      return [{ externalKey: orderNumber, collectedOn, ...(person ? { person } : {}), data: { orderNumber } }]
+      const data: GemotestKey = { orderNumber, representative: known?.representative ?? false }
+      return [{ externalKey: orderNumber, collectedOn, ...(known ? { person: known.person } : {}), data }]
     })
   },
 
   async fetchOrder(page, ref) {
-    const orderNumber = orderNumberOf(ref)
+    const { orderNumber } = keyOf(ref)
     const order = await api(page, orderPath(orderNumber))
     const { services = [] } = JSON.parse(order.text) as { services?: GemotestService[] }
     const results: RawResult[] = []
@@ -286,5 +316,24 @@ export const gemotestConnector: LabConnector = {
       // Each response exactly as it came, gathered into one document.
       rawPayload: `{"order":${order.text},"services":[${reports.join(',')}]}`,
     }
+  },
+
+  async fetchOrderForms(page, ref) {
+    const { orderNumber, representative } = keyOf(ref)
+    const url = `${API}/customer/v2/result_pdf`
+    const fields = new URLSearchParams({
+      authorization_token: await tokenFor(page, url),
+      order_id: orderNumber,
+      is_customer_representative: representative ? '1' : '0',
+      dynamic: '0',
+      as_file: '1',
+    })
+    const { bytes } = await fetchBytesOk(page, url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: fields.toString(),
+      credentials: 'omit',
+    })
+    return isPdf(bytes) ? [bytes] : []
   },
 }

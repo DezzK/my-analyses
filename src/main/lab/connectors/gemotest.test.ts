@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { answer, FakeLabPage, refuse } from '../fake-page'
+import { answer, answerBytes, FakeLabPage, refuse, STRAY_PDF_PREFIX } from '../fake-page'
 import { LabHttpError } from '../types'
 import { gemotestConnector } from './gemotest'
 
@@ -113,7 +113,8 @@ describe('gemotestConnector', () => {
       ...(n === 1 ? {} : holder),
     })
     const firstPage = Array.from({ length: PER_PAGE }, (_, n) => order(n))
-    const patient = (birthdate: string) => JSON.stringify({ order: { patient: { birthdate } } })
+    const patient = (birthdate: string, isApplicant: number) =>
+      JSON.stringify({ order: { patient: { birthdate, is_applicant: isApplicant } } })
     const page = sessionPage([
       answer(`limit=${PER_PAGE}&offset=0`, JSON.stringify({ jsonrpc: '2.0', result: { orders: firstPage } })),
       answer(
@@ -122,8 +123,9 @@ describe('gemotestConnector', () => {
           result: { orders: [{ order_num: ORDER, date: '2026-07-15 23:40:12.000', ...son }] },
         }),
       ),
-      answer(`/customer/v3/order/${firstNumber}`, patient('14.05.1990')),
-      answer(`/customer/v3/order/${ORDER}`, patient('01.03.2015')),
+      answer(`/customer/v3/order/${firstNumber}`, patient('14.05.1990', 1)),
+      // The mother ordered for her son: she was his representative.
+      answer(`/customer/v3/order/${ORDER}`, patient('01.03.2015', 0)),
     ])
     const refs = await gemotestConnector.listOrders(page)
     expect(refs).toHaveLength(PER_PAGE + 1)
@@ -133,6 +135,7 @@ describe('gemotestConnector', () => {
       birthDate: '1990-05-14',
     })
     expect(refs[1]?.person).toBeUndefined()
+    expect(refs[0]?.data).toEqual({ orderNumber: String(firstNumber), representative: false })
     expect(refs.at(-1)).toEqual({
       ...REF,
       person: {
@@ -140,6 +143,7 @@ describe('gemotestConnector', () => {
         name: 'Иванов Пётр Сергеевич',
         birthDate: '2015-03-01',
       },
+      data: { orderNumber: ORDER, representative: true },
     })
     // One order's details per person tell their birth date.
     expect(page.requests.filter((r) => r.url.includes('/customer/v3/order/'))).toHaveLength(2)
@@ -257,6 +261,30 @@ describe('gemotestConnector', () => {
       ),
     ])
     await expect(gemotestConnector.fetchOrder(page, REF)).rejects.toThrow('HTTP 404')
+  })
+
+  it('asks for the form as the site does, saying whether the holder ordered for someone else', async () => {
+    // Its generator writes a stray line before the PDF's own header.
+    const pdf = new TextEncoder().encode(`${STRAY_PDF_PREFIX}%PDF-1.4 son`)
+    const page = sessionPage([answerBytes('/customer/v2/result_pdf', pdf)])
+    const ref = { ...REF, data: { orderNumber: ORDER, representative: true } }
+    expect(await gemotestConnector.fetchOrderForms?.(page, ref)).toEqual([pdf])
+    const [request] = page.requests
+    expect(request?.url).toBe('https://api2.gemotest.ru/customer/v2/result_pdf')
+    expect(request?.init).toMatchObject({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      credentials: 'omit',
+    })
+    expect(Object.fromEntries(new URLSearchParams(request?.init?.body))).toEqual({
+      authorization_token: 'access-1',
+      order_id: ORDER,
+      is_customer_representative: '1',
+      dynamic: '0',
+      as_file: '1',
+    })
+    const refused = sessionPage([answer('/customer/v2/result_pdf', '<html><body>Not Found</body></html>')])
+    expect(await gemotestConnector.fetchOrderForms?.(refused, REF)).toEqual([])
   })
 
   it('reports a session that ended during a sync as one to log into again', async () => {

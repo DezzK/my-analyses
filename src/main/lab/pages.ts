@@ -14,8 +14,10 @@ export async function detectVpnBlock(page: LabPage): Promise<BlockReason | null>
 }
 
 const PDF_SIGNATURE = '%PDF-'
+/** How far into a file PDF readers look for the signature: some generators write stray bytes first. */
+const PDF_HEADER_WINDOW = 1024
 
 /** Whether bytes a lab sent as a form are a PDF, rather than an error page served in its place. */
 export function isPdf(bytes: Uint8Array): boolean {
-  return new TextDecoder().decode(bytes.subarray(0, PDF_SIGNATURE.length)) === PDF_SIGNATURE
+  return new TextDecoder('latin1').decode(bytes.subarray(0, PDF_HEADER_WINDOW)).includes(PDF_SIGNATURE)
 }

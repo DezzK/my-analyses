@@ -2,6 +2,8 @@ import type { FetchedBytes, FetchInit, FetchedText, LabPage } from './types'
 
 /** How a fake lab answers a request it knows. */
 export const HTTP_OK = 200
+/** The stray drawing line a lab's PDF generator writes before the file's own header. */
+export const STRAY_PDF_PREFIX = '0.00 595.28 m 841.89 595.28 l S\n'
 
 /** What a route answers: text, or the bytes of a file. */
 type Answer = { status: number; url: string; text?: string; bytes?: Uint8Array }
