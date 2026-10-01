@@ -28,27 +28,39 @@ test('the mapping queue merges, accepts, maps units and shows disagreements', as
       ]),
     ],
     Хеликс: [
-      order('h1', '2026-09-01', [raw('H-TSH', 'Тиреотропный гормон', '2.4 мкМЕ/мл', '0.35-4.94 мкМЕ/мл')]),
+      order('h1', '2026-09-01', [
+        raw('H-TSH', 'Тиреотропный гормон', '2.4 мкМЕ/мл', '0.35-4.94 мкМЕ/мл'),
+        // The dictionary knows the antibodies in units, not in «Ед.акт/мл»: these wait for the person.
+        raw('H-TPO', 'Антитела к тиреопероксидазе', '15 Ед.акт/мл', '<35 Ед.акт/мл'),
+      ]),
     ],
   })
 
   const { app, window } = await launchApp(dataDir)
   try {
     await window.getByRole('link', { name: /Сопоставление/ }).click()
-    await expect(window.getByRole('link', { name: 'Тиреотропный гормон', exact: true })).toBeVisible()
+    await expect(window.getByRole('link', { name: 'Антитела к тиреопероксидазе' })).toBeVisible()
     await snapshot(window, '18-mapping-analytes')
 
-    const helixRow = window.getByRole('row').filter({ hasText: 'H-TSH' })
+    const helixRow = window.getByRole('row').filter({ hasText: 'H-TPO' })
     await helixRow.getByRole('button', { name: 'Похожие' }).click()
     await window.getByRole('dialog').getByRole('button', { name: 'Объединить' }).click()
-    // Helix's analyte is gone; its code now belongs to KDL's TSH.
-    await expect(window.getByRole('link', { name: 'Тиреотропный гормон', exact: true })).toHaveCount(0)
-    await expect(window.getByRole('row').filter({ hasText: 'H-TSH' })).toContainText(
-      'Тиреотропный гормон (ТТГ)',
-    )
+    // Helix's analyte is gone; its code now belongs to KDL's antibodies.
+    await expect(window.getByRole('link', { name: 'Антитела к тиреопероксидазе' })).toHaveCount(0)
+    await expect(window.getByRole('row').filter({ hasText: 'H-TPO' })).toContainText('Антитела к ТПО')
 
     await window.getByRole('button', { name: /Принять все/ }).click()
     await expect(window.getByText('Все показатели проверены.')).toBeVisible()
+
+    await window.getByRole('tab', { name: /Объединения/ }).click()
+    const tshRow = window.getByRole('row').filter({ hasText: 'H-TSH' })
+    await expect(tshRow).toContainText('Тиреотропный гормон (ТТГ)')
+    await snapshot(window, '18-mapping-merges')
+    await tshRow.getByRole('button', { name: 'Разъединить' }).click()
+    await expect(window.getByText('Все объединения проверены.')).toBeVisible()
+    // Split off, Helix's TSH waits among the new analytes.
+    await window.getByRole('tab', { name: /Новые показатели/ }).click()
+    await expect(window.getByRole('link', { name: 'Тиреотропный гормон', exact: true })).toBeVisible()
 
     await window.getByRole('tab', { name: /Единицы/ }).click()
     await expect(window.getByText('«Ед.акт/мл»')).toBeVisible()

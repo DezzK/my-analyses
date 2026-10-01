@@ -1,8 +1,6 @@
 import { expect, test } from '@playwright/test'
-import { eq } from 'drizzle-orm'
-import { analyte, analyteAlias } from '../src/main/db/schema'
 import type { RawOrder, RawResult } from '../src/main/lab/types'
-import { createDataDir, labIdOf, launchApp, seedImports, snapshot } from './app'
+import { createDataDir, launchApp, seedImports, snapshot } from './app'
 
 /** Made-up results, shaped the way KDL reports them. */
 function result(labCode: string, labName: string, value: string, unit: string, reference: string): RawResult {
@@ -41,18 +39,8 @@ const HELIX_ORDERS = [
 
 test('results are found, tabulated, charted and grouped into orders', async () => {
   const dataDir = await createDataDir()
-  seedImports(dataDir, { KDL: KDL_ORDERS }, (db, services, patientId) => {
-    // As if the person had merged Helix's glucose into KDL's in the catalog.
-    const glucoseId = db.select().from(analyte).where(eq(analyte.name, 'Глюкоза')).get()?.id ?? -1
-    const helixId = labIdOf(db, 'Хеликс')
-    db.insert(analyteAlias)
-      .values({ analyteId: glucoseId, alias: 'Глюкоза', labId: helixId, labCode: HELIX_GLUCOSE })
-      .run()
-    services.importer.importOrders(
-      { labId: helixId, labAccountId: null, patientId, connectorVersion: 'e2e' },
-      HELIX_ORDERS,
-    )
-  })
+  // The dictionary merges Helix's glucose into KDL's.
+  seedImports(dataDir, { KDL: KDL_ORDERS, Хеликс: HELIX_ORDERS })
 
   const { app, window } = await launchApp(dataDir)
   try {

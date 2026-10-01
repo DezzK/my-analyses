@@ -5,6 +5,7 @@ import { useNavigate, useParams } from '@tanstack/react-router'
 import type { AnalyteResults, Lab, Unit } from '@shared/api'
 import { api } from '../api'
 import { EmptyState } from '../components/EmptyState'
+import { labCodesText } from '../format'
 import { LabMarker } from '../components/LabMarker'
 import { PageHeader } from '../components/PageHeader'
 import { SPECIMEN_LABELS } from '../labels'
@@ -157,12 +158,10 @@ function AnalyteView({
 function AliasLine({ data, labs }: { data: AnalyteResults; labs: ReadonlyMap<number, Lab> }) {
   const { name, aliases } = data.analyte
   const synonyms = [...new Set(aliases.map((a) => a.alias).filter((alias) => alias !== name))]
-  const codes = aliases.flatMap((a) =>
-    a.labCode ? [`${labs.get(a.labId ?? -1)?.name ?? ''} ${a.labCode}`.trim()] : [],
-  )
+  const codes = aliases.flatMap((a) => (a.labCode ? [{ labId: a.labId, code: a.labCode }] : []))
   const parts = [
     synonyms.length > 0 && `Синонимы: ${synonyms.join(', ')}`,
-    codes.length > 0 && `Код: ${codes.join(', ')}`,
+    codes.length > 0 && `Код: ${labCodesText(codes, labs)}`,
   ]
   const text = parts.filter(Boolean).join(' · ')
   return text || null

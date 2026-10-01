@@ -1,12 +1,14 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
-import type { AnalyteMerge } from '@shared/api'
+import { and, asc, desc, eq, inArray } from 'drizzle-orm'
+import type { AnalyteMerge, UnreviewedMerge } from '@shared/api'
 import { UserError } from '@shared/errors'
+import { compareRussian } from '@shared/domain/text'
 import type { Db } from '../db/client'
 import {
   analyte,
   analyteAlias,
   analyteMerge,
   analyteUnit,
+  dictionaryLink,
   panel,
   panelItem,
   referenceRule,
@@ -16,18 +18,19 @@ import {
 } from '../db/schema'
 import { inTransaction } from '../db/transaction'
 import { dataChanged, type EventSink } from '../events'
-import type { AnalyteRow, AnalyteService } from './analytes'
+import { labCodesOf, type AnalyteRow, type AnalyteService } from './analytes'
 
 /**
- * An analyte's places in named lists: panels, report templates. A merge moves the source's places
- * to the target, or drops them from lists the target is in already; undoing it puts them back.
+ * An analyte's places in named lists: panels, report templates, entries of the built-in
+ * dictionary. A merge moves the source's places to the target, or drops them from lists the
+ * target is in already; undoing it puts them back.
  */
-interface Places<Row extends { analyteId: number }> {
+interface Places<Row extends { analyteId: number }, List = number> {
   of(analyteId: number): Row[]
-  list(place: Omit<Row, 'analyteId'>): number
+  list(place: Omit<Row, 'analyteId'>): List
   /** Gives the place of `fromId` in the list to `toId`. */
-  move(list: number, fromId: number, toId: number): void
-  drop(list: number, analyteId: number): void
+  move(list: List, fromId: number, toId: number): void
+  drop(list: List, analyteId: number): void
   /** Puts a dropped place back, unless its list is gone by now. */
   restore(row: Row): void
 }
@@ -35,8 +38,8 @@ interface Places<Row extends { analyteId: number }> {
 /** A place of the source as the merge left it: `moved` to the target, or dropped. */
 type KeptPlace<Row> = Omit<Row, 'analyteId'> & { moved: boolean }
 
-function movePlaces<Row extends { analyteId: number }>(
-  places: Places<Row>,
+function movePlaces<Row extends { analyteId: number }, List>(
+  places: Places<Row, List>,
   sourceId: number,
   targetId: number,
 ): KeptPlace<Row>[] {
@@ -50,8 +53,8 @@ function movePlaces<Row extends { analyteId: number }>(
   })
 }
 
-function restorePlaces<Row extends { analyteId: number }>(
-  places: Places<Row>,
+function restorePlaces<Row extends { analyteId: number }, List>(
+  places: Places<Row, List>,
   kept: readonly KeptPlace<Row>[],
   sourceId: number,
   targetId: number,
@@ -98,6 +101,20 @@ function reportBlockPlaces(db: Db): Places<typeof reportBlock.$inferSelect> {
   }
 }
 
+/** An entry of the dictionary is one analyte's, so a merge always gives the source's to the target. */
+function dictionaryPlaces(db: Db): Places<typeof dictionaryLink.$inferSelect, string> {
+  const at = (key: string, analyteId: number) =>
+    and(eq(dictionaryLink.entryKey, key), eq(dictionaryLink.analyteId, analyteId))
+  return {
+    of: (analyteId) => db.select().from(dictionaryLink).where(eq(dictionaryLink.analyteId, analyteId)).all(),
+    list: (place) => place.entryKey,
+    move: (key, fromId, toId) =>
+      db.update(dictionaryLink).set({ analyteId: toId }).where(at(key, fromId)).run(),
+    drop: (key, analyteId) => db.delete(dictionaryLink).where(at(key, analyteId)).run(),
+    restore: (row) => db.insert(dictionaryLink).values(row).onConflictDoNothing().run(),
+  }
+}
+
 /** What a merge moved, kept so that it can be put back. */
 interface MergeRecord {
   /** The merged analyte's row as it was. */
@@ -110,12 +127,20 @@ interface MergeRecord {
   panelItems: KeptPlace<typeof panelItem.$inferSelect>[]
   /** Absent from merges recorded before report templates kept their blocks as rows. */
   reportBlocks?: KeptPlace<typeof reportBlock.$inferSelect>[]
+  /** Absent from merges recorded before the built-in dictionary. */
+  dictionaryLinks?: KeptPlace<typeof dictionaryLink.$inferSelect>[]
+}
+
+/** A merge's record, as `merge` wrote it. */
+function recordOf(row: { record: string }): MergeRecord {
+  return JSON.parse(row.record) as MergeRecord
 }
 
 /**
  * Merging two analytes that are the same thing (TSH from one lab and from another): results,
  * synonyms, lab codes, rules and panel places move into the target and the source disappears.
- * Every merge is recorded, so it can be undone.
+ * Every merge is recorded, so it can be undone; the dictionary's merges wait for the person to
+ * look at them (`reviewed`), and a source the person split back out is `separated` for good.
  */
 export class MergeService {
   constructor(
@@ -126,7 +151,8 @@ export class MergeService {
     },
   ) {}
 
-  merge(sourceId: number, targetId: number): number {
+  /** `reviewed: false` for a merge nobody asked for, made by the dictionary. */
+  merge(sourceId: number, targetId: number, { reviewed = true }: { reviewed?: boolean } = {}): number {
     if (sourceId === targetId) throw new UserError('Показатель нельзя объединить с самим собой')
     const { db, analytes } = this.deps
     const source = analytes.find(sourceId)
@@ -179,11 +205,12 @@ export class MergeService {
 
       record.panelItems = movePlaces(panelPlaces(db), sourceId, targetId)
       record.reportBlocks = movePlaces(reportBlockPlaces(db), sourceId, targetId)
+      record.dictionaryLinks = movePlaces(dictionaryPlaces(db), sourceId, targetId)
 
       db.delete(analyte).where(eq(analyte.id, sourceId)).run()
       return db
         .insert(analyteMerge)
-        .values({ sourceId, targetId, record: JSON.stringify(record) })
+        .values({ sourceId, targetId, record: JSON.stringify(record), reviewed })
         .returning({ id: analyteMerge.id })
         .get().id
     })
@@ -193,16 +220,21 @@ export class MergeService {
     return mergeId
   }
 
-  /** Puts everything the merge moved back where it came from. */
+  /**
+   * Puts everything the merge moved back where it came from. The person said the two differ, so
+   * the dictionary never merges the source again.
+   */
   unmerge(mergeId: number): void {
     const { db, analytes } = this.deps
     const row = db.select().from(analyteMerge).where(eq(analyteMerge.id, mergeId)).get()
     if (!row) throw new UserError('Объединение не найдено')
-    const record = JSON.parse(row.record) as MergeRecord
+    const record = recordOf(row)
     const { source } = record
     const back = { analyteId: source.id }
     inTransaction(db, () => {
-      db.insert(analyte).values(source).run()
+      db.insert(analyte)
+        .values({ ...source, separated: true })
+        .run()
       if (record.results.length > 0)
         db.update(result).set(back).where(inArray(result.id, record.results)).run()
       if (record.aliases.length > 0) {
@@ -221,6 +253,7 @@ export class MergeService {
       }
       restorePlaces(panelPlaces(db), record.panelItems, source.id, row.targetId)
       restorePlaces(reportBlockPlaces(db), record.reportBlocks ?? [], source.id, row.targetId)
+      restorePlaces(dictionaryPlaces(db), record.dictionaryLinks ?? [], source.id, row.targetId)
       db.delete(analyteMerge).where(eq(analyteMerge.id, mergeId)).run()
     })
     analytes.reindex(source.id)
@@ -238,9 +271,47 @@ export class MergeService {
       .all()
       .map((row) => ({
         id: row.id,
-        sourceName: (JSON.parse(row.record) as MergeRecord).source.name,
+        sourceName: recordOf(row).source.name,
         createdAt: row.createdAt,
+        reviewed: row.reviewed,
       }))
+  }
+
+  /** The merges nobody has looked at yet, by the analyte they went into, alphabetically. */
+  unreviewed(): UnreviewedMerge[] {
+    const { db, analytes } = this.deps
+    const rows = db
+      .select()
+      .from(analyteMerge)
+      .where(eq(analyteMerge.reviewed, false))
+      .orderBy(asc(analyteMerge.id))
+      .all()
+      .map((row) => ({ row, record: recordOf(row) }))
+    const aliases = new Map(
+      analytes.aliases([...new Set(rows.map(({ row }) => row.targetId))]).map((alias) => [alias.id, alias]),
+    )
+    return [...Map.groupBy(rows, ({ row }) => row.targetId)]
+      .map(([targetId, merges]) => ({
+        targetId,
+        targetName: analytes.find(targetId).name,
+        merged: merges.map(({ row, record }) => ({
+          mergeId: row.id,
+          name: record.source.name,
+          codes: labCodesOf(record.aliases.flatMap((id) => aliases.get(id) ?? [])),
+        })),
+      }))
+      .sort((a, b) => compareRussian(a.targetName, b.targetName))
+  }
+
+  /** Marks merges as looked at, or puts them back among those to look at. */
+  setReviewed(mergeIds: readonly number[], reviewed: boolean): void {
+    if (mergeIds.length === 0) return
+    this.deps.db
+      .update(analyteMerge)
+      .set({ reviewed })
+      .where(inArray(analyteMerge.id, [...mergeIds]))
+      .run()
+    dataChanged(this.deps.events, 'catalog')
   }
 
   /** Whether the target's own results (not the ones going back) are in the unit. */

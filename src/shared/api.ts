@@ -147,6 +147,8 @@ export interface AnalyteMerge {
   id: number
   sourceName: string
   createdAt: string
+  /** False for a merge the dictionary made that nobody has looked at yet. */
+  reviewed: boolean
 }
 
 export type ReferenceRule = Omit<InferSelectModel<typeof referenceRule>, 'createdAt' | 'expected'> & {
@@ -184,9 +186,23 @@ export interface UnknownUnit {
   analyteNames: string[]
 }
 
+/** Analytes the built-in dictionary merged into one on its own, which nobody has looked at yet. */
+export interface UnreviewedMerge {
+  /** The analyte they went into. */
+  targetId: number
+  targetName: string
+  merged: {
+    mergeId: number
+    name: string
+    /** The lab codes the merged analyte was imported by. */
+    codes: { labId: number | null; code: string }[]
+  }[]
+}
+
 /** What waits for the person after imports; the patient parts are about the current patient. */
 export interface MappingQueue {
   analytes: UnreviewedAnalyte[]
+  merges: UnreviewedMerge[]
   units: UnknownUnit[]
   /** Orders with results whose norm depends on a cycle phase nobody recorded. */
   phaseOrders: OrderSummary[]
@@ -403,6 +419,8 @@ export interface Api {
     setReviewed(analyteIds: number[], reviewed: boolean): Promise<void>
     /** Existing analytes that share words of the name with this one, the likeliest first. */
     suggestions(analyteId: number): Promise<MatchSuggestion[]>
+    /** Takes the dictionary's merges off the queue as looked at, or puts them back. */
+    setMergesReviewed(mergeIds: number[], reviewed: boolean): Promise<void>
   }
   analytes: {
     /** By name, synonym or lab code, ignoring case and ё; the patient's own analytes first. */
@@ -518,6 +536,8 @@ export interface SyncStats {
   /** Results the person corrected by hand; the lab's newer version was not applied over them. */
   resultsKeptEdited: number
   analytesCreated: number
+  /** New analytes the built-in dictionary knew: linked to their entry or merged into its analyte. */
+  analytesRecognized: number
   unknownUnits: number
   /** Orders of people nobody has said whose they are yet; they come in once someone does. */
   ordersWaiting: number

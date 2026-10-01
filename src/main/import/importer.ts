@@ -10,6 +10,7 @@ import { inTransaction } from '../db/transaction'
 import { dataChanged, type EventSink } from '../events'
 import type { RawOrder, RawResult } from '../lab/types'
 import type { AnalyteService } from '../services/analytes'
+import type { AnalyteDictionary } from '../services/dictionary'
 import type { OrderForms } from '../services/order-forms'
 import type { UnitService } from '../services/units'
 
@@ -32,6 +33,7 @@ export function emptyStats(): SyncStats {
     resultsUpdated: 0,
     resultsKeptEdited: 0,
     analytesCreated: 0,
+    analytesRecognized: 0,
     unknownUnits: 0,
     ordersWaiting: 0,
   }
@@ -70,8 +72,8 @@ function sameReport(stored: { rawHash: string | null }, rawPayload: string): boo
 /**
  * Turns orders as a lab reports them into stored orders and results. A repeated import changes
  * nothing that did not change at the lab, never duplicates an order, and never overwrites a
- * result the person corrected. Test codes it meets for the first time become new analytes that
- * wait in the review queue.
+ * result the person corrected. Test codes it meets for the first time become new analytes; those
+ * the built-in dictionary knows join their analyte, the rest wait in the review queue.
  */
 export class ImportService {
   constructor(
@@ -79,6 +81,7 @@ export class ImportService {
       db: Db
       units: UnitService
       analytes: AnalyteService
+      dictionary: AnalyteDictionary
       forms: OrderForms
       events: EventSink
     },
@@ -86,7 +89,15 @@ export class ImportService {
 
   importOrders(target: ImportTarget, orders: readonly RawOrder[]): SyncStats {
     const stats = emptyStats()
-    for (const order of orders) inTransaction(this.deps.db, () => this.importOrder(target, order, stats))
+    for (const order of orders) {
+      inTransaction(this.deps.db, () => {
+        const created = this.importOrder(target, order, stats)
+        // Once the whole order is in, so that the dictionary sees which analytes share it.
+        if (created.length === 0) return
+        const { linked, merged } = this.deps.dictionary.apply(created)
+        stats.analytesRecognized += linked + merged
+      })
+    }
     if (stats.ordersAdded + stats.ordersUpdated > 0) dataChanged(this.deps.events, 'orders', 'catalog')
     return stats
   }
@@ -119,7 +130,8 @@ export class ImportService {
       .get()
   }
 
-  private importOrder(target: ImportTarget, raw: RawOrder, stats: SyncStats): void {
+  /** Stores the order; returns the analytes it created. */
+  private importOrder(target: ImportTarget, raw: RawOrder, stats: SyncStats): number[] {
     const { db } = this.deps
     const existing = this.find(target.labId, raw.externalKey)
     const storedForms = existing ? this.deps.forms.of(existing.id) : []
@@ -136,7 +148,7 @@ export class ImportService {
           .run()
       }
       stats.ordersUnchanged += 1
-      return
+      return []
     }
 
     const fields = {
@@ -164,10 +176,19 @@ export class ImportService {
     stats[existing ? 'ordersUpdated' : 'ordersAdded'] += 1
     if (!sameForms) this.deps.forms.replace(orderId, forms)
 
-    for (const item of raw.results) this.importResult(target, orderId, item, stats)
+    const created: number[] = []
+    for (const item of raw.results) this.importResult(target, orderId, item, stats, created)
+    return created
   }
 
-  private importResult(target: ImportTarget, orderId: number, raw: RawResult, stats: SyncStats): void {
+  /** Stores the result; an analyte it creates for an unknown code joins `created`. */
+  private importResult(
+    target: ImportTarget,
+    orderId: number,
+    raw: RawResult,
+    stats: SyncStats,
+    created: number[],
+  ): void {
     const { db, units, analytes } = this.deps
     const read = readResult(raw)
     if (!read) return
@@ -189,6 +210,7 @@ export class ImportService {
         unitId,
       })
       stats.analytesCreated += 1
+      created.push(analyteRow.id)
     } else if (unitId !== null) {
       analytes.allowUnit(analyteRow.id, unitId)
     }

@@ -28,24 +28,32 @@ test('the catalog edits an analyte, its rules, merges and panels', async () => {
 
   const { app, window } = await launchApp(dataDir)
   try {
+    // The dictionary took Helix's TSH for KDL's.
     await window.getByRole('link', { name: 'Справочник' }).click()
-    await expect(window.getByRole('link', { name: 'Тиреотропный гормон' })).toBeVisible()
+    await expect(window.getByRole('link', { name: 'ТТГ', exact: true })).toBeVisible()
+    await expect(window.getByRole('link', { name: 'Тиреотропный гормон' })).toHaveCount(0)
     await snapshot(window, '14-catalog')
 
-    await window.getByRole('link', { name: 'Тиреотропный гормон' }).click()
+    await window.getByRole('link', { name: 'ТТГ', exact: true }).click()
     await expect(window.getByText('Референсы, которые присылали лаборатории')).toBeVisible()
-    await window.getByRole('button', { name: 'Создать правило' }).click()
+    // Helix's reference, the latest, comes first.
+    await window.getByRole('button', { name: 'Создать правило' }).first().click()
     await expect(window.getByRole('textbox', { name: 'Верхняя граница' })).toHaveValue('4,94')
     await window.getByRole('button', { name: 'Сохранить' }).last().click()
     await expect(window.getByRole('cell', { name: /0,35–4,94/ })).toBeVisible()
     await snapshot(window, '15-analyte-card')
 
+    await expect(window.getByText('справочником, не проверено')).toBeVisible()
+    await window.getByRole('button', { name: 'Разъединить' }).click()
+    await expect(window.getByText('Объединённые показатели')).toBeHidden()
+
+    // Split, they stay apart until the person merges them again.
     await window.getByRole('button', { name: 'Объединить с…' }).click()
-    await window.getByPlaceholder('Название, синоним или код').fill('ттг')
-    await window.getByRole('option', { name: 'ТТГ' }).click()
+    await window.getByPlaceholder('Название, синоним или код').fill('тиреотроп')
+    await window.getByRole('option', { name: 'Тиреотропный гормон' }).click()
     await window.getByRole('button', { name: 'Объединить', exact: true }).click()
     await expect(window.getByText('Объединённые показатели')).toBeVisible()
-    await expect(window.getByText('TSH-H')).toBeVisible()
+    await expect(window.getByText('TSH-K')).toBeVisible()
     await snapshot(window, '16-merged')
     await window.getByRole('button', { name: 'Разъединить' }).click()
     await expect(window.getByText('Объединённые показатели')).toBeHidden()

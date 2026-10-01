@@ -5,6 +5,7 @@ import { compareRussian, foldCase } from '@shared/domain/text'
 import type { Db } from '../db/client'
 import { analyte, analyteUnit, labOrder, referenceRule, result } from '../db/schema'
 import type { AnalyteService } from './analytes'
+import type { MergeService } from './merges'
 import type { OrderService } from './orders'
 import type { PatientService } from './patients'
 import type { ResultReader } from './results'
@@ -19,14 +20,16 @@ function words(name: string): string[] {
 }
 
 /**
- * What waits for the person after imports: analytes and unit spellings nobody has looked at,
- * orders whose norms need a cycle phase, and results the lab judged otherwise than the app.
+ * What waits for the person after imports: analytes, merges by the dictionary and unit spellings
+ * nobody has looked at, orders whose norms need a cycle phase, and results the lab judged
+ * otherwise than the app.
  */
 export class MappingService {
   constructor(
     private readonly deps: {
       db: Db
       analytes: AnalyteService
+      merges: MergeService
       units: UnitService
       orders: OrderService
       results: ResultReader
@@ -47,6 +50,7 @@ export class MappingService {
           codes,
           resultCount,
         })),
+      merges: this.deps.merges.unreviewed(),
       units: this.unknownUnits(),
       phaseOrders: this.phaseOrders(patientId),
       disagreements: this.deps.results.forPatient(patientId).filter((row) => row.read.labDisagrees),
@@ -56,7 +60,9 @@ export class MappingService {
   /**
    * Existing analytes a new one may be: they share words of the name with it, the more the
    * likelier, and a unit of the same kind counts too. Analytes that another code of the same lab
-   * already maps to are left out: a lab does not measure one thing under two codes.
+   * already maps to are left out: a lab does not measure one thing under two codes. Unlike the
+   * dictionary (`findEntry`), which merges on its own and so takes only an exact name, this only
+   * suggests, and so reaches further.
    */
   suggestions(analyteId: number): MatchSuggestion[] {
     const { analytes, units } = this.deps

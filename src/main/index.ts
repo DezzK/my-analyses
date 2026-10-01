@@ -80,10 +80,12 @@ async function start(): Promise<void> {
 
   const events = fanOut(windowEvents, backupOnDataChange(backups))
   const services = createServices({ db, events, attachmentsDir: dataPaths.attachments() })
-  const { patients, units, labs, people, importer } = services
+  const { patients, units, labs, people, importer, dictionary } = services
   patients.purgeRemoved()
   units.ensureBuiltins()
   labs.ensureBuiltins()
+  // Analytes imported before the dictionary knew them, or before it grew, join their entry.
+  dictionary.apply()
   const sync = new SyncService({
     db,
     labs,

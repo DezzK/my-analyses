@@ -78,7 +78,13 @@ describe('ImportService', () => {
 
   it('stores a new order, its results and a new analyte per test code', () => {
     const stats = importer.importOrders(target, [order(RESULTS)])
-    expect(stats).toMatchObject({ ordersAdded: 1, resultsAdded: 5, analytesCreated: 5, unknownUnits: 1 })
+    expect(stats).toMatchObject({
+      ordersAdded: 1,
+      resultsAdded: 5,
+      analytesCreated: 5,
+      analytesRecognized: 4,
+      unknownUnits: 1,
+    })
 
     const rows = db.select().from(result).all()
     const glucose = rows.find((r) => r.externalKey === GLUCOSE.labCode)
@@ -101,8 +107,11 @@ describe('ImportService', () => {
     ).toBe('uIU/mL')
 
     const protein = db.select().from(analyte).where(eq(analyte.name, 'Белок в моче')).get()
-    expect(protein).toMatchObject({ specimen: 'urine', valueKind: 'qualitative', reviewed: false })
+    expect(protein).toMatchObject({ specimen: 'urine', valueKind: 'qualitative' })
     expect(rows.find((r) => r.externalKey === '2.1.B1.1')?.rawValue).toBe('не обнаружено')
+    // The dictionary knows the rest; the antibodies, in a unit it does not know them by, wait.
+    const waiting = db.select().from(analyte).where(eq(analyte.reviewed, false)).all()
+    expect(waiting.map((row) => row.name)).toEqual(['Антитела'])
   })
 
   it('changes nothing when the lab reports the same order again', () => {

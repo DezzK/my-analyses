@@ -5,6 +5,7 @@ import type { EventSink } from '../events'
 import { ImportService } from '../import/importer'
 import { connectorFor } from '../lab/connectors'
 import { AnalyteService } from './analytes'
+import { AnalyteDictionary } from './dictionary'
 import { LabPeople } from './lab-people'
 import { LabService } from './labs'
 import { MappingService } from './mapping'
@@ -38,8 +39,9 @@ export function createServices(deps: {
   const analytes = new AnalyteService(db, events)
   const attachments = new AttachmentStore(deps.attachmentsDir)
   const forms = new OrderForms({ db, attachments })
-  const importer = new ImportService({ db, units, analytes, forms, events })
   const merges = new MergeService({ db, analytes, events })
+  const dictionary = new AnalyteDictionary({ db, analytes, units, merges })
+  const importer = new ImportService({ db, units, analytes, dictionary, forms, events })
   const rules = new RuleService({ db, units, events })
   const panels = new PanelService(db, events)
   const results = new ResultReader({ db, units, analytes, patients })
@@ -56,7 +58,7 @@ export function createServices(deps: {
     today,
   })
   const people = new LabPeople({ db, events, patients, orders })
-  const mapping = new MappingService({ db, analytes, units, orders, results, patients })
+  const mapping = new MappingService({ db, analytes, merges, units, orders, results, patients })
   const reports = new ReportService({ db, analytes, patients, events })
   return {
     units,
@@ -67,6 +69,7 @@ export function createServices(deps: {
     forms,
     importer,
     merges,
+    dictionary,
     rules,
     panels,
     results,

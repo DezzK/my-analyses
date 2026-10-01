@@ -53,7 +53,15 @@ and commits are English.
   bounds and qualitative words (`values.ts`), reference ranges (`references.ts`) — all under
   `src/shared/domain`.
 - Units: the built-in dictionary, spelling normalization and conversion (`src/shared/domain/units.ts`);
-  a unit's scale relates it to its dimension, molar mass bridges molar and mass concentrations.
+  a unit's scale relates it to its dimension, molar mass bridges molar and mass concentrations. Other
+  tables name a built-in unit by its `UnitCode`.
+- The built-in analyte dictionary: its entries — names, units, specimen, molar mass — in
+  `src/main/dictionary/entries.ts`; which entry an analyte is, by its names read word by word
+  (`nameKey`) and by its unit, specimen and kind of values (`findEntry`, `src/main/dictionary/match.ts`);
+  applying it — the first analyte of an entry is linked to it, later ones are merged into that one for
+  the person to confirm, never two with results in one order nor one the person split out
+  (`separated`) — `AnalyteDictionary` (`src/main/services/dictionary.ts`), after each imported order
+  and at every start.
 - Which reference applies and whether a value deviates: `chooseRule`, `evaluate` and `isDeviation` in
   `src/shared/domain/references.ts`; trimesters and other conditions: `src/shared/domain/conditions.ts`.
 - How a stored result is shown: its value in the chosen unit, the reference that applies (the lab's,
@@ -67,7 +75,8 @@ and commits are English.
   validates on a service's behalf; it shows the `UserError` the service throws.
 - Which spelling means which unit, the built-in units in the database, and mapping an unknown
   spelling onto a unit (or keeping it as its own): `UnitService`.
-- The review queue after imports: new analytes and what they may be merged with, unknown units,
+- The review queue after imports: new analytes and what they may be merged with, the dictionary's
+  merges, unknown units,
   orders whose norms need a cycle phase (`cycleOn`, `CYCLE_PHASE_CONDITIONS` in
   `src/shared/domain/conditions.ts`), results the lab judged otherwise: `MappingService`.
 - Labs, their chart markers (`LAB_MARKERS`), the built-in labs and which connector serves a lab
@@ -84,9 +93,10 @@ and commits are English.
 - A typed date that must be real and not in the future: `assertPastDate`; a typed name, trimmed and
   neither empty nor too long: `typedName` (both in `src/main/services/validation.ts`). The unit an
   analyte is shown in: `shownUnitId`.
-- Merging one analyte into another and undoing it: `MergeService`; an analyte's places in named
-  lists (panel items, report blocks) move and come back by one rule, `movePlaces` and
-  `restorePlaces` over a `Places` table. Reference rules and their consistency (one rule per lab,
+- Merging one analyte into another and undoing it, and which merges wait for the person to look at
+  them (`reviewed`): `MergeService`; an analyte's places in named lists (panel items, report blocks,
+  dictionary links) move and come back by one rule, `movePlaces` and `restorePlaces` over a `Places`
+  table. Reference rules and their consistency (one rule per lab,
   sex, condition and age): `RuleService`; panels, and finding them by name: `PanelService`. A panel's
   page shows all its analytes' results (`src/renderer/src/analytes/PanelPage.tsx`).
 - Report templates (blocks as `report_block` rows, layout as JSON) and what a report must satisfy
@@ -117,7 +127,8 @@ and commits are English.
 - Age limits of rules stated in years, months or days, and back: `ageToDays`, `daysToAge`
   (`src/shared/domain/age.ts`).
 - Turning a lab's report into orders and results (dedup, protecting hand edits, new analytes for
-  unknown codes): `ImportService` (`src/main/import/importer.ts`). Connectors only return
+  unknown codes, handed to the dictionary once their order is in): `ImportService`
+  (`src/main/import/importer.ts`). Connectors only return
   `RawOrder`s and their forms (`LabConnector` in `src/main/lab/types.ts`, one file per lab in
   `src/main/lab/connectors/`); a site that refreshes its own session names a quiet `syncUrl` for
   syncs and a `detectLogin` for the login window. What several labs' pages share — the VPN refusal
@@ -154,7 +165,8 @@ and commits are English.
   (`useResultsPeriod`, `useResultsLook`) and shows each analyte through `ResultsView`
   (`src/renderer/src/results/ResultsView.tsx`); which results a view, a report included, shows:
   `collectedBetween`, `isPlottable` (`src/renderer/src/results/shown.ts`).
-  Labs and units by id: `useLabMap`, `useUnits`. Links with route params: `AnchorLink`,
+  Labs and units by id: `useLabMap`, `useUnits`; lab codes after their labs' names: `labCodesText`
+  (`src/renderer/src/format.ts`). Links with route params: `AnchorLink`,
   `ButtonLink` (`src/renderer/src/components/links.tsx`). Dates are typed in `DateField`. Numbers typed into fields: `readDecimal`
   (`src/renderer/src/input.ts`). An action that can be undone reports itself with `notifyUndoable`.
   The platform check: `IS_MAC` (`src/renderer/src/platform.ts`).

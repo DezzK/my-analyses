@@ -31,7 +31,7 @@ import { api } from '../api'
 import { AnalytePicker } from '../components/AnalytePicker'
 import { AnchorLink } from '../components/links'
 import { PageHeader } from '../components/PageHeader'
-import { plural } from '../format'
+import { labCodesText, plural } from '../format'
 import { ANALYTE_FORMS, SPECIMEN_LABELS } from '../labels'
 import { notifyError } from '../notify'
 import { useCatalog, useLabMap, usePanels, useUnits } from '../queries'
@@ -146,9 +146,7 @@ function AnalyteList() {
                   </Table.Td>
                   <Table.Td>
                     <Text size="xs" c="dimmed">
-                      {entry.codes
-                        .map((c) => `${labs.get(c.labId ?? -1)?.name ?? ''} ${c.code}`.trim())
-                        .join(', ')}
+                      {labCodesText(entry.codes, labs)}
                     </Text>
                   </Table.Td>
                   <Table.Td ta="right" className="tabular">

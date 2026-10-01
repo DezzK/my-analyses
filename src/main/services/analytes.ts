@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, sql } from 'drizzle-orm'
+import { and, count, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { AnalyteCard, AnalyteHit, AnalyteInput, AnalyteSummary, CatalogEntry } from '@shared/api'
 import { SPECIMENS, VALUE_KINDS, type Specimen, type ValueKind } from '@shared/domain/enums'
 import { inferSpecimen } from '@shared/domain/specimens'
@@ -30,6 +30,13 @@ export function searchNeedle(query: string): string {
 /** Whether a name, a synonym or a code holds what a search looks for, anywhere in it. */
 export function holdsNeedle(text: string, needle: string): boolean {
   return normalizeSearchText(text).includes(needle)
+}
+
+/** The lab codes among aliases, each with its lab: what imports know an analyte by. */
+export function labCodesOf(aliases: readonly AnalyteAliasRow[]): { labId: number | null; code: string }[] {
+  return aliases.flatMap((alias) =>
+    alias.labCode === null ? [] : [{ labId: alias.labId, code: alias.labCode }],
+  )
 }
 
 /** The unit an analyte is shown in: the one the person chose, else its canonical unit. */
@@ -110,7 +117,7 @@ export class AnalyteService {
         reviewed: row.reviewed,
         canonicalUnitId: row.canonicalUnitId,
         resultCount: counts.get(row.id) ?? 0,
-        codes: (codes.get(row.id) ?? []).map((a) => ({ labId: a.labId, code: a.labCode ?? '' })),
+        codes: labCodesOf(codes.get(row.id) ?? []),
       }))
   }
 
@@ -298,6 +305,22 @@ export class AnalyteService {
     })
   }
 
+  /**
+   * An analyte the built-in dictionary knows: it leaves the review queue, and takes the molar mass
+   * its units convert by unless it has one.
+   */
+  recognize(analyteId: number, molarMass: number | null): void {
+    this.db.update(analyte).set({ reviewed: true }).where(eq(analyte.id, analyteId)).run()
+    if (molarMass !== null) {
+      this.db
+        .update(analyte)
+        .set({ molarMass })
+        .where(and(eq(analyte.id, analyteId), isNull(analyte.molarMass)))
+        .run()
+    }
+    dataChanged(this.events, 'catalog')
+  }
+
   /** Takes analytes off the review queue (`reviewed`), or puts them back on it. */
   setReviewed(ids: readonly number[], reviewed: boolean): void {
     if (ids.length === 0) return
@@ -336,7 +359,8 @@ export class AnalyteService {
 
   /**
    * A new analyte for a test code an import meets for the first time; it waits in the review
-   * queue (`reviewed = false`) until the person accepts it or merges it into an existing one.
+   * queue (`reviewed = false`) until the dictionary or the person accepts it or merges it into an
+   * existing one.
    */
   createFromLab(input: {
     labId: number

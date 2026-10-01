@@ -93,6 +93,7 @@ export function createApi(s: Services): Api {
       queue: async (patientId) => s.mapping.queue(patientId),
       setReviewed: async (analyteIds, reviewed) => s.analytes.setReviewed(analyteIds, reviewed),
       suggestions: async (analyteId) => s.mapping.suggestions(analyteId),
+      setMergesReviewed: async (mergeIds, reviewed) => s.merges.setReviewed(mergeIds, reviewed),
     },
     analytes: {
       search: async (query, patientId) => s.analytes.search(query, patientId),

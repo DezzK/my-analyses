@@ -18,7 +18,11 @@ function raw(
   return { labCode, labName, value, printed: `${value} ${unitText}`, reference, flag: null }
 }
 
-/** Imports one order per lab: KDL's TSH and ferritin, Helix's TSH under its own code. */
+/**
+ * Imports one order per lab: KDL's osteoprotegerin and ferritin, Helix's osteoprotegerin under its
+ * own code and name. The built-in dictionary does not know osteoprotegerin, so the two stay apart
+ * until the person merges them.
+ */
 function seed(app: App) {
   const helixId = app.labs.list().find((lab) => lab.name === 'Хеликс')?.id ?? -1
   const target = { labAccountId: null, patientId: app.anna.id, connectorVersion: 'test' }
@@ -27,7 +31,7 @@ function seed(app: App) {
       externalKey: 'k1',
       collectedOn: '2026-08-08',
       results: [
-        raw('TSH-K', 'ТТГ', '2.1', 'мкМЕ/мл', '0.4-4.0 мкМЕ/мл'),
+        raw('OPG-K', 'ОПГ', '2.1', 'пмоль/л', '0.4-4.0 пмоль/л'),
         raw('FER-K', 'Ферритин', '40', 'нг/мл', '10-120 нг/мл'),
       ],
       rawPayload: 'k1',
@@ -38,14 +42,14 @@ function seed(app: App) {
     {
       externalKey: 'h1',
       collectedOn: '2026-09-01',
-      results: [raw('TSH-H', 'Тиреотропный гормон', '2.4', 'мкМЕ/мл', '0.35-4.94 мкМЕ/мл')],
+      results: [raw('OPG-H', 'Остеопротегерин', '2.4', 'пмоль/л', '0.35-4.94 пмоль/л')],
       rawPayload: 'h1',
       forms: [],
     },
   ])
   const id = (name: string) => app.db.select().from(analyte).where(eq(analyte.name, name)).get()?.id ?? -1
   const unitId = (code: string) => app.db.select().from(unit).where(eq(unit.code, code)).get()?.id ?? -1
-  return { helixId, kdlTsh: id('ТТГ'), helixTsh: id('Тиреотропный гормон'), ferritin: id('Ферритин'), unitId }
+  return { helixId, kdlOpg: id('ОПГ'), helixOpg: id('Остеопротегерин'), ferritin: id('Ферритин'), unitId }
 }
 
 function input(overrides: Partial<AnalyteInput> = {}): AnalyteInput {
@@ -72,8 +76,8 @@ describe('the catalog', () => {
 
   it('lists analytes alphabetically with their result counts and lab codes', () => {
     expect(app.analytes.list().map((a) => [a.name, a.resultCount, a.codes.map((c) => c.code)])).toEqual([
-      ['Тиреотропный гормон', 1, ['TSH-H']],
-      ['ТТГ', 1, ['TSH-K']],
+      ['ОПГ', 1, ['OPG-K']],
+      ['Остеопротегерин', 1, ['OPG-H']],
       ['Ферритин', 1, ['FER-K']],
     ])
   })
@@ -92,7 +96,7 @@ describe('the catalog', () => {
   })
 
   it('keeps the lab codes imports rely on', () => {
-    const code = app.analytes.card(ids.kdlTsh).aliases.find((a) => a.labCode === 'TSH-K')
+    const code = app.analytes.card(ids.kdlOpg).aliases.find((a) => a.labCode === 'OPG-K')
     expect(() => app.analytes.removeAlias(code?.id ?? -1)).toThrow('Код лаборатории')
   })
 
@@ -138,70 +142,70 @@ describe('merging analytes', () => {
   })
 
   it('moves results, codes, rules and panel places into the target, and puts them back', () => {
-    const uiu = app.analytes.card(ids.helixTsh).canonicalUnitId
+    const pmol = app.analytes.card(ids.helixOpg).canonicalUnitId
     const rule = app.rules.create(
-      ids.helixTsh,
-      rule_({ labId: ids.helixId, low: 0.35, high: 4.94, unitId: uiu }),
+      ids.helixOpg,
+      rule_({ labId: ids.helixId, low: 0.35, high: 4.94, unitId: pmol }),
     )
-    const panel = app.panels.save(null, 'Щитовидная железа', [ids.helixTsh, ids.ferritin])
-    const helixResult = app.db.select().from(result).where(eq(result.analyteId, ids.helixTsh)).get()
+    const panel = app.panels.save(null, 'Кости', [ids.helixOpg, ids.ferritin])
+    const helixResult = app.db.select().from(result).where(eq(result.analyteId, ids.helixOpg)).get()
 
-    const mergeId = app.merges.merge(ids.helixTsh, ids.kdlTsh)
-    expect(app.analytes.get(ids.helixTsh)).toBeUndefined()
-    expect(app.analytes.findByLabCode(ids.helixId, 'TSH-H')?.id).toBe(ids.kdlTsh)
-    expect(app.analytes.search('тиреотропный', null).map((h) => h.id)).toEqual([ids.kdlTsh])
-    expect(app.db.select().from(result).where(eq(result.analyteId, ids.kdlTsh)).all()).toHaveLength(2)
-    expect(app.rules.list(ids.kdlTsh).map((r) => r.id)).toEqual([rule.id])
-    expect(app.panels.list()[0]?.analyteIds).toEqual([ids.kdlTsh, ids.ferritin])
-    expect(app.merges.list(ids.kdlTsh)).toEqual([
-      expect.objectContaining({ sourceName: 'Тиреотропный гормон' }),
+    const mergeId = app.merges.merge(ids.helixOpg, ids.kdlOpg)
+    expect(app.analytes.get(ids.helixOpg)).toBeUndefined()
+    expect(app.analytes.findByLabCode(ids.helixId, 'OPG-H')?.id).toBe(ids.kdlOpg)
+    expect(app.analytes.search('остеопротегерин', null).map((h) => h.id)).toEqual([ids.kdlOpg])
+    expect(app.db.select().from(result).where(eq(result.analyteId, ids.kdlOpg)).all()).toHaveLength(2)
+    expect(app.rules.list(ids.kdlOpg).map((r) => r.id)).toEqual([rule.id])
+    expect(app.panels.list()[0]?.analyteIds).toEqual([ids.kdlOpg, ids.ferritin])
+    expect(app.merges.list(ids.kdlOpg)).toEqual([
+      expect.objectContaining({ sourceName: 'Остеопротегерин', reviewed: true }),
     ])
 
     app.merges.unmerge(mergeId)
-    expect(app.analytes.get(ids.helixTsh)?.name).toBe('Тиреотропный гормон')
+    expect(app.analytes.get(ids.helixOpg)?.name).toBe('Остеопротегерин')
     expect(
       app.db
         .select()
         .from(result)
         .where(eq(result.id, helixResult?.id ?? -1))
         .get()?.analyteId,
-    ).toBe(ids.helixTsh)
-    expect(app.analytes.findByLabCode(ids.helixId, 'TSH-H')?.id).toBe(ids.helixTsh)
-    expect(app.rules.list(ids.helixTsh).map((r) => r.id)).toEqual([rule.id])
-    expect(app.panels.list()[0]?.analyteIds).toEqual([ids.helixTsh, ids.ferritin])
-    expect(app.merges.list(ids.kdlTsh)).toEqual([])
+    ).toBe(ids.helixOpg)
+    expect(app.analytes.findByLabCode(ids.helixId, 'OPG-H')?.id).toBe(ids.helixOpg)
+    expect(app.rules.list(ids.helixOpg).map((r) => r.id)).toEqual([rule.id])
+    expect(app.panels.list()[0]?.analyteIds).toEqual([ids.helixOpg, ids.ferritin])
+    expect(app.merges.list(ids.kdlOpg)).toEqual([])
   })
 
   it('drops the duplicate panel place and gives it back on undo', () => {
-    app.panels.save(null, 'ТТГ дважды', [ids.kdlTsh, ids.helixTsh])
-    const mergeId = app.merges.merge(ids.helixTsh, ids.kdlTsh)
-    expect(app.panels.list()[0]?.analyteIds).toEqual([ids.kdlTsh])
+    app.panels.save(null, 'ОПГ дважды', [ids.kdlOpg, ids.helixOpg])
+    const mergeId = app.merges.merge(ids.helixOpg, ids.kdlOpg)
+    expect(app.panels.list()[0]?.analyteIds).toEqual([ids.kdlOpg])
     app.merges.unmerge(mergeId)
-    expect(app.panels.list()[0]?.analyteIds).toEqual([ids.kdlTsh, ids.helixTsh])
+    expect(app.panels.list()[0]?.analyteIds).toEqual([ids.kdlOpg, ids.helixOpg])
   })
 
   it('moves report blocks like panel places, each shown as it was', () => {
     const layout = { chartsPerRow: 1 } as const
     const both = app.reports.saveTemplate(
       null,
-      'ТТГ дважды',
+      'ОПГ дважды',
       [
-        { analyteId: ids.kdlTsh, view: 'table', breakAfter: false },
-        { analyteId: ids.helixTsh, view: 'chart', breakAfter: true },
+        { analyteId: ids.kdlOpg, view: 'table', breakAfter: false },
+        { analyteId: ids.helixOpg, view: 'chart', breakAfter: true },
       ],
       layout,
     )
     const helix = app.reports.saveTemplate(
       null,
       'Хеликс',
-      [{ analyteId: ids.helixTsh, view: 'chart', breakAfter: true }],
+      [{ analyteId: ids.helixOpg, view: 'chart', breakAfter: true }],
       layout,
     )
     const blocksOf = (id: number) => app.reports.templates().find((t) => t.id === id)?.blocks
 
-    const mergeId = app.merges.merge(ids.helixTsh, ids.kdlTsh)
-    expect(blocksOf(both.id)).toEqual([{ analyteId: ids.kdlTsh, view: 'table', breakAfter: false }])
-    expect(blocksOf(helix.id)).toEqual([{ analyteId: ids.kdlTsh, view: 'chart', breakAfter: true }])
+    const mergeId = app.merges.merge(ids.helixOpg, ids.kdlOpg)
+    expect(blocksOf(both.id)).toEqual([{ analyteId: ids.kdlOpg, view: 'table', breakAfter: false }])
+    expect(blocksOf(helix.id)).toEqual([{ analyteId: ids.kdlOpg, view: 'chart', breakAfter: true }])
 
     app.merges.unmerge(mergeId)
     expect(blocksOf(both.id)).toEqual(both.blocks)
@@ -209,28 +213,28 @@ describe('merging analytes', () => {
   })
 
   it('undoes a merge whose panel or template is gone since', () => {
-    const panel = app.panels.save(null, 'ТТГ дважды', [ids.kdlTsh, ids.helixTsh])
+    const panel = app.panels.save(null, 'ОПГ дважды', [ids.kdlOpg, ids.helixOpg])
     const template = app.reports.saveTemplate(
       null,
-      'ТТГ дважды',
+      'ОПГ дважды',
       [
-        { analyteId: ids.kdlTsh, view: 'both', breakAfter: false },
-        { analyteId: ids.helixTsh, view: 'both', breakAfter: false },
+        { analyteId: ids.kdlOpg, view: 'both', breakAfter: false },
+        { analyteId: ids.helixOpg, view: 'both', breakAfter: false },
       ],
       { chartsPerRow: 1 },
     )
-    const mergeId = app.merges.merge(ids.helixTsh, ids.kdlTsh)
+    const mergeId = app.merges.merge(ids.helixOpg, ids.kdlOpg)
     app.panels.remove(panel.id)
     app.reports.removeTemplate(template.id)
 
     app.merges.unmerge(mergeId)
-    expect(app.analytes.get(ids.helixTsh)?.name).toBe('Тиреотропный гормон')
+    expect(app.analytes.get(ids.helixOpg)?.name).toBe('Остеопротегерин')
     expect(app.panels.list()).toEqual([])
     expect(app.reports.templates()).toEqual([])
   })
 
   it('undoes a merge recorded before report templates kept their blocks as rows', () => {
-    const mergeId = app.merges.merge(ids.helixTsh, ids.kdlTsh)
+    const mergeId = app.merges.merge(ids.helixOpg, ids.kdlOpg)
     const merge = eq(analyteMerge.id, mergeId)
     const { reportBlocks: _, ...older } = JSON.parse(
       app.db.select().from(analyteMerge).where(merge).get()?.record ?? '{}',
@@ -242,11 +246,11 @@ describe('merging analytes', () => {
       .run()
 
     app.merges.unmerge(mergeId)
-    expect(app.analytes.get(ids.helixTsh)?.name).toBe('Тиреотропный гормон')
+    expect(app.analytes.get(ids.helixOpg)?.name).toBe('Остеопротегерин')
   })
 
   it('refuses to merge an analyte into itself', () => {
-    expect(() => app.merges.merge(ids.kdlTsh, ids.kdlTsh)).toThrow('с самим собой')
+    expect(() => app.merges.merge(ids.kdlOpg, ids.kdlOpg)).toThrow('с самим собой')
   })
 })
 
@@ -269,45 +273,45 @@ function rule_(overrides: Partial<RuleInput>): RuleInput {
 describe('reference rules', () => {
   let app: App
   let ids: ReturnType<typeof seed>
-  let uiu: number | null
+  let pmol: number | null
 
   beforeEach(() => {
     app = createTestServices()
     ids = seed(app)
-    uiu = app.analytes.card(ids.kdlTsh).canonicalUnitId
+    pmol = app.analytes.card(ids.kdlOpg).canonicalUnitId
   })
 
   it('refuses a second rule for the same lab, sex, condition and ages', () => {
-    const adults = { ageFromDays: ageToDays(18, 'years'), low: 0.4, high: 4, unitId: uiu }
-    app.rules.create(ids.kdlTsh, rule_(adults))
+    const adults = { ageFromDays: ageToDays(18, 'years'), low: 0.4, high: 4, unitId: pmol }
+    app.rules.create(ids.kdlOpg, rule_(adults))
     expect(() =>
-      app.rules.create(ids.kdlTsh, rule_({ ...adults, ageFromDays: ageToDays(30, 'years') })),
+      app.rules.create(ids.kdlOpg, rule_({ ...adults, ageFromDays: ageToDays(30, 'years') })),
     ).toThrow('уже есть')
     // A child's range, a condition or a lab's own rule do not clash with it.
-    app.rules.create(ids.kdlTsh, rule_({ ...adults, ageFromDays: null, ageToDays: ageToDays(18, 'years') }))
-    app.rules.create(ids.kdlTsh, rule_({ ...adults, condition: 'pregnancy_t1', high: 2.5 }))
-    const own = app.rules.create(ids.kdlTsh, rule_({ ...adults, labId: app.kdlId }))
+    app.rules.create(ids.kdlOpg, rule_({ ...adults, ageFromDays: null, ageToDays: ageToDays(18, 'years') }))
+    app.rules.create(ids.kdlOpg, rule_({ ...adults, condition: 'pregnancy_t1', high: 2.5 }))
+    const own = app.rules.create(ids.kdlOpg, rule_({ ...adults, labId: app.kdlId }))
     // A rule does not clash with itself when edited.
     app.rules.update(own.id, rule_({ ...adults, labId: app.kdlId, high: 4.2 }))
-    expect(app.rules.list(ids.kdlTsh)).toHaveLength(4)
+    expect(app.rules.list(ids.kdlOpg)).toHaveLength(4)
   })
 
   it('checks bounds, units and conditions', () => {
-    const bad = (overrides: Partial<RuleInput>) => () => app.rules.create(ids.kdlTsh, rule_(overrides))
+    const bad = (overrides: Partial<RuleInput>) => () => app.rules.create(ids.kdlOpg, rule_(overrides))
     expect(bad({})).toThrow('границы нормы или ожидаемый ответ')
-    expect(bad({ low: 5, high: 1, unitId: uiu })).toThrow('Нижняя граница больше верхней')
+    expect(bad({ low: 5, high: 1, unitId: pmol })).toThrow('Нижняя граница больше верхней')
     expect(bad({ low: 1 })).toThrow('Укажите единицу')
     expect(bad({ low: 1, unitId: ids.unitId('g/L') })).toThrow('одной из единиц показателя')
-    expect(bad({ low: 1, unitId: uiu, sex: 'male', condition: 'postmenopause' })).toThrow('только у женщин')
-    expect(bad({ low: 1, unitId: uiu, ageFromDays: 100, ageToDays: 10 })).toThrow('«от» должен быть меньше')
+    expect(bad({ low: 1, unitId: pmol, sex: 'male', condition: 'postmenopause' })).toThrow('только у женщин')
+    expect(bad({ low: 1, unitId: pmol, ageFromDays: 100, ageToDays: 10 })).toThrow('«от» должен быть меньше')
     // An expected answer carries no unit.
-    const qualitative = app.rules.create(ids.kdlTsh, rule_({ expected: 'negative', unitId: uiu }))
+    const qualitative = app.rules.create(ids.kdlOpg, rule_({ expected: 'negative', unitId: pmol }))
     expect(qualitative.unitId).toBeNull()
   })
 
   it("offers the labs' own references as rules to start from", () => {
-    expect(app.rules.labReferences(ids.kdlTsh)).toEqual([
-      expect.objectContaining({ labId: app.kdlId, low: 0.4, high: 4, unitId: uiu, count: 1 }),
+    expect(app.rules.labReferences(ids.kdlOpg)).toEqual([
+      expect.objectContaining({ labId: app.kdlId, low: 0.4, high: 4, unitId: pmol, count: 1 }),
     ])
   })
 })
@@ -322,18 +326,18 @@ describe('panels', () => {
   })
 
   it('keeps the order of analytes, and names unique', () => {
-    const saved = app.panels.save(null, 'Щитовидная железа', [ids.ferritin, ids.kdlTsh, ids.ferritin])
-    expect(saved.analyteIds).toEqual([ids.ferritin, ids.kdlTsh])
-    expect(() => app.panels.save(null, 'щитовидная железа', [ids.kdlTsh])).toThrow('уже есть')
+    const saved = app.panels.save(null, 'Щитовидная железа', [ids.ferritin, ids.kdlOpg, ids.ferritin])
+    expect(saved.analyteIds).toEqual([ids.ferritin, ids.kdlOpg])
+    expect(() => app.panels.save(null, 'щитовидная железа', [ids.kdlOpg])).toThrow('уже есть')
     expect(() => app.panels.save(null, 'Пустой', [])).toThrow('хотя бы один')
-    app.panels.save(saved.id, 'Щитовидная железа', [ids.kdlTsh])
-    expect(app.panels.list()).toEqual([{ id: saved.id, name: 'Щитовидная железа', analyteIds: [ids.kdlTsh] }])
+    app.panels.save(saved.id, 'Щитовидная железа', [ids.kdlOpg])
+    expect(app.panels.list()).toEqual([{ id: saved.id, name: 'Щитовидная железа', analyteIds: [ids.kdlOpg] }])
     app.panels.remove(saved.id)
     expect(app.panels.list()).toEqual([])
   })
 
   it('are found by part of the name, as analytes are', () => {
-    const thyroid = app.panels.save(null, 'Щитовидная железа', [ids.kdlTsh])
+    const thyroid = app.panels.save(null, 'Щитовидная железа', [ids.kdlOpg])
     app.panels.save(null, 'Ёмкость железа', [ids.ferritin])
     expect(app.panels.search('щитов').map((p) => p.id)).toEqual([thyroid.id])
     expect(app.panels.search(' ЕМКОСТЬ ').map((p) => p.name)).toEqual(['Ёмкость железа'])

@@ -15,12 +15,12 @@ import {
   Text,
 } from '@mantine/core'
 import { IconChecks } from '@tabler/icons-react'
-import type { MappingQueue, OrderSummary, UnknownUnit, UnreviewedAnalyte } from '@shared/api'
+import type { MappingQueue, OrderSummary, UnknownUnit, UnreviewedAnalyte, UnreviewedMerge } from '@shared/api'
 import { CYCLE_PHASES, type CyclePhase } from '@shared/domain/enums'
 import { api } from '../api'
 import { AnchorLink } from '../components/links'
 import { PageHeader } from '../components/PageHeader'
-import { formatDate, plural } from '../format'
+import { formatDate, labCodesText, plural } from '../format'
 import { CYCLE_PHASE_LABELS, LAB_FLAG_LABELS } from '../labels'
 import { notifyError, notifyUndoable } from '../notify'
 import { useCurrentPatient } from '../patients/current'
@@ -31,7 +31,9 @@ import { ICON_SIZE, TITLE_WEIGHT } from '../theme'
 
 /** How many things wait in the queue, for the navigation badge. */
 export function pendingCount(queue: MappingQueue | undefined): number {
-  return queue ? queue.analytes.length + queue.units.length + queue.phaseOrders.length : 0
+  return queue
+    ? queue.analytes.length + queue.merges.length + queue.units.length + queue.phaseOrders.length
+    : 0
 }
 
 export function MappingPage() {
@@ -60,12 +62,16 @@ export function MappingPage() {
       <Tabs defaultValue="analytes" keepMounted={false}>
         <Tabs.List mb="md">
           <Tabs.Tab value="analytes">{tab('Новые показатели', queue.analytes.length)}</Tabs.Tab>
+          <Tabs.Tab value="merges">{tab('Объединения', queue.merges.length)}</Tabs.Tab>
           <Tabs.Tab value="units">{tab('Единицы', queue.units.length)}</Tabs.Tab>
           <Tabs.Tab value="phases">{tab('Фаза цикла', queue.phaseOrders.length)}</Tabs.Tab>
           <Tabs.Tab value="disagreements">{tab('Расхождения', queue.disagreements.length)}</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="analytes">
           <NewAnalytes analytes={queue.analytes} />
+        </Tabs.Panel>
+        <Tabs.Panel value="merges">
+          <DictionaryMerges merges={queue.merges} />
         </Tabs.Panel>
         <Tabs.Panel value="units">
           <UnknownUnits units={queue.units} />
@@ -92,28 +98,37 @@ function Nothing({ children }: { children: string }) {
   )
 }
 
+/** Takes things off the queue as looked at, with an undo that puts them back on it. */
+function markReviewed(
+  setReviewed: (ids: number[], reviewed: boolean) => Promise<void>,
+  ids: number[],
+  title: string,
+) {
+  return setReviewed(ids, true)
+    .then(() =>
+      notifyUndoable({ title, undoLabel: 'Вернуть в очередь', undo: () => setReviewed(ids, false) }),
+    )
+    .catch(notifyError)
+}
+
 function NewAnalytes({ analytes }: { analytes: UnreviewedAnalyte[] }) {
   const labs = useLabMap()
   const units = useUnits()
   if (analytes.length === 0) return <Nothing>Все показатели проверены.</Nothing>
   const ids = analytes.map((a) => a.id)
   const acceptAll = () =>
-    api.mapping
-      .setReviewed(ids, true)
-      .then(() =>
-        notifyUndoable({
-          title: `${ids.length} ${plural(ids.length, ['показатель принят', 'показателя приняты', 'показателей принято'])}`,
-          undoLabel: 'Вернуть в очередь',
-          undo: () => api.mapping.setReviewed(ids, false),
-        }),
-      )
-      .catch(notifyError)
+    markReviewed(
+      api.mapping.setReviewed,
+      ids,
+      `${ids.length} ${plural(ids.length, ['показатель принят', 'показателя приняты', 'показателей принято'])}`,
+    )
   return (
     <Card>
       <Group justify="space-between" mb="md" wrap="nowrap">
         <Text size="sm" c="dimmed">
-          Импорт сам заводит показатель для каждого нового кода лаборатории. Показатели первой лаборатории
-          можно принять разом; показатель другой лаборатории лучше объединить с уже знакомым.
+          Импорт сам заводит показатель для каждого нового кода лаборатории, а знакомые встроенному
+          справочнику принимает и объединяет сам. Здесь — те, которых справочник не знает: показатели первой
+          лаборатории можно принять разом, показатель другой лаборатории лучше объединить с уже знакомым.
         </Text>
         <Button variant="light" onClick={() => void acceptAll()} style={{ flex: 'none' }}>
           Принять все ({analytes.length})
@@ -140,7 +155,7 @@ function NewAnalytes({ analytes }: { analytes: UnreviewedAnalyte[] }) {
                 </Table.Td>
                 <Table.Td>
                   <Text size="xs" c="dimmed">
-                    {a.codes.map((c) => `${labs.get(c.labId ?? -1)?.name ?? ''} ${c.code}`.trim()).join(', ')}
+                    {labCodesText(a.codes, labs)}
                   </Text>
                 </Table.Td>
                 <Table.Td className="nowrap">{unitText(a.unitId, units)}</Table.Td>
@@ -156,6 +171,83 @@ function NewAnalytes({ analytes }: { analytes: UnreviewedAnalyte[] }) {
                       onClick={() => api.mapping.setReviewed([a.id], true).catch(notifyError)}
                     >
                       Принять
+                    </Button>
+                  </Group>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
+    </Card>
+  )
+}
+
+/** Analytes of different labs the dictionary took for one, each a click away from being split. */
+function DictionaryMerges({ merges }: { merges: UnreviewedMerge[] }) {
+  const labs = useLabMap()
+  if (merges.length === 0) return <Nothing>Все объединения проверены.</Nothing>
+  /** Confirms what went into each of `groups`; one group, one analyte, counts as one merge. */
+  const confirm = (groups: UnreviewedMerge[]) =>
+    markReviewed(
+      api.mapping.setMergesReviewed,
+      groups.flatMap((group) => group.merged.map((m) => m.mergeId)),
+      `${groups.length} ${plural(groups.length, ['объединение принято', 'объединения приняты', 'объединений принято'])}`,
+    )
+  return (
+    <Card>
+      <Group justify="space-between" mb="md" wrap="nowrap">
+        <Text size="sm" c="dimmed">
+          Встроенный справочник узнал эти показатели разных лабораторий и объединил их сам. Если показатели на
+          самом деле разные, разъедините их — справочник больше не будет их объединять.
+        </Text>
+        <Button variant="light" onClick={() => void confirm(merges)} style={{ flex: 'none' }}>
+          Всё верно ({merges.length})
+        </Button>
+      </Group>
+      <Table.ScrollContainer minWidth={720} maxHeight={600}>
+        <Table verticalSpacing={6} stickyHeader>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Показатель</Table.Th>
+              <Table.Th>Объединён с</Table.Th>
+              <Table.Th />
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {merges.map((group) => (
+              <Table.Tr key={group.targetId}>
+                <Table.Td style={{ verticalAlign: 'top' }}>
+                  <AnchorLink to="/catalog/$analyteId" params={{ analyteId: String(group.targetId) }}>
+                    {group.targetName}
+                  </AnchorLink>
+                </Table.Td>
+                <Table.Td>
+                  <Stack gap={4}>
+                    {group.merged.map((merged) => (
+                      <Group key={merged.mergeId} justify="space-between" wrap="nowrap">
+                        <Text size="sm">
+                          {merged.name}{' '}
+                          <Text span size="xs" c="dimmed">
+                            {labCodesText(merged.codes, labs)}
+                          </Text>
+                        </Text>
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="gray"
+                          onClick={() => api.analytes.unmerge(merged.mergeId).catch(notifyError)}
+                        >
+                          Разъединить
+                        </Button>
+                      </Group>
+                    ))}
+                  </Stack>
+                </Table.Td>
+                <Table.Td style={{ verticalAlign: 'top' }}>
+                  <Group justify="flex-end">
+                    <Button size="xs" variant="subtle" onClick={() => void confirm([group])}>
+                      Верно
                     </Button>
                   </Group>
                 </Table.Td>

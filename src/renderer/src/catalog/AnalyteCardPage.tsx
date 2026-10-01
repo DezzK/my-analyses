@@ -512,6 +512,7 @@ function MergesCard({ analyteId }: { analyteId: number }) {
               {merge.sourceName}{' '}
               <Text span size="xs" c="dimmed">
                 {formatDateTime(merge.createdAt)}
+                {!merge.reviewed && ' · справочником, не проверено'}
               </Text>
             </Text>
             <Button

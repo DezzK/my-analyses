@@ -24,7 +24,7 @@ const COUNT_CONC = 'count_conc' // base 1/L
 const ACTIVITY_CONC = 'activity_conc' // base U/L; IU and U are used interchangeably by labs
 const FRACTION = 'fraction' // base 1
 
-export const BUILTIN_UNITS: readonly BuiltinUnit[] = [
+export const BUILTIN_UNITS = [
   { code: 'g/L', display: 'г/л', dimension: MASS_CONC, scale: 1, spellings: ['г/л', 'g/l'] },
   { code: 'g/dL', display: 'г/дл', dimension: MASS_CONC, scale: 1e1, spellings: ['г/дл', 'g/dl'] },
   {
@@ -226,7 +226,10 @@ export const BUILTIN_UNITS: readonly BuiltinUnit[] = [
   },
   { code: 'OU/mL', display: 'ОЕд/мл', dimension: 'optical_units', scale: 1, spellings: ['оед/мл'] },
   { code: 'mln', display: 'млн', dimension: 'count_millions', scale: 1, spellings: ['млн'] },
-]
+] as const satisfies readonly BuiltinUnit[]
+
+/** The code of a built-in unit, as other tables of the app name it. */
+export type UnitCode = (typeof BUILTIN_UNITS)[number]['code']
 
 /** Prefix of the code and dimension given to a spelling nobody has mapped yet. */
 export const UNKNOWN_UNIT_PREFIX = '?:'

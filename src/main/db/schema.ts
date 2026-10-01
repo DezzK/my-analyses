@@ -163,6 +163,8 @@ export const analyte = sqliteTable(
     molarMass: real('molar_mass'),
     /** False for analytes an import created on its own until the person looks at them. */
     reviewed: integer('reviewed', { mode: 'boolean' }).notNull().default(false),
+    /** The person split it back out of a merge: the dictionary never merges it again. */
+    separated: integer('separated', { mode: 'boolean' }).notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [
@@ -352,11 +354,28 @@ export const analyteMerge = sqliteTable(
     targetId: integer('target_id')
       .notNull()
       .references(() => analyte.id, { onDelete: 'cascade' }),
-    /** JSON: see `MergeRecord` in `src/main/services/analytes.ts`. */
+    /** JSON: see `MergeRecord` in `src/main/services/merges.ts`. */
     record: text('record').notNull(),
+    /** False for merges the dictionary made on its own until the person looks at them. */
+    reviewed: integer('reviewed', { mode: 'boolean' }).notNull().default(true),
     createdAt: createdAt(),
   },
   (t) => [index('analyte_merge_target').on(t.targetId)],
+)
+
+/**
+ * Which analyte is which entry of the built-in analyte dictionary (`src/main/dictionary/`): one
+ * analyte per entry, an analyte may be several once the person merged them.
+ */
+export const dictionaryLink = sqliteTable(
+  'dictionary_link',
+  {
+    entryKey: text('entry_key').primaryKey(),
+    analyteId: integer('analyte_id')
+      .notNull()
+      .references(() => analyte.id, { onDelete: 'cascade' }),
+  },
+  (t) => [index('dictionary_link_analyte').on(t.analyteId)],
 )
 
 export const reportTemplate = sqliteTable('report_template', {

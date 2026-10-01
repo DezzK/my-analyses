@@ -69,7 +69,7 @@ describe('reading results', () => {
 
   it("shows a patient's results for an analyte newest first, judged against their reference", () => {
     const view = reader.forAnalyte(glucoseId, annaId)
-    expect(view.analyte).toMatchObject({ name: 'Глюкоза', reviewed: false })
+    expect(view.analyte).toMatchObject({ name: 'Глюкоза' })
     expect(view.analyte.aliases).toEqual([expect.objectContaining({ labCode: GLUCOSE_CODE })])
     expect(view.rows.map((r) => [r.collectedOn, r.read.value.number?.text, r.read.deviation])).toEqual([
       ['2026-08-08', '6,20', 'high'],

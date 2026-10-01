@@ -42,13 +42,10 @@ describe('the mapping queue', () => {
     ])
   })
 
-  it('lists what imports created and takes accepted analytes off it', () => {
+  it('lists what imports created that the dictionary does not know, and takes accepted analytes off it', () => {
     const queue = app.mapping.queue(app.anna.id)
-    expect(queue.analytes.map((a) => a.name).sort()).toEqual([
-      'Антитела к ТПО',
-      'Глюкоза',
-      'Тиреотропный гормон (ТТГ)',
-    ])
+    // TSH and glucose are the dictionary's; it knows the antibodies in units, not in «Ед.акт/мл».
+    expect(queue.analytes.map((a) => a.name)).toEqual(['Антитела к ТПО'])
     expect(queue.units).toEqual([
       expect.objectContaining({ display: 'Ед.акт/мл', resultCount: 1, analyteNames: ['Антитела к ТПО'] }),
     ])
@@ -59,6 +56,31 @@ describe('the mapping queue', () => {
     expect(app.mapping.queue(app.anna.id).analytes).toEqual([])
     app.analytes.setReviewed([queue.analytes[0]?.id ?? -1], false)
     expect(app.mapping.queue(app.anna.id).analytes).toHaveLength(1)
+  })
+
+  it("lists the dictionary's merges by the analyte they went into, until the person looks at them", () => {
+    app.importer.importOrders({ ...kdl(), labId: helixId }, [
+      order('h1', '2026-09-01', [raw('H-TSH', 'Тиреотропный гормон', '2.4 мкМЕ/мл', '0.35-4.94 мкМЕ/мл')]),
+    ])
+    const { merges } = app.mapping.queue(app.anna.id)
+    expect(merges).toEqual([
+      {
+        targetId: app.analytes.findByLabCode(app.kdlId, 'TSH')?.id,
+        targetName: 'Тиреотропный гормон (ТТГ)',
+        merged: [
+          {
+            mergeId: expect.any(Number),
+            name: 'Тиреотропный гормон',
+            codes: [{ labId: helixId, code: 'H-TSH' }],
+          },
+        ],
+      },
+    ])
+    const mergeIds = merges.flatMap((m) => m.merged.map((one) => one.mergeId))
+    app.merges.setReviewed(mergeIds, true)
+    expect(app.mapping.queue(app.anna.id).merges).toEqual([])
+    app.merges.setReviewed(mergeIds, false)
+    expect(app.mapping.queue(app.anna.id).merges).toHaveLength(1)
   })
 
   it('maps an unknown spelling onto a unit, for the stored results and for every later import', () => {
@@ -83,19 +105,17 @@ describe('the mapping queue', () => {
   it("suggests the same analyte from another lab by the words of its name, never the lab's own", () => {
     app.importer.importOrders({ ...kdl(), labId: helixId }, [
       order('h1', '2026-09-01', [
-        raw('H-TSH', 'Тиреотропный гормон', '2.4 мкМЕ/мл', '0.35-4.94 мкМЕ/мл'),
-        // Shares a word with Helix's TSH, but Helix does not measure one thing under two codes.
-        raw('H-AMH', 'Антимюллеров гормон', '3.1 нг/мл', '1.0-10.0 нг/мл'),
+        raw('H-TPO', 'Антитела к тиреопероксидазе', '15 Ед.акт/мл', '<35 Ед.акт/мл'),
+        // Shares a word with Helix's anti-TPO, but Helix does not measure one thing under two codes.
+        raw('H-TG', 'Антитела к тиреоглобулину', '20 Ед.акт/мл', '<115 Ед.акт/мл'),
       ]),
     ])
-    const helixTsh = app.mapping.queue(app.anna.id).analytes.find((a) => a.codes[0]?.code === 'H-TSH')
-    expect(app.mapping.suggestions(helixTsh?.id ?? -1).map((s) => s.name)).toEqual([
-      'Тиреотропный гормон (ТТГ)',
-    ])
-    const kdlTsh = app.mapping.queue(app.anna.id).analytes.find((a) => a.codes[0]?.code === 'TSH')
-    expect(app.mapping.suggestions(kdlTsh?.id ?? -1).map((s) => s.name)).toEqual([
-      'Тиреотропный гормон',
-      'Антимюллеров гормон',
+    const helixTpo = app.analytes.findByLabCode(helixId, 'H-TPO')
+    expect(app.mapping.suggestions(helixTpo?.id ?? -1).map((s) => s.name)).toEqual(['Антитела к ТПО'])
+    const kdlTpo = app.analytes.findByLabCode(app.kdlId, 'AB')
+    expect(app.mapping.suggestions(kdlTpo?.id ?? -1).map((s) => s.name)).toEqual([
+      'Антитела к тиреоглобулину',
+      'Антитела к тиреопероксидазе',
     ])
   })
 
@@ -105,8 +125,8 @@ describe('the mapping queue', () => {
       order('k3', '2026-10-20', [raw('PRG', 'Прогестерон', '40 нмоль/л', '')]),
     ])
     expect(app.mapping.queue(app.anna.id).phaseOrders).toEqual([])
-    const progesterone = app.mapping.queue(app.anna.id).analytes.find((a) => a.name === 'Прогестерон')
-    const unitId = progesterone?.unitId ?? null
+    const progesterone = app.analytes.findByLabCode(app.kdlId, 'PRG')
+    const unitId = progesterone?.canonicalUnitId ?? null
     app.rules.create(progesterone?.id ?? -1, {
       labId: null,
       sex: 'female',
@@ -133,7 +153,7 @@ describe('the mapping queue', () => {
     app.importer.importOrders({ ...kdl(), patientId: petr.id }, [
       order('p1', '2026-09-10', [raw('PRG', 'Прогестерон', '1 нмоль/л', '')]),
     ])
-    const progesterone = app.mapping.queue(petr.id).analytes.find((a) => a.name === 'Прогестерон')
+    const progesterone = app.analytes.findByLabCode(app.kdlId, 'PRG')
     app.rules.create(progesterone?.id ?? -1, {
       labId: null,
       sex: null,
@@ -143,7 +163,7 @@ describe('the mapping queue', () => {
       low: 2.2,
       high: 99,
       expected: null,
-      unitId: progesterone?.unitId ?? null,
+      unitId: progesterone?.canonicalUnitId ?? null,
       note: null,
     })
     expect(app.mapping.queue(petr.id).phaseOrders).toEqual([])
